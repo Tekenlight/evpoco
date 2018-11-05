@@ -1,11 +1,11 @@
 //
-// HTTPRequestHandlerFactory.h
+// EVHTTPRequestHandlerFactory.h
 //
-// Library: Net
-// Package: HTTPServer
-// Module:  HTTPRequestHandlerFactory
+// Library: EVNet
+// Package: EVHTTPServer
+// Module:  EVHTTPRequestHandlerFactory
 //
-// Definition of the HTTPRequestHandlerFactory class.
+// Definition of the EVHTTPRequestHandlerFactory class.
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -14,37 +14,38 @@
 //
 
 
-#ifndef Net_HTTPRequestHandlerFactory_INCLUDED
-#define Net_HTTPRequestHandlerFactory_INCLUDED
+#ifndef EVNet_EVHTTPRequestHandlerFactory_INCLUDED
+#define EVNet_EVHTTPRequestHandlerFactory_INCLUDED
 
 
 #include "Poco/Net/Net.h"
+#include "Poco/Net/HTTPServerRequest.h"
+#include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/SharedPtr.h"
 #include "Poco/BasicEvent.h"
 
+using Poco::Net::HTTPServerRequest;
+using Poco::Net::HTTPServerResponse;
+using Poco::Net::HTTPRequestHandler;
+
 
 namespace Poco {
-namespace Net {
+namespace EVNet {
 
-
-class HTTPServerRequest;
-class HTTPServerResponse;
-class HTTPRequestHandler;
-
-
-class Net_API HTTPRequestHandlerFactory
+class Net_API EVHTTPRequestHandlerFactory
 	/// A factory for HTTPRequestHandler objects.
 	/// Subclasses must override the createRequestHandler()
 	/// method.
 {
 public:
-	typedef Poco::SharedPtr<HTTPRequestHandlerFactory> Ptr;
+	typedef Poco::SharedPtr<EVHTTPRequestHandlerFactory> Ptr;
 	
-	HTTPRequestHandlerFactory();
-		/// Creates the HTTPRequestHandlerFactory.
+	EVHTTPRequestHandlerFactory();
+		/// Creates the EVHTTPRequestHandlerFactory.
 
-	virtual ~HTTPRequestHandlerFactory();
-		/// Destroys the HTTPRequestHandlerFactory.
+	virtual ~EVHTTPRequestHandlerFactory();
+		/// Destroys the EVHTTPRequestHandlerFactory.
 
 	virtual HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) = 0;
 		/// Must be overridden by subclasses.
@@ -61,8 +62,9 @@ public:
 		/// the request object (request.response()) to something other than 200 OK.
 
 	void stopServer(const void * sender, const bool& ac);
-		/// This is to enable classes other than friend classes to trigger the event of stopping
-		/// the server.
+		/// This is somewhat of a hack to stop the threads running current conections.
+		///
+		/// Hack because, why should a factory object deal with events
 		///
 		/// Each Connection when started registers an event handler to process the event
 		/// of server getting stopped.
@@ -74,15 +76,15 @@ protected:
 	Poco::BasicEvent<const bool> serverStopped;
 
 private:
-	HTTPRequestHandlerFactory(const HTTPRequestHandlerFactory&);
-	HTTPRequestHandlerFactory& operator = (const HTTPRequestHandlerFactory&);
+	EVHTTPRequestHandlerFactory(const EVHTTPRequestHandlerFactory&);
+	EVHTTPRequestHandlerFactory& operator = (const EVHTTPRequestHandlerFactory&);
 	
-	friend class HTTPServer;
-	friend class HTTPServerConnection;
+	friend class EVHTTPServer;
+	friend class EVHTTPServerConnection;
 };
 
 
-} } // namespace Poco::Net
+} } // namespace Poco::EVNet
 
 
-#endif // Net_HTTPRequestHandlerFactory_INCLUDED
+#endif // EVNet_EVHTTPRequestHandlerFactory_INCLUDED

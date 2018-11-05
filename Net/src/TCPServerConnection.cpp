@@ -36,6 +36,10 @@ TCPServerConnection::~TCPServerConnection()
 }
 
 
+void TCPServerConnection::start(bool throwExcp)
+{
+	run();
+}
 void TCPServerConnection::start()
 {
 	try

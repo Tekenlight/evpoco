@@ -18,7 +18,7 @@ set_target_properties( "${LIBNAME}"
     DEFINE_SYMBOL NetSSL_EXPORTS
     )
 
-target_link_libraries( "${LIBNAME}" Crypto Net Util Foundation ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} )
+target_link_libraries( "${LIBNAME}" Crypto Net EVNet Util Foundation ${OPENSSL_SSL_LIBRARY} ${OPENSSL_CRYPTO_LIBRARY} )
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

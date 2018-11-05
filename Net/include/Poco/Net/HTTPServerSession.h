@@ -66,7 +66,10 @@ private:
 //
 inline bool HTTPServerSession::canKeepAlive() const
 {
-	return _maxKeepAliveRequests != 0;
+	//return _maxKeepAliveRequests != 0;
+	// Changed the logic , since _maxKeepAliveRequests is a decremented number
+	// This can become a potential bug, safe coding practice
+	return _maxKeepAliveRequests > 0;
 }
 
 

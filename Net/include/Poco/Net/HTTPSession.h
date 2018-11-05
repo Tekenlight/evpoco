@@ -111,6 +111,18 @@ public:
 		/// obtain any data already read from the socket, but not
 		/// yet processed.
 
+	void setSockFdForReuse(bool flg);
+		/// Sets the flag _sockFdForReuse. This flag either enables
+		/// or prevents the closure of fd socket after the conversation
+		/// session is complete at the server side.
+		///
+		/// This facility is needed when the server is built on the async
+		/// model. of One thread polling on muliple sockets and handing
+		/// off the processing responsibility to worker threads.
+
+	bool getSockFdForReuse() ;
+		/// Returns the value of sockFdForReuse
+
 protected:
 	HTTPSession();
 		/// Creates a HTTP session using an
@@ -198,7 +210,9 @@ private:
 	Poco::Timespan   _sendTimeout;
 	Poco::Exception* _pException;
 	Poco::Any        _data;
-	
+
+	bool				_sockFdForReuse;
+
 	friend class HTTPStreamBuf;
 	friend class HTTPHeaderStreamBuf;
 	friend class HTTPFixedLengthStreamBuf;
@@ -218,6 +232,16 @@ inline bool HTTPSession::getKeepAlive() const
 inline Poco::Timespan HTTPSession::getTimeout() const
 {
 	return _receiveTimeout;
+}
+
+inline void HTTPSession::setSockFdForReuse(bool flg)
+{
+	_sockFdForReuse = flg;
+}
+
+inline bool HTTPSession::getSockFdForReuse()
+{
+	return _sockFdForReuse;
 }
 
 

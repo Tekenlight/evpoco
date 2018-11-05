@@ -157,6 +157,10 @@ public:
 		/// Returns a reference to the default
 		/// thread pool.
 
+	static ThreadPool& defaultPool(int min, int max);
+		/// Returns a reference to the default
+		/// thread pool.
+
 protected:
 	PooledThread* getThread();
 	PooledThread* createThread();

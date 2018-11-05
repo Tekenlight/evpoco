@@ -28,5 +28,11 @@ HTTPRequestHandlerFactory::~HTTPRequestHandlerFactory()
 {
 }
 
+void HTTPRequestHandlerFactory::stopServer(const void * sender, const bool& ac)
+{
+	this->serverStopped(sender, ac);
+	return ;
+}
+
 
 } } // namespace Poco::Net

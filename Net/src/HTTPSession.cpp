@@ -33,7 +33,8 @@ HTTPSession::HTTPSession():
 	_connectionTimeout(HTTP_DEFAULT_CONNECTION_TIMEOUT),
 	_receiveTimeout(HTTP_DEFAULT_TIMEOUT),
 	_sendTimeout(HTTP_DEFAULT_TIMEOUT),
-	_pException(0)
+	_pException(0),
+	_sockFdForReuse(false)
 {
 }
 
@@ -47,7 +48,8 @@ HTTPSession::HTTPSession(const StreamSocket& socket):
 	_connectionTimeout(HTTP_DEFAULT_CONNECTION_TIMEOUT),
 	_receiveTimeout(HTTP_DEFAULT_TIMEOUT),
 	_sendTimeout(HTTP_DEFAULT_TIMEOUT),
-	_pException(0)
+	_pException(0),
+	_sockFdForReuse(false)
 {
 }
 
@@ -61,7 +63,8 @@ HTTPSession::HTTPSession(const StreamSocket& socket, bool keepAlive):
 	_connectionTimeout(HTTP_DEFAULT_CONNECTION_TIMEOUT),
 	_receiveTimeout(HTTP_DEFAULT_TIMEOUT),
 	_sendTimeout(HTTP_DEFAULT_TIMEOUT),
-	_pException(0)
+	_pException(0),
+	_sockFdForReuse(false)
 {
 }
 
@@ -78,7 +81,7 @@ HTTPSession::~HTTPSession()
 	}
 	try
 	{
-		close();
+		if (!_sockFdForReuse) close();
 	}
 	catch (...)
 	{

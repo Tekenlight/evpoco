@@ -78,7 +78,7 @@ poco: libexecs $(if $(TESTS),tests) $(if $(SAMPLES),samples)
 all: libexecs tests samples
 
 INSTALLDIR = $(DESTDIR)$(POCO_PREFIX)
-COMPONENTS = Foundation Encodings XML JSON Util Net Crypto NetSSL_OpenSSL Data Data/SQLite Data/ODBC Data/MySQL Zip PageCompiler PageCompiler/File2Page CppParser PDF MongoDB Redis
+COMPONENTS = Foundation Encodings XML JSON Util Net Crypto NetSSL_OpenSSL Data Data/SQLite Data/ODBC Data/MySQL Zip PageCompiler PageCompiler/File2Page CppParser PDF MongoDB Redis EVNet
 
 cppunit:
 	$(MAKE) -C $(POCO_BASE)/CppUnit
@@ -115,10 +115,10 @@ endif
 	find $(INSTALLDIR)/lib -name "libPoco*" -type f -exec rm -f  {} \;
 	find $(INSTALLDIR)/lib -name "libPoco*" -type l -exec rm -f {} \;
 
-libexecs =  Foundation-libexec Encodings-libexec XML-libexec JSON-libexec Util-libexec Net-libexec Crypto-libexec NetSSL_OpenSSL-libexec Data-libexec Data/SQLite-libexec Data/ODBC-libexec Data/MySQL-libexec Zip-libexec PageCompiler-libexec PageCompiler/File2Page-libexec CppParser-libexec PDF-libexec MongoDB-libexec Redis-libexec
-tests    =  Foundation-tests Encodings-tests XML-tests JSON-tests Util-tests Net-tests Crypto-tests NetSSL_OpenSSL-tests Data-tests Data/SQLite-tests Data/ODBC-tests Data/MySQL-tests Zip-tests CppParser-tests PDF-tests MongoDB-tests Redis-tests
-samples  =  Foundation-samples Encodings-samples XML-samples JSON-samples Util-samples Net-samples Crypto-samples NetSSL_OpenSSL-samples Data-samples MongoDB-samples Zip-samples PageCompiler-samples PDF-samples
-cleans   =  Foundation-clean Encodings-clean XML-clean JSON-clean Util-clean Net-clean Crypto-clean NetSSL_OpenSSL-clean Data-clean Data/SQLite-clean Data/ODBC-clean Data/MySQL-clean Zip-clean PageCompiler-clean PageCompiler/File2Page-clean CppParser-clean PDF-clean MongoDB-clean Redis-clean
+libexecs =  Foundation-libexec Encodings-libexec XML-libexec JSON-libexec Util-libexec Net-libexec EVNet-libexecs Crypto-libexec NetSSL_OpenSSL-libexec Data-libexec Data/SQLite-libexec Data/ODBC-libexec Data/MySQL-libexec Zip-libexec PageCompiler-libexec PageCompiler/File2Page-libexec CppParser-libexec PDF-libexec MongoDB-libexec Redis-libexec
+tests    =  Foundation-tests Encodings-tests XML-tests JSON-tests Util-tests Net-tests EVNet-tests Crypto-tests NetSSL_OpenSSL-tests Data-tests Data/SQLite-tests Data/ODBC-tests Data/MySQL-tests Zip-tests CppParser-tests PDF-tests MongoDB-tests Redis-tests
+samples  =  Foundation-samples Encodings-samples XML-samples JSON-samples Util-samples Net-samples EVNet-samples Crypto-samples NetSSL_OpenSSL-samples Data-samples MongoDB-samples Zip-samples PageCompiler-samples PDF-samples
+cleans   =  Foundation-clean Encodings-clean XML-clean JSON-clean Util-clean Net-clean EVNet-clean Crypto-clean NetSSL_OpenSSL-clean Data-clean Data/SQLite-clean Data/ODBC-clean Data/MySQL-clean Zip-clean PageCompiler-clean PageCompiler/File2Page-clean CppParser-clean PDF-clean MongoDB-clean Redis-clean
 
 .PHONY: $(libexecs)
 .PHONY: $(tests)
@@ -129,6 +129,19 @@ libexecs: $(filter-out $(foreach f,$(OMIT),$f%),$(libexecs))
 tests: $(filter-out $(foreach f,$(OMIT),$f%),$(tests))
 samples: $(filter-out $(foreach f,$(OMIT),$f%),$(samples))
 cleans: $(filter-out $(foreach f,$(OMIT),$f%),$(cleans))
+
+EVNet-libexec: Net-libexec
+	$(MAKE) -C $(POCO_BASE)/EVNet
+
+EVNet-clean:
+	$(MAKE) -C $(POCO_BASE)/EVNet clean
+
+EVNet-tests: EVNet-libexec cppunit
+	echo "NOT READY YET"
+#	$(MAKE) -C $(POCO_BASE)/EVNet/testsuite
+
+EVNet-samples: EVNet-libexec
+	$(MAKE) -C $(POCO_BASE)/EVNet/samples
 
 Foundation-libexec:
 	$(MAKE) -C $(POCO_BASE)/Foundation
@@ -228,7 +241,7 @@ Crypto-clean:
 	$(MAKE) -C $(POCO_BASE)/Crypto/testsuite clean
 	$(MAKE) -C $(POCO_BASE)/Crypto/samples clean
 
-NetSSL_OpenSSL-libexec:  Foundation-libexec Net-libexec Util-libexec Crypto-libexec
+NetSSL_OpenSSL-libexec:  Foundation-libexec Net-libexec EVNet-libexec Util-libexec Crypto-libexec
 	$(MAKE) -C $(POCO_BASE)/NetSSL_OpenSSL
 
 NetSSL_OpenSSL-tests: NetSSL_OpenSSL-libexec cppunit
@@ -248,7 +261,7 @@ Data-libexec:  Foundation-libexec
 Data-tests: Data-libexec cppunit
 	$(MAKE) -C $(POCO_BASE)/Data/testsuite
 
-Data-samples: Data-libexec  Data-libexec Data/SQLite-libexec Net-libexec
+Data-samples: Data-libexec  Data-libexec Data/SQLite-libexec Net-libexec EVNet-libexec
 	$(MAKE) -C $(POCO_BASE)/Data/samples
 
 Data-clean:
@@ -286,7 +299,7 @@ Data/MySQL-clean:
 	$(MAKE) -C $(POCO_BASE)/Data/MySQL clean
 	$(MAKE) -C $(POCO_BASE)/Data/MySQL/testsuite clean
 
-Zip-libexec:  Foundation-libexec Net-libexec Util-libexec XML-libexec
+Zip-libexec:  Foundation-libexec Net-libexec EVNet-libexec Util-libexec XML-libexec
 	$(MAKE) -C $(POCO_BASE)/Zip
 
 Zip-tests: Zip-libexec cppunit
@@ -300,7 +313,7 @@ Zip-clean:
 	$(MAKE) -C $(POCO_BASE)/Zip/testsuite clean
 	$(MAKE) -C $(POCO_BASE)/Zip/samples clean
 
-PageCompiler-libexec:  Net-libexec Util-libexec XML-libexec Foundation-libexec
+PageCompiler-libexec:  Net-libexec EVNet-libexec Util-libexec XML-libexec Foundation-libexec
 	$(MAKE) -C $(POCO_BASE)/PageCompiler
 
 PageCompiler-samples: PageCompiler-libexec
@@ -310,7 +323,7 @@ PageCompiler-clean:
 	$(MAKE) -C $(POCO_BASE)/PageCompiler clean
 	$(MAKE) -C $(POCO_BASE)/PageCompiler/samples clean
 
-PageCompiler/File2Page-libexec:  Net-libexec Util-libexec XML-libexec Foundation-libexec
+PageCompiler/File2Page-libexec:  Net-libexec EVNet-libexec Util-libexec XML-libexec Foundation-libexec
 	$(MAKE) -C $(POCO_BASE)/PageCompiler/File2Page
 
 PageCompiler/File2Page-clean:
@@ -340,7 +353,7 @@ PDF-clean:
 	$(MAKE) -C $(POCO_BASE)/PDF/testsuite clean
 	$(MAKE) -C $(POCO_BASE)/PDF/samples clean
 
-MongoDB-libexec:  Foundation-libexec Net-libexec
+MongoDB-libexec:  Foundation-libexec Net-libexec EVNet-libexec
 	$(MAKE) -C $(POCO_BASE)/MongoDB
 
 MongoDB-tests: MongoDB-libexec cppunit
@@ -354,7 +367,7 @@ MongoDB-clean:
 	$(MAKE) -C $(POCO_BASE)/MongoDB/testsuite clean
 	$(MAKE) -C $(POCO_BASE)/MongoDB/samples clean
 
-Redis-libexec:  Foundation-libexec Net-libexec
+Redis-libexec:  Foundation-libexec Net-libexec EVNet-libexec
 	$(MAKE) -C $(POCO_BASE)/Redis
 
 Redis-tests: Redis-libexec cppunit

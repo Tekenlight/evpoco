@@ -493,6 +493,18 @@ public:
 	{
 		delete _pPool;
 	}
+	ThreadPool* pool(int min, int max)
+	{
+		FastMutex::ScopedLock lock(_mutex);
+
+		if (!_pPool)
+		{
+			_pPool = new ThreadPool("default", min, max);
+			if (POCO_THREAD_STACK_SIZE > 0)
+				_pPool->setStackSize(POCO_THREAD_STACK_SIZE);
+		}
+		return _pPool;
+	}
 	ThreadPool* pool()
 	{
 		FastMutex::ScopedLock lock(_mutex);
@@ -517,6 +529,10 @@ namespace
 	static ThreadPoolSingletonHolder sh;
 }
 
+ThreadPool& ThreadPool::defaultPool(int min, int max)
+{
+	return *sh.pool(min, max);
+}
 
 ThreadPool& ThreadPool::defaultPool()
 {

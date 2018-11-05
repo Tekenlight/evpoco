@@ -60,6 +60,10 @@ protected:
 		/// Calls run() and catches any exceptions that
 		/// might be thrown by run().
 
+	void start(bool throwExcp);
+		/// Calls run() and propagates any exceptions that
+		/// might be thrown by run().
+
 private:
 	TCPServerConnection();
 	TCPServerConnection(const TCPServerConnection&);
@@ -68,6 +72,7 @@ private:
 	StreamSocket _socket;
 	
 	friend class TCPServerDispatcher;
+	friend class TCPServerDispatcherAdapter;
 };
 
 
