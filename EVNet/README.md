@@ -1,7 +1,7 @@
 Context
 =======
 
-The process of making connections is a costly operation both at the server and at the client side. The TCP-3 way hand shake, together with the establishment of TLS session, are an overhead that can be avoided by holding open connections as long as possible.
+The process of making connections is a costly operation both at the server and at the client side. The TCP-3 way hand shake, together with the establishment of TLS session, are overhead if the same has to be done repeatedly. This overhead can be avoided if the opened connections can be held for long durations of time.
 
 Holding connection for long has its own set of disadvantages;
 
