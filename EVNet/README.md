@@ -35,5 +35,5 @@ Enhance the existing Net component with changes to existing classes and addition
 Create a new component EVNet - Event driven Network library, which is an extension of the Network library.
 
 
-Considering the fact that the existing Net library is free from dependency on any third party library and the proposed feature needs to make use of “libev”. It is better to leave the Net component with very little changes and add a new component EVNet, which can be made optional.
+Considering the fact that the existing Net library is free from dependency on any third party library and the proposed feature needs to make use of [libev](http://software.schmorp.de/pkg/libev.html). It is better to leave the Net component with very little changes and add a new component EVNet, which can be made optional.
 
