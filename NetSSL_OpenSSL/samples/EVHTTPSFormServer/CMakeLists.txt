@@ -1,5 +1,7 @@
 set(SAMPLE_NAME "EVHTTPSFormServer")
 
+include_directories($ENV{LIBEV_INCLUDE_DIR})
+
 set(LOCAL_SRCS "")
 aux_source_directory(src LOCAL_SRCS)
 

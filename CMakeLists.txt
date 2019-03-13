@@ -115,7 +115,7 @@ option(ENABLE_PAGECOMPILER_FILE2PAGE "Enable File2Page" ON)
 option(FORCE_OPENSSL "Force usage of OpenSSL even under windows" OFF)
 
 option(ENABLE_TESTS
-  "Set to OFF|ON (default is OFF) to control build of POCO tests & samples" OFF)
+	"Set to OFF|ON (default is OFF) to control build of POCO tests & samples" OFF)
 
 option(POCO_STATIC
   "Set to OFF|ON (default is OFF) to control build of POCO as STATIC library" OFF)

@@ -112,37 +112,32 @@ void EVTCPServerDispatcher::run()
 	{
 		AutoPtr<Notification> pNf = _queue.waitDequeueNotification(idleTime);
 		if (pNf) {
-				TCPConnectionNotification* pCNf = dynamic_cast<TCPConnectionNotification*>(pNf.get());
-				TCPServerDispatcherAdapter adapter;
-				if (pCNf)
-				{
-					//printf("[%s:%d:%p] Reached Here\n",__FILE__,__LINE__,pthread_self());
-					try {
-						//printf("[%s:%d:%p] Reached Here\n",__FILE__,__LINE__,pthread_self());
+			TCPConnectionNotification* pCNf = dynamic_cast<TCPConnectionNotification*>(pNf.get());
+			TCPServerDispatcherAdapter adapter;
+			if (pCNf)
+			{
+				try {
 #ifndef POCO_ENABLE_CPP11
-						std::auto_ptr<Net::TCPServerConnection>
-								pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
+					std::auto_ptr<Net::TCPServerConnection>
+							pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
 #else
-						std::unique_ptr<Net::TCPServerConnection>
-								pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
+					std::unique_ptr<Net::TCPServerConnection>
+							pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
 #endif // POCO_ENABLE_CPP11
-						poco_check_ptr(pConnection.get());
-						beginConnection();
-						adapter.tcpConnectionStart(pConnection.get());
-						endConnection();
-						((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket());
-						//printf("[%s:%d:%p] Reached Here\n",__FILE__,__LINE__,pthread_self());
-					}
-					catch (NoMessageException&)
-					{
-						//printf("[%s:%d:%p] Reached Here\n",__FILE__,__LINE__,pthread_self());
-						((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
-					}
-					catch (Poco::Exception&)
-					{
-						//printf("[%s:%d:%p] Reached Here\n",__FILE__,__LINE__,pthread_self());
-						((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
-					}
+					poco_check_ptr(pConnection.get());
+					beginConnection();
+					adapter.tcpConnectionStart(pConnection.get());
+					endConnection();
+					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket());
+				}
+				catch (NoMessageException&)
+				{
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
+				}
+				catch (Poco::Exception&)
+				{
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
+				}
 			}
 		}
 
