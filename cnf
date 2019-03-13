@@ -1,1 +1,1 @@
-configure --library-path="/Volumes/NEW_DISK/user/sudheerp/libev/.slibs" --include-path="/Volumes/NEW_DISK/user/sudheerp/libev" --prefix=$HOME/bin_poco --cflags="-Wno-c++17-compat-mangling"
+configure --library-path="$HOME/libev/.slibs" --include-path="$HOME/libev" --prefix=$HOME/bin_poco --cflags="-Wno-c++17-compat-mangling"
