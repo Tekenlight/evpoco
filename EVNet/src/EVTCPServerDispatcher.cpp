@@ -162,6 +162,7 @@ void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
 {
 	FastMutex::ScopedLock lock(_mutex);
 
+	/* default maxQueued is 64. */
 	if (_queue.size() < _pParams->getMaxQueued())
 	{
 		_queue.enqueueNotification(new TCPConnectionNotification(socket));
@@ -182,6 +183,11 @@ void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
 	else
 	{
 		++_refusedConnections;
+		/* In case the queue is full, the message cannot be processed.
+		 * It means that the server is overwhelmed.
+		 * Closing connection in that case.
+		 * */
+		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(socket,true);
 	}
 }
 
