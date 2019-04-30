@@ -222,7 +222,7 @@ protected:
 			srv.stop();
 			}
 			catch (Poco::Exception e) {
-				printf("[%p:%s:%d] %s %s\n",pthread_self(),__FILE__,__LINE__,e.what(),e.message().c_str());
+				printf("[%p:%s:%d] %s %s\n",(void*)pthread_self(),__FILE__,__LINE__,e.what(),e.message().c_str());
 			}
 		}
 		return Application::EXIT_OK;
