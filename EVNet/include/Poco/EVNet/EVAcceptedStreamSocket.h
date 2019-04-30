@@ -31,7 +31,7 @@ class Net_API EVAcceptedStreamSocket
 	///
 	/// When the server accepts a connection request from
 	/// a server socket. A new StreamSocket is created.
-	/// That along with a libev watcher for that sockeuls
+	/// That along with a libev watcher for that socket
 	/// are held in this object and then added to a list
 	/// within the EVTCPServer.
 	///

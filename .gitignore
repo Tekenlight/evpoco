@@ -36,6 +36,10 @@
 config.build
 config.make
 
+# tags #
+########
+tags
+
 # CMake #
 ########
 cmake_install.cmake
