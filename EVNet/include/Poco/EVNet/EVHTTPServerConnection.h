@@ -19,6 +19,7 @@
 
 
 #include "Poco/Net/Net.h"
+#include "Poco/EVNet/EVNet.h"
 #include "Poco/Net/TCPServerConnection.h"
 #include "Poco/Net/HTTPResponse.h"
 #include "Poco/Net/HTTPServerSession.h"
@@ -39,7 +40,6 @@ namespace EVNet {
 
 
 
-
 class Net_API EVHTTPServerConnection: public TCPServerConnection
 	/// This subclass of TCPServerConnection handles HTTP
 	/// connections.
@@ -54,6 +54,9 @@ public:
 	void run();
 		/// Handles all HTTP requests coming in.
 
+	int evrun();
+		/// Handles HTTP requests coming, in an event driven way.
+	
 protected:
 	void sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status);
 	void onServerStopped(const bool& abortCurrent);

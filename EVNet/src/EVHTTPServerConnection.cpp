@@ -14,8 +14,8 @@
 
 #include "Poco/EVNet/EVHTTPServerConnection.h"
 #include "Poco/Net/HTTPServerSession.h"
-#include "Poco/Net/HTTPServerRequestImpl.h"
-#include "Poco/Net/HTTPServerResponseImpl.h"
+#include "Poco/EVNet/EVHTTPServerRequestImpl.h"
+#include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/NetException.h"
@@ -25,8 +25,6 @@
 #include <memory>
 
 using Poco::Net::HTTPServerSession;
-using Poco::Net::HTTPServerResponseImpl;
-using Poco::Net::HTTPServerRequestImpl;
 using Poco::Net::NoMessageException;
 using Poco::Net::MessageException;
 using Poco::Net::HTTPMessage;
@@ -60,94 +58,189 @@ EVHTTPServerConnection::~EVHTTPServerConnection()
 }
 
 
+
 void EVHTTPServerConnection::run()
 {
 	std::string server = _pParams->getSoftwareVersion();
 	HTTPServerSession session(socket(), _pParams);
 	session.setSockFdForReuse(true);
-	if (!_stopped) {
-		try {
-			Poco::FastMutex::ScopedLock lock(_mutex);
-			if (!_stopped) {
-				HTTPServerResponseImpl response(session);
-				/* REF: HTTP RFC
-				 * Request       =	Request-Line
-									*(( general-header
-									 | request-header
-									 | entity-header ) CRLF)
-									CRLF
-									[ message-body ]
-				 * */
-				/* This construction will land in read method of HTTPRequest.cpp
-				 * Which will read the status-line plus the header fields of the HTTP
-				 * request.
-				 * */
-				HTTPServerRequestImpl request(response, session, _pParams);
+	if (_stopped) return;
 
-				Poco::Timestamp now;
-				response.setDate(now);
-				response.setVersion(request.getVersion());
-				response.setKeepAlive(_pParams->getKeepAlive() && request.getKeepAlive());
-				if (!server.empty())
-					response.set("Server", server);
-				try
-				{
-#ifndef POCO_ENABLE_CPP11
-					std::auto_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
-#else
-					std::unique_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
-#endif
-					if (pHandler.get())
-					{
-						if (request.getExpectContinue() && response.getStatus() == HTTPResponse::HTTP_OK)
-							response.sendContinue();
-					
-						pHandler->handleRequest(request, response);
-						session.setKeepAlive(_pParams->getKeepAlive() && response.getKeepAlive());
-					}
-					else sendErrorResponse(session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
-				}
-				catch (Poco::Exception&)
-				{
-					if (!response.sent())
-					{
-						try
-						{
-							sendErrorResponse(session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-						}
-						catch (...)
-						{
-						}
-					}
-					throw;
-				}
-			}
-		}
-		catch (NoMessageException&)
-		{
-			throw;
-		}
-		catch (MessageException&)
-		{
-			sendErrorResponse(session, HTTPResponse::HTTP_BAD_REQUEST);
-		}
-		catch (Poco::Exception&)
-		{
-			if (session.networkException())
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+		if (!_stopped) {
+			EVHTTPServerResponseImpl response(session);
+			/* REF: HTTP RFC
+			 * Request       =	Request-Line
+								*(( general-header
+								 | request-header
+								 | entity-header ) CRLF)
+								CRLF
+								[ message-body ]
+			 * */
+			/* This construction will land in read method of HTTPRequest.cpp
+			 * Which will read the status-line plus the header fields of the HTTP
+			 * request.
+			 * */
+			EVHTTPServerRequestImpl request(response, session, _pParams);
+
+			Poco::Timestamp now;
+			response.setDate(now);
+			response.setVersion(request.getVersion());
+			response.setKeepAlive(_pParams->getKeepAlive() && request.getKeepAlive());
+			if (!server.empty())
+				response.set("Server", server);
+			try
 			{
-				session.networkException()->rethrow();
+#ifndef POCO_ENABLE_CPP11
+				std::auto_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
+#else
+				std::unique_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
+#endif
+				if (pHandler.get())
+				{
+					if (request.getExpectContinue() && response.getStatus() == HTTPResponse::HTTP_OK)
+						response.sendContinue();
+				
+					pHandler->handleRequest(request, response);
+					session.setKeepAlive(_pParams->getKeepAlive() && response.getKeepAlive());
+				}
+				else sendErrorResponse(session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 			}
-			else { 
+			catch (Poco::Exception&)
+			{
+				if (!response.sent())
+				{
+					try
+					{
+						sendErrorResponse(session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+					}
+					catch (...)
+					{
+					}
+				}
 				throw;
 			}
 		}
 	}
+	catch (NoMessageException&)
+	{
+		throw;
+	}
+	catch (MessageException&)
+	{
+		sendErrorResponse(session, HTTPResponse::HTTP_BAD_REQUEST);
+	}
+	catch (Poco::Exception&)
+	{
+		if (session.networkException())
+		{
+			session.networkException()->rethrow();
+		}
+		else { 
+			throw;
+		}
+	}
+}
+
+/* This is the event driven equivalent of run method.
+ * This method is reentrant.
+ * The scoekt connection is expected to be non-blocking,
+ * such that when there is no data to be read (EWOULDBLOCK/EAGAIN)
+ * this function will return to the caller. whenever data reading is not
+ * complete and the socket fd would block.
+ * The caller is expected to call this function agian, when the 
+ * socket fd becomes readable. */
+int EVHTTPServerConnection::evrun()
+{
+	std::string server = _pParams->getSoftwareVersion();
+	HTTPServerSession session(socket(), _pParams);
+	session.setSockFdForReuse(true);
+	if (_stopped) return SERVER_STOPPED;
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+		if (!_stopped) {
+			EVHTTPServerResponseImpl response(session);
+			/* REF: HTTP RFC
+			 * Request       =	Request-Line
+								*(( general-header
+								 | request-header
+								 | entity-header ) CRLF)
+								CRLF
+								[ message-body ]
+			 * */
+			/* This construction will land in read method of HTTPRequest.cpp
+			 * Which will read the status-line plus the header fields of the HTTP
+			 * request.
+			 * */
+			EVHTTPServerRequestImpl request(response, session, _pParams);
+
+			Poco::Timestamp now;
+			response.setDate(now);
+			response.setVersion(request.getVersion());
+			response.setKeepAlive(_pParams->getKeepAlive() && request.getKeepAlive());
+			if (!server.empty())
+				response.set("Server", server);
+			try
+			{
+#ifndef POCO_ENABLE_CPP11
+				std::auto_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
+#else
+				std::unique_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
+#endif
+				if (pHandler.get())
+				{
+					if (request.getExpectContinue() && response.getStatus() == HTTPResponse::HTTP_OK)
+						response.sendContinue();
+
+					pHandler->handleRequest(request, response);
+					session.setKeepAlive(_pParams->getKeepAlive() && response.getKeepAlive());
+				}
+				else sendErrorResponse(session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+			}
+			catch (Poco::Exception&)
+			{
+				if (!response.sent())
+				{
+					try
+					{
+						sendErrorResponse(session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+					}
+					catch (...)
+					{
+					}
+				}
+				throw;
+			}
+		}
+	}
+	catch (NoMessageException&)
+	{
+		throw;
+	}
+	catch (MessageException&)
+	{
+		sendErrorResponse(session, HTTPResponse::HTTP_BAD_REQUEST);
+	}
+	catch (Poco::Exception&)
+	{
+		if (session.networkException())
+		{
+			session.networkException()->rethrow();
+		}
+		else { 
+			throw;
+		}
+	}
+
+	return PROCESS_COMPLETE;
 }
 
 
 void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status)
 {
-	HTTPServerResponseImpl response(session);
+	EVHTTPServerResponseImpl response(session);
 	response.setVersion(HTTPMessage::HTTP_1_1);
 	response.setStatusAndReason(status);
 	response.setKeepAlive(false);
