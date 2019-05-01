@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
+#include "Poco/EVNet/EVProcessingState.h"
 
 using Poco::Net::StreamSocket;
 
@@ -86,6 +87,7 @@ private:
 	EVAcceptedStreamSocket*		_prevPtr;
 	EVAcceptedStreamSocket*		_nextPtr;
 	bool						_sockBusy;
+	EVProcessingState*			_reqProcState;
 };
 
 
