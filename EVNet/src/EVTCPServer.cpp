@@ -235,7 +235,7 @@ void EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_oc
 	tn->setSockBusy();
 	//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 
-	_pDispatcher->enqueue(streamSocket); //Delaying the socket allocation till it is ready for read
+	_pDispatcher->enqueue(tn); //Delaying the socket allocation till it is ready for read
 
 	return;
 }

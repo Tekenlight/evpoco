@@ -38,7 +38,7 @@ namespace EVNet {
 class TCPConnectionNotification: public Notification
 {
 public:
-	TCPConnectionNotification(const Net::StreamSocket& socket):
+	TCPConnectionNotification(const EVAcceptedStreamSocket * socket):
 		_socket(socket)
 	{
 	}
@@ -47,13 +47,13 @@ public:
 	{
 	}
 	
-	const Net::StreamSocket& socket() const
+	const EVAcceptedStreamSocket * socket() const
 	{
 		return _socket;
 	}
 
 private:
-	Net::StreamSocket _socket;
+	const EVAcceptedStreamSocket *  _socket;
 };
 
 EVTCPServerDispatcher::EVTCPServerDispatcher(Net::TCPServerConnectionFactory::Ptr pFactory,
@@ -119,24 +119,24 @@ void EVTCPServerDispatcher::run()
 				try {
 #ifndef POCO_ENABLE_CPP11
 					std::auto_ptr<Net::TCPServerConnection>
-							pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
+							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
 #else
 					std::unique_ptr<Net::TCPServerConnection>
-							pConnection(_pConnectionFactory->createConnection(pCNf->socket()));
+							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
 #endif // POCO_ENABLE_CPP11
 					poco_check_ptr(pConnection.get());
 					beginConnection();
 					adapter.tcpConnectionStart(pConnection.get());
 					endConnection();
-					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket());
+					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket()->getStreamSocket());
 				}
 				catch (NoMessageException&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
 				}
 				catch (Poco::Exception&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
 				}
 			}
 		}
@@ -158,14 +158,15 @@ namespace
 }
 
 	
-void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
+//void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
+void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 {
 	FastMutex::ScopedLock lock(_mutex);
 
 	/* default maxQueued is 64. */
 	if (_queue.size() < _pParams->getMaxQueued())
 	{
-		_queue.enqueueNotification(new TCPConnectionNotification(socket));
+		_queue.enqueueNotification(new TCPConnectionNotification(evAccSocket));
 		if (!_queue.hasIdleThreads() && _currentThreads < _pParams->getMaxThreads())
 		{
 			try
@@ -187,7 +188,7 @@ void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
 		 * It means that the server is overwhelmed.
 		 * Closing connection in that case.
 		 * */
-		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(socket,true);
+		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(evAccSocket->getStreamSocket(),true);
 	}
 }
 

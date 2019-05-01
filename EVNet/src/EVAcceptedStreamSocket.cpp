@@ -40,7 +40,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		free(this->_libevSocketWatcherPtr);
 	}
 }
-StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
+const StreamSocket &  EVAcceptedStreamSocket::getStreamSocket() const
 {
 	return (this->_streamSocket);
 }

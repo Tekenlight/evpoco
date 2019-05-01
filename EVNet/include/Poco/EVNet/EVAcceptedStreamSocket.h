@@ -42,7 +42,7 @@ public:
 	EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, StreamSocket & streamSocket);
 	~EVAcceptedStreamSocket();
 
-	StreamSocket & getStreamSocket();
+	const StreamSocket & getStreamSocket() const;
 	/// This method gives the stored StreamSocket
 
 	StreamSocket *  getStreamSocketPtr();

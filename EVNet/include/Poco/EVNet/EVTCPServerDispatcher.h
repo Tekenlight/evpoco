@@ -64,7 +64,7 @@ public:
 	void run();
 		/// Runs the dispatcher.
 		
-	void enqueue(const Net::StreamSocket& socket);
+	void enqueue(EVAcceptedStreamSocket * socket);
 		/// Queues the given socket connection.
 
 	void stop();
