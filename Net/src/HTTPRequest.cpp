@@ -213,16 +213,39 @@ void HTTPRequest::read(std::istream& istr)
 	if (ch == eof) throw NoMessageException();
 	while (Poco::Ascii::isSpace(ch)) ch = istr.get();
 	if (ch == eof) throw MessageException("No HTTP request header");
-	while (!Poco::Ascii::isSpace(ch) && ch != eof && method.length() < MAX_METHOD_LENGTH) { method += (char) ch; ch = istr.get(); }
-	if (!Poco::Ascii::isSpace(ch)) throw MessageException("HTTP request method invalid or too long");
-	while (Poco::Ascii::isSpace(ch)) ch = istr.get();
-	while (!Poco::Ascii::isSpace(ch) && ch != eof && uri.length() < MAX_URI_LENGTH) { uri += (char) ch; ch = istr.get(); }
-	if (!Poco::Ascii::isSpace(ch)) throw MessageException("HTTP request URI invalid or too long");
-	while (Poco::Ascii::isSpace(ch)) ch = istr.get();
-	while (!Poco::Ascii::isSpace(ch) && ch != eof && version.length() < MAX_VERSION_LENGTH) { version += (char) ch; ch = istr.get(); }
-	if (!Poco::Ascii::isSpace(ch)) throw MessageException("Invalid HTTP version string");
-	while (ch != '\n' && ch != eof) { ch = istr.get(); }
+	/* From the RFC
+	 * Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
+	 * */
+	/* Reading of HTTP Request / HTTP Message / HTTP Header begins here. */
+	/* Read the Status Line . */
+	{
+		/* Reading method. */
+		while (!Poco::Ascii::isSpace(ch) && ch != eof && method.length() < MAX_METHOD_LENGTH) {
+			method += (char) ch; ch = istr.get();
+		}
+		/* Reading the space after method. */
+		if (!Poco::Ascii::isSpace(ch)) throw MessageException("HTTP request method invalid or too long");
+		/* Wrapping up remaining spaces. */
+		while (Poco::Ascii::isSpace(ch)) ch = istr.get();
+		/* Reading the URI. */
+		while (!Poco::Ascii::isSpace(ch) && ch != eof && uri.length() < MAX_URI_LENGTH) { uri += (char) ch; ch = istr.get(); }
+		/* Reading space after URI */
+		if (!Poco::Ascii::isSpace(ch)) throw MessageException("HTTP request URI invalid or too long");
+		/* Wrapping up any extra spaces. */
+		while (Poco::Ascii::isSpace(ch)) ch = istr.get();
+		/* Reading the version. */
+		while (!Poco::Ascii::isSpace(ch) && ch != eof && version.length() < MAX_VERSION_LENGTH) {
+			version += (char) ch; ch = istr.get();
+		}
+		/* This character is expted to tbe CR therefore a space. */
+		if (!Poco::Ascii::isSpace(ch)) throw MessageException("Invalid HTTP version string");
+		/* THe staus line will end with a NEWLINE or an EOF. */
+		while (ch != '\n' && ch != eof) { ch = istr.get(); }
+	}
+	/* Read the header fields. */
+	/* This will land in MessageHeader.cpp read. */
 	HTTPMessage::read(istr);
+	/* The final empty CRLF of the HTTP Header is read here. */
 	ch = istr.get();
 	while (ch != '\n' && ch != eof) { ch = istr.get(); }
 	setMethod(method);

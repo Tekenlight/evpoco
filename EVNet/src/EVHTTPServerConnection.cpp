@@ -70,6 +70,18 @@ void EVHTTPServerConnection::run()
 			Poco::FastMutex::ScopedLock lock(_mutex);
 			if (!_stopped) {
 				HTTPServerResponseImpl response(session);
+				/* REF: HTTP RFC
+				 * Request       =	Request-Line
+									*(( general-header
+									 | request-header
+									 | entity-header ) CRLF)
+									CRLF
+									[ message-body ]
+				 * */
+				/* This construction will land in read method of HTTPRequest.cpp
+				 * Which will read the status-line plus the header fields of the HTTP
+				 * request.
+				 * */
 				HTTPServerRequestImpl request(response, session, _pParams);
 
 				Poco::Timestamp now;

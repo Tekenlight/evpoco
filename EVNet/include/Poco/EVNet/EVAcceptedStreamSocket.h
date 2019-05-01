@@ -61,6 +61,17 @@ public:
 
 	void setTimeOfLastUse();
 	/// This sets the last time stamp for this stream socket
+	//
+	
+	void setSockFree();
+	// Sets the _sockBusy glag to false.
+	//
+	
+	void setSockBusy();
+	// Sets the _sockBusy glag to true.
+	//
+	
+	bool sockBusy();
 
 	void setNextPtr(EVAcceptedStreamSocket * ptr);
 	void setPrevPtr(EVAcceptedStreamSocket * ptr);
@@ -74,6 +85,7 @@ private:
 	long long					_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;
 	EVAcceptedStreamSocket*		_nextPtr;
+	bool						_sockBusy;
 };
 
 

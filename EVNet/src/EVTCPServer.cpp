@@ -300,7 +300,9 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 	strms_ic_cb_ptr_type cb_ptr = 0;
 
 	while (_ssColl.size()  > _numConnections) {
-		auto ptr = _ssLRUList.removeLast();
+		EVAcceptedStreamSocket * ptr = _ssLRUList.getLast();
+		if (ptr->sockBusy()) break;
+		ptr = _ssLRUList.removeLast();
 		_ssColl.erase(ptr->getSockfd());
 
 		ev_io_stop(_loop, ptr->getSocketWatcher());
@@ -311,6 +313,13 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 	try {
 		StreamSocket ss = _socket.acceptConnection();
+		/* If the number of connections exceeds the limit this server can handle.
+		 * Dont continue handling the connection.
+		 * TBD: This strategy needs to be examined properly. TBD
+		 * */
+		if (_ssColl.size()  > _numConnections) {
+			return;
+		}
 
 		if (!_pConnectionFilter || _pConnectionFilter->accept(ss)) {
 			// enable nodelay per default: OSX really needs that

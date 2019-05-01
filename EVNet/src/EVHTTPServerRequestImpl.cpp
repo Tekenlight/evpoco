@@ -1,9 +1,9 @@
 //
-// HTTPServerRequestImpl.cpp
+// EVHTTPServerRequestImpl.cpp
 //
-// Library: Net
+// Library: EVNet
 // Package: HTTPServer
-// Module:  HTTPServerRequestImpl
+// Module:  EVHTTPServerRequestImpl
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -12,26 +12,17 @@
 //
 
 
-#include "Poco/Net/HTTPServerRequestImpl.h"
-#include "Poco/Net/HTTPServerResponseImpl.h"
-#include "Poco/Net/HTTPServerSession.h"
-#include "Poco/Net/HTTPHeaderStream.h"
-#include "Poco/Net/HTTPStream.h"
-#include "Poco/Net/HTTPFixedLengthStream.h"
-#include "Poco/Net/HTTPChunkedStream.h"
-#include "Poco/Net/HTTPServerParams.h"
-#include "Poco/Net/StreamSocket.h"
-#include "Poco/String.h"
+#include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 
 
 using Poco::icompare;
 
 
 namespace Poco {
-namespace Net {
+namespace EVNet {
 
 
-HTTPServerRequestImpl::HTTPServerRequestImpl(HTTPServerResponseImpl& response, HTTPServerSession& session, HTTPServerParams* pParams):
+EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, HTTPServerSession& session, HTTPServerParams* pParams):
 	_response(response),
 	_session(session),
 	_pStream(0),
@@ -64,28 +55,28 @@ HTTPServerRequestImpl::HTTPServerRequestImpl(HTTPServerResponseImpl& response, H
 }
 
 
-HTTPServerRequestImpl::~HTTPServerRequestImpl()
+EVHTTPServerRequestImpl::~EVHTTPServerRequestImpl()
 {
 	delete _pStream;
 }
 
 
-bool HTTPServerRequestImpl::secure() const
+bool EVHTTPServerRequestImpl::secure() const
 {
 	return _session.socket().secure();
 }
 
 
-StreamSocket& HTTPServerRequestImpl::socket()
+StreamSocket& EVHTTPServerRequestImpl::socket()
 {
 	return _session.socket();
 }
 
 
-StreamSocket HTTPServerRequestImpl::detachSocket()
+StreamSocket EVHTTPServerRequestImpl::detachSocket()
 {
 	return _session.detachSocket();
 }
 
 
-} } // namespace Poco::Net
+} } // namespace Poco::EVNet

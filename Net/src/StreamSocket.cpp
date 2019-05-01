@@ -46,6 +46,7 @@ StreamSocket::StreamSocket(SocketAddress::Family family): Socket(new StreamSocke
 
 StreamSocket::StreamSocket(const Socket& socket): Socket(socket)
 {
+	printf("%s:%d Here\n",__FILE__,__LINE__);
 	if (!dynamic_cast<StreamSocketImpl*>(impl()))
 		throw InvalidArgumentException("Cannot assign incompatible socket");
 }

@@ -74,6 +74,17 @@ void MessageHeader::read(std::istream& istr)
 	value.reserve(64);
 	int ch = buf.sbumpc();
 	int fields = 0;
+
+	/* HTTP Request Header is being Read here.
+	 * From the HTTP protocol RFC
+	 * Request       = Request-Line              ; Section 5.1
+                       *(( general-header        ; Section 4.5
+                        | request-header         ; Section 5.3
+                        | entity-header ) CRLF)  ; Section 7.1
+                        CRLF
+                        [ message-body ]          ; Section 4.3
+	 * Request-Line is already parsed in HTTPRequest.cpp, before the code reaches here
+	 * The below section of code will parse the above ABNF grammar. */
 	while (ch != eof && ch != '\r' && ch != '\n')
 	{
 		if (_fieldLimit > 0 && fields == _fieldLimit)

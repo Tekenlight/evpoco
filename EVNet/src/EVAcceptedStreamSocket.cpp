@@ -23,7 +23,8 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 	_libevSocketWatcherPtr(libevSocketWatcherPtr),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
-	_nextPtr(0)
+	_nextPtr(0),
+	_sockBusy(false)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
@@ -42,6 +43,23 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);
+}
+
+void EVAcceptedStreamSocket::setSockBusy()
+{
+	_sockBusy = true;
+	return;
+}
+
+void EVAcceptedStreamSocket::setSockFree()
+{
+	_sockBusy = false;
+	return;
+}
+
+bool EVAcceptedStreamSocket::sockBusy()
+{
+	return _sockBusy;
 }
 
 StreamSocket *  EVAcceptedStreamSocket::getStreamSocketPtr()

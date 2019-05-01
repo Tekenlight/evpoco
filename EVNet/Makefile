@@ -9,7 +9,8 @@ include $(POCO_BASE)/build/rules/global
 SYSLIBS += -lev
 
 objects = EVHTTPServer EVTCPServer EVHTTPServerConnection EVTCPServerNotification EVHTTPServerConnectionFactory \
-			EVAcceptedStreamSocket EVHTTPRequestHandlerFactory EVTCPServerDispatcher EVStreamSocketLRUList
+			EVAcceptedStreamSocket EVHTTPRequestHandlerFactory EVTCPServerDispatcher EVStreamSocketLRUList \
+			HTTPServerRequestImpl
 
 target         = PocoEVNet
 target_version = $(LIBVERSION)
