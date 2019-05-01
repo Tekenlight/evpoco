@@ -10,7 +10,9 @@ SYSLIBS += -lev
 
 objects = EVHTTPServer EVTCPServer EVHTTPServerConnection EVTCPServerNotification EVHTTPServerConnectionFactory \
 			EVAcceptedStreamSocket EVHTTPRequestHandlerFactory EVTCPServerDispatcher EVStreamSocketLRUList \
-			HTTPServerRequestImpl
+			EVHTTPServerRequestImpl EVHTTPServerResponseImpl EVHTTPServerConnection
+
+
 
 target         = PocoEVNet
 target_version = $(LIBVERSION)

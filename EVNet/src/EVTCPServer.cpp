@@ -232,6 +232,7 @@ void EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_oc
 	EVAcceptedStreamSocket *tn = _ssColl[streamSocket.impl()->sockfd()];
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
+	tn->setSockBusy();
 	//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 
 	_pDispatcher->enqueue(streamSocket); //Delaying the socket allocation till it is ready for read
@@ -269,8 +270,8 @@ void EVTCPServer::reaquireSocket(const bool& ev_occured)
 		StreamSocket ss = pcNf->socket();
 		socket_watcher_ptr = _ssColl[ss.impl()->sockfd()]->getSocketWatcher();
 
+		EVAcceptedStreamSocket *tn = _ssColl[ss.impl()->sockfd()];
 		if ((fcntl (ss.impl()->sockfd(), F_GETFD) < 0)) {
-			EVAcceptedStreamSocket *tn = _ssColl[ss.impl()->sockfd()];
 			_ssColl.erase(ss.impl()->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
@@ -278,13 +279,14 @@ void EVTCPServer::reaquireSocket(const bool& ev_occured)
 			continue;;
 		}
 		else if (pcNf->connInError()) {
-			EVAcceptedStreamSocket *tn = _ssColl[ss.impl()->sockfd()];
 			_ssColl.erase(ss.impl()->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 			delete tn;
 			continue;;
 		}
+
+		tn->setSockFree();
 
 		ev_clear_pending(_loop,socket_watcher_ptr);
 		socket_watcher_ptr->events = 0;
