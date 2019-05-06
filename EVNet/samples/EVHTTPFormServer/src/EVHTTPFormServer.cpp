@@ -126,7 +126,7 @@ public:
 		response.setContentType("text/html");
 
 		std::ostream& ostr = response.send();
-		
+
 		ostr <<
 			"<html>\n"
 			"<head>\n"
@@ -296,9 +296,19 @@ private:
 	bool _helpRequested;
 };
 
+int func(int argc, char ** argv)
+{
+	int ret = 0;
+	EVHTTPFormServer app;
+	ret =  app.run(argc, argv);
+	return ret;
+}
 
 int main(int argc, char** argv)
 {
-	EVHTTPFormServer app;
-	return app.run(argc, argv);
+	int ret = 0;
+
+	ret = func(argc,argv);
+
+	return ret;
 }

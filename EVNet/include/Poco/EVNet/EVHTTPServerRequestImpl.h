@@ -70,6 +70,10 @@ public:
 		/// Creates the EVHTTPServerRequestImpl, using the
 		/// given HTTPServerSession.
 
+	//EVHTTPServerRequestImpl(EVHTTPServerResponseImpl &response, StreamSocket& socket, HTTPServerParams* pParams);
+		/// Creates the EVHTTPServerRequestImpl, using the
+		/// given StreamSocket.
+
 	~EVHTTPServerRequestImpl();
 		/// Destroys the EVHTTPServerRequestImpl.
 		
@@ -79,7 +83,8 @@ public:
 		///
 		/// The stream is valid until the EVHTTPServerRequestImpl
 		/// object is destroyed.
-		
+		//
+	
 	const SocketAddress& clientAddress() const;
 		/// Returns the client's address.
 
@@ -105,12 +110,13 @@ public:
 		/// Returns the underlying socket after detaching
 		/// it from the server session.
 		
-	HTTPServerSession& session();
-		/// Returns the underlying HTTPServerSession.
-
+	void formInputStream();
+		/// Sets up the mechanism for reading of inputs from socket etc.
+	
 private:
-	EVHTTPServerResponseImpl&         _response;
+	EVHTTPServerResponseImpl&       _response;
 	HTTPServerSession&              _session;
+	//StreamSocket&					_socket;
 	std::istream*                   _pStream;
 	Poco::AutoPtr<HTTPServerParams> _pParams;
 	SocketAddress                   _clientAddress;
@@ -120,6 +126,7 @@ private:
 
 //
 // inlines
+//
 //
 inline std::istream& EVHTTPServerRequestImpl::stream()
 {
@@ -152,11 +159,6 @@ inline HTTPServerResponse& EVHTTPServerRequestImpl::response() const
 	return _response;
 }
 
-
-inline HTTPServerSession& EVHTTPServerRequestImpl::session()
-{
-	return _session;
-}
 
 
 } } // namespace Poco::EVNet

@@ -40,7 +40,7 @@ class Net_API EVHTTPServerSession: public Net::HTTPServerSession
 public:
 	EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
 		/// Creates the EVHTTPServerSession.
-
+	
 	virtual ~EVHTTPServerSession();
 		/// Destroys the EVHTTPServerSession.
 				

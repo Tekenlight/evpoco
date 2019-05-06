@@ -24,7 +24,6 @@
 #include <poll.h>
 #endif
 
-
 #if defined(sun) || defined(__sun) || defined(__sun__)
 #include <unistd.h>
 #include <stropts.h>

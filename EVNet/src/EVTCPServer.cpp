@@ -15,12 +15,13 @@
 #include <ev.h>
 #include <sys/time.h>
 
+#include "Poco/EVNet/EVNet.h"
 #include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/Util/Application.h"
 #include "Poco/EVNet/EVTCPServer.h"
 #include "Poco/EVNet/EVTCPServerDispatcher.h"
 #include "Poco/Net/TCPServerConnection.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVTCPServerConnectionFactory.h"
 #include "Poco/Timespan.h"
 #include "Poco/Exception.h"
 #include "Poco/ErrorHandler.h"
@@ -89,12 +90,14 @@ static void async_stream_socket_cb (EV_P_ ev_io *w, int revents)
 	return;
 }
 
+/* This callback is to break all watchers and stop the loop. */
 static void async_stop_cb_1 (struct ev_loop *loop, ev_async *w, int revents)
 {
 	ev_break (loop, EVBREAK_ALL);
 	return;
 }
 
+/* This callback is for completion of processing of one socket. */
 static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 {
 	bool ev_occurred = true;
@@ -117,8 +120,8 @@ static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 // EVTCPServer
 //
 
-EVTCPServer::EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, Poco::UInt16 portNumber, TCPServerParams::Ptr pParams):
-	_socket(ServerSocket(portNumber)),
+EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt16 portNumber, TCPServerParams::Ptr pParams):
+	_socket(*(new ServerSocket(portNumber))),
 	_thread(threadName(_socket)),
 	_stopped(true),
 	_loop(0),
@@ -141,7 +144,7 @@ EVTCPServer::EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, Poco::UInt16 
 }
 
 
-EVTCPServer::EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, const ServerSocket& socket, TCPServerParams::Ptr pParams):
+EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const ServerSocket& socket, TCPServerParams::Ptr pParams):
 	_socket(socket),
 	_thread(threadName(socket)),
 	_stopped(true),
@@ -164,7 +167,7 @@ EVTCPServer::EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, const ServerS
 }
 
 
-EVTCPServer::EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, const ServerSocket& socket, TCPServerParams::Ptr pParams):
+EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, const ServerSocket& socket, TCPServerParams::Ptr pParams):
 	_socket(socket),
 	_thread(threadName(socket)),
 	_stopped(true),
@@ -222,6 +225,7 @@ void EVTCPServer::stop()
 	if (!_stopped)
 	{
 		_stopped = true;
+		/* Calls async_stop_cb_1 */
 		ev_async_send(_loop, this->stop_watcher_ptr1);
 		_thread.join();
 		_pDispatcher->stop();
@@ -235,27 +239,29 @@ void EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_oc
 	tn->setSockBusy();
 	//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 
+	//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
+			//tn->getStreamSocket().impl()->referenceCount());
 	_pDispatcher->enqueue(tn); //Delaying the socket allocation till it is ready for read
 
 	return;
 }
 
-void EVTCPServer::reqProcComplete(const StreamSocket & streamSocket)
+void EVTCPServer::reqProcComplete(StreamSocket & streamSocket)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket));
 
-	/* And then wake up the loop */
+	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	return;
 }
 
-void EVTCPServer::reqProcException(const StreamSocket & streamSocket, bool connInErr)
+void EVTCPServer::reqProcException(StreamSocket & streamSocket, bool connInErr)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,true));
 
-	/* And then wake up the loop */
+	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	return;
 }
@@ -313,12 +319,14 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		delete ptr;
 	}
 
+	int fd = 0;
 	try {
 		StreamSocket ss = _socket.acceptConnection();
 		/* If the number of connections exceeds the limit this server can handle.
 		 * Dont continue handling the connection.
 		 * TBD: This strategy needs to be examined properly. TBD
 		 * */
+		//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),ss.impl()->referenceCount());
 		if (_ssColl.size()  > _numConnections) {
 			return;
 		}
@@ -339,6 +347,8 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 			EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(socket_watcher_ptr,ss);
+			//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),ss.impl()->referenceCount());
+			fd = ss.impl()->sockfd();
 			_ssColl[ss.impl()->sockfd()] = acceptedSock;
 			acceptedSock->setTimeOfLastUse();
 			_ssLRUList.add(acceptedSock);
@@ -362,6 +372,9 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 	catch (...) {
 		ErrorHandler::handle();
 	}
+	
+	//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
+			//_ssColl[fd]->getStreamSocket().impl()->referenceCount());
 	errno=0;
 }
 

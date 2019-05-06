@@ -34,10 +34,20 @@ EVHTTPServerConnectionFactory::~EVHTTPServerConnectionFactory()
 }
 
 
-TCPServerConnection* EVHTTPServerConnectionFactory::createConnection(const StreamSocket& socket)
+EVTCPServerConnection* EVHTTPServerConnectionFactory::createConnection(StreamSocket& socket)
 {
 	return new EVHTTPServerConnection(socket, _pParams, _pFactory);
 }
 
+EVTCPServerConnection* EVHTTPServerConnectionFactory::createConnection(StreamSocket& socket,
+																	EVProcessingState * reqProcState)
+{
+	return new EVHTTPServerConnection(socket, _pParams, _pFactory, reqProcState);
+}
+
+EVProcessingState* EVHTTPServerConnectionFactory::createReaProcState()
+{
+	return new EVHTTPProcessingState();
+}
 
 } } // namespace Poco::EVNet

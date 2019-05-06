@@ -14,6 +14,7 @@
 
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
+#include "Poco/EVNet/EVNet.h"
 
 using Poco::File;
 using Poco::Timestamp;
@@ -27,6 +28,13 @@ using Poco::DateTimeFormat;
 namespace Poco {
 namespace EVNet {
 
+
+EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,HTTPServerSession& session):
+	_session(session),
+	_pRequest(request),
+	_pStream(0)
+{
+}
 
 EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(HTTPServerSession& session):
 	_session(session),
@@ -47,7 +55,6 @@ void EVHTTPServerResponseImpl::sendContinue()
 	HTTPHeaderOutputStream hs(_session);
 	hs << getVersion() << " 100 Continue\r\n\r\n";
 }
-
 
 std::ostream& EVHTTPServerResponseImpl::send()
 {

@@ -198,7 +198,7 @@ private:
 	};
 	
 	HTTPSession(const HTTPSession&);
-	HTTPSession& operator = (const HTTPSession&);
+	//HTTPSession& operator = (const HTTPSession&);
 	
 	StreamSocket     _socket;
 	char*            _pBuffer;

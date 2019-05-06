@@ -20,7 +20,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVTCPServerConnectionFactory.h"
 #include "Poco/Net/TCPServerParams.h"
 #include "Poco/EVNet/EVTCPServer.h"
 #include "Poco/Runnable.h"
@@ -32,8 +32,8 @@
 namespace Poco {
 namespace EVNet {
 
-typedef void (EVTCPServer::*reqComplMthd)(const Net::StreamSocket &);
-typedef void (EVTCPServer::*reqExcpMthd)(const Net::StreamSocket &, bool);
+typedef void (EVTCPServer::*reqComplMthd)(Net::StreamSocket &);
+typedef void (EVTCPServer::*reqExcpMthd)(Net::StreamSocket &, bool);
 typedef struct {
 	EVTCPServer *objPtr;
 	reqComplMthd reqComMthd;
@@ -46,7 +46,7 @@ class Net_API EVTCPServerDispatcher: public Poco::Runnable
 {
 public:
 
-	EVTCPServerDispatcher(Net::TCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, reqComplEvntHandler & evtHandle);
+	EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, reqComplEvntHandler & evtHandle);
 		/// Creates the EVTCPServerDispatcher.
 		///
 		/// The dispatcher takes ownership of the TCPServerParams object.
@@ -121,7 +121,7 @@ private:
 	int  _refusedConnections;
 	bool _stopped;
 	Poco::NotificationQueue         _queue;
-	Net::TCPServerConnectionFactory::Ptr _pConnectionFactory;
+	EVTCPServerConnectionFactory::Ptr _pConnectionFactory;
 	Poco::ThreadPool&               _threadPool;
 	mutable Poco::FastMutex         _mutex;
 	reqComplEvntHandler				_cbHandle;

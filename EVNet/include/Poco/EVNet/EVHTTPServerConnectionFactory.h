@@ -19,21 +19,20 @@
 
 
 #include "Poco/Net/Net.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVTCPServerConnectionFactory.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
+#include "Poco/EVNet/EVHTTPProcessingState.h"
 
-using Poco::Net::TCPServerConnection;
 using Poco::Net::HTTPServerParams;
 using Poco::Net::StreamSocket;
-using Poco::Net::TCPServerConnectionFactory;
 
 namespace Poco {
 namespace EVNet {
 
 
-class Net_API EVHTTPServerConnectionFactory: public TCPServerConnectionFactory
-	/// This implementation of a TCPServerConnectionFactory
+class Net_API EVHTTPServerConnectionFactory: public EVTCPServerConnectionFactory
+	/// This implementation of a EVTCPServerConnectionFactory
 	/// is used by HTTPServer to create HTTPServerConnection objects.
 {
 public:
@@ -43,10 +42,17 @@ public:
 	~EVHTTPServerConnectionFactory();
 		/// Destroys the EVHTTPServerConnectionFactory.
 
-	TCPServerConnection* createConnection(const StreamSocket& socket);
+	EVTCPServerConnection* createConnection(StreamSocket& socket);
 		/// Creates an instance of HTTPServerConnection
 		/// using the given StreamSocket.
 	
+	EVTCPServerConnection* createConnection(StreamSocket& socket, EVProcessingState * reqProcState);
+		/// Creates an instance of HTTPServerConnection
+		/// using the given StreamSocket.
+	
+	EVProcessingState* createReaProcState();
+		/// Creates an instance of EVHTTPProcessingState
+
 private:
 	HTTPServerParams::Ptr          _pParams;
 	EVHTTPRequestHandlerFactory::Ptr _pFactory;

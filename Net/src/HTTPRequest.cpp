@@ -217,7 +217,7 @@ void HTTPRequest::read(std::istream& istr)
 	 * Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
 	 * */
 	/* Reading of HTTP Request / HTTP Message / HTTP Header begins here. */
-	/* Read the Status Line . */
+	/* Read the status line . */
 	{
 		/* Reading method. */
 		while (!Poco::Ascii::isSpace(ch) && ch != eof && method.length() < MAX_METHOD_LENGTH) {

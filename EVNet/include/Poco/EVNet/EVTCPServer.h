@@ -22,7 +22,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/ServerSocket.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVTCPServerConnectionFactory.h"
 #include "Poco/Net/TCPServerParams.h"
 #include "Poco/RefCountedObject.h"
 #include "Poco/AutoPtr.h"
@@ -40,7 +40,6 @@ namespace Poco { namespace Net {
 } }
 
 using Poco::Net::StreamSocket;
-using Poco::Net::TCPServerConnectionFactory;
 using Poco::Net::TCPServerParams;
 using Poco::Net::ServerSocket;
 using Poco::Net::StreamSocket;
@@ -105,12 +104,12 @@ class Net_API EVTCPServer: public Poco::Runnable
 	/// Already served connections, however, will continue being served.
 {
 public:
-	EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, Poco::UInt16 portNumber = 0, TCPServerParams::Ptr pParams = 0);
+	EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt16 portNumber = 0, TCPServerParams::Ptr pParams = 0);
 		/// Creates the EVTCPServer, with ServerSocket listening on the given port.
 		/// Default port is zero, allowing any available port. The port number
 		/// can be queried through EVTCPServer::port() member.
 		///
-		/// The server takes ownership of the TCPServerConnectionFactory
+		/// The server takes ownership of the EVTCPServerConnectionFactory
 		/// and deletes it when it's no longer needed.
 		///
 		/// The server also takes ownership of the TCPServerParams object.
@@ -119,10 +118,10 @@ public:
 		///
 		/// New threads are taken from the default thread pool.
 
-	EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, const ServerSocket& socket, TCPServerParams::Ptr pParams = 0);
+	EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const ServerSocket& socket, TCPServerParams::Ptr pParams = 0);
 		/// Creates the EVTCPServer, using the given ServerSocket.
 		///
-		/// The server takes ownership of the TCPServerConnectionFactory
+		/// The server takes ownership of the EVTCPServerConnectionFactory
 		/// and deletes it when it's no longer needed.
 		///
 		/// The server also takes ownership of the TCPServerParams object.
@@ -131,10 +130,10 @@ public:
 		///
 		/// New threads are taken from the default thread pool.
 
-	EVTCPServer(TCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, const ServerSocket& socket, TCPServerParams::Ptr pParams = 0);
+	EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, const ServerSocket& socket, TCPServerParams::Ptr pParams = 0);
 		/// Creates the EVTCPServer, using the given ServerSocket.
 		///
-		/// The server takes ownership of the TCPServerConnectionFactory
+		/// The server takes ownership of the EVTCPServerConnectionFactory
 		/// and deletes it when it's no longer needed.
 		///
 		/// The server also takes ownership of the TCPServerParams object.
@@ -144,7 +143,7 @@ public:
 		/// New threads are taken from the given thread pool.
 
 	virtual ~EVTCPServer();
-		/// Destroys the EVTCPServer and its TCPServerConnectionFactory.
+		/// Destroys the EVTCPServer and its EVTCPServerConnectionFactory.
 
 	const TCPServerParams& params() const;
 		/// Returns a const reference to the TCPServerParam object
@@ -234,11 +233,11 @@ private:
 		/// Function to handle the event of socket receiving a connection request.
 	void handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
-	void reqProcComplete(const StreamSocket & streamSocket);
+	void reqProcComplete(StreamSocket & streamSocket);
 		/// Function to handle the event of completion of one request.
 	void reaquireSocket(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
-	void reqProcException(const StreamSocket & streamSocket, bool connInErr);
+	void reqProcException(StreamSocket & streamSocket, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.

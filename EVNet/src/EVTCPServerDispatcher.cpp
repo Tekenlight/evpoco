@@ -14,8 +14,7 @@
 
 #include "Poco/EVNet/EVTCPServer.h"
 #include "Poco/EVNet/EVTCPServerDispatcher.h"
-#include "Poco/Net/TCPServerDispatcherAdapter.h"
-#include "Poco/Net/TCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVTCPServerConnectionFactory.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/Notification.h"
 #include "Poco/AutoPtr.h"
@@ -24,12 +23,12 @@
 
 
 using Poco::Net::TCPServerConnectionFactory;
-using Poco::Net::TCPServerDispatcherAdapter;
 using Poco::Notification;
 using Poco::FastMutex;
 using Poco::AutoPtr;
 
 using Poco::Net::NoMessageException;
+using Poco::Net::MessageException;
 
 namespace Poco {
 namespace EVNet {
@@ -38,7 +37,7 @@ namespace EVNet {
 class TCPConnectionNotification: public Notification
 {
 public:
-	TCPConnectionNotification(const EVAcceptedStreamSocket * socket):
+	TCPConnectionNotification(EVAcceptedStreamSocket * socket):
 		_socket(socket)
 	{
 	}
@@ -47,16 +46,16 @@ public:
 	{
 	}
 	
-	const EVAcceptedStreamSocket * socket() const
+	EVAcceptedStreamSocket * socket() 
 	{
 		return _socket;
 	}
 
 private:
-	const EVAcceptedStreamSocket *  _socket;
+	EVAcceptedStreamSocket *  _socket;
 };
 
-EVTCPServerDispatcher::EVTCPServerDispatcher(Net::TCPServerConnectionFactory::Ptr pFactory,
+EVTCPServerDispatcher::EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory,
 				Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, reqComplEvntHandler &complEvtHandle):
 	_rc(1),
 	_pParams(pParams),
@@ -113,31 +112,43 @@ void EVTCPServerDispatcher::run()
 		AutoPtr<Notification> pNf = _queue.waitDequeueNotification(idleTime);
 		if (pNf) {
 			TCPConnectionNotification* pCNf = dynamic_cast<TCPConnectionNotification*>(pNf.get());
-			TCPServerDispatcherAdapter adapter;
 			if (pCNf)
 			{
 				try {
 #ifndef POCO_ENABLE_CPP11
-					std::auto_ptr<Net::TCPServerConnection>
+					std::auto_ptr<EVNet::EVTCPServerConnection>
 							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
 #else
-					std::unique_ptr<Net::TCPServerConnection>
+					std::unique_ptr<EVNet::EVTCPServerConnection>
 							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
 #endif // POCO_ENABLE_CPP11
+					//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
+							//pCNf->socket()->getStreamSocket().impl()->referenceCount());
 					poco_check_ptr(pConnection.get());
 					beginConnection();
-					adapter.tcpConnectionStart(pConnection.get());
+					pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
+					pConnection->setProcState(pCNf->socket()->getProcState());
+					pConnection->start();
 					endConnection();
+					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState()))
+						pCNf->socket()->deleteState();
 					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket()->getStreamSocket());
 				}
 				catch (NoMessageException&)
 				{
 					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
 				}
+				catch (MessageException&) {
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+				}
 				catch (Poco::Exception&)
 				{
 					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
 				}
+				catch (...) {
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+				}
+
 			}
 		}
 

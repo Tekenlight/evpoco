@@ -43,7 +43,7 @@ public:
 	EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, StreamSocket & streamSocket);
 	~EVAcceptedStreamSocket();
 
-	const StreamSocket & getStreamSocket() const;
+	StreamSocket & getStreamSocket();
 	/// This method gives the stored StreamSocket
 
 	StreamSocket *  getStreamSocketPtr();
@@ -74,10 +74,15 @@ public:
 	
 	bool sockBusy();
 
+	void setProcState(EVProcessingState* procState);
+
+	EVProcessingState* getProcState();
+
 	void setNextPtr(EVAcceptedStreamSocket * ptr);
 	void setPrevPtr(EVAcceptedStreamSocket * ptr);
 	EVAcceptedStreamSocket * getNextPtr();
 	EVAcceptedStreamSocket * getPrevPtr();
+	void deleteState();
 
 private:
 	poco_socket_t				_sockFd;

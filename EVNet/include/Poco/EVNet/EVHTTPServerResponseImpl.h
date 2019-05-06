@@ -70,11 +70,15 @@ class Net_API EVHTTPServerResponseImpl: public HTTPServerResponse
 	/// as necessary, and provide a message body.
 {
 public:
+	EVHTTPServerResponseImpl(EVHTTPServerRequestImpl *request,HTTPServerSession& session);
+		/// Creates the EVHTTPServerResponseImpl.
+
 	EVHTTPServerResponseImpl(HTTPServerSession& session);
 		/// Creates the EVHTTPServerResponseImpl.
 
 	~EVHTTPServerResponseImpl();
 		/// Destroys the EVHTTPServerResponseImpl.
+	void attachSession(HTTPServerSession &session);
 
 	void sendContinue();
 		/// Sends a 100 Continue response to the
@@ -134,8 +138,9 @@ public:
 	bool sent() const;
 		/// Returns true if the response (header) has been sent.
 
-protected:
 	void attachRequest(EVHTTPServerRequestImpl* pRequest);
+
+protected:
 	
 private:
 	HTTPServerSession& _session;
@@ -148,6 +153,11 @@ private:
 
 //
 // inlines
+inline void EVHTTPServerResponseImpl::attachSession(HTTPServerSession & session)
+{
+	_session = session;
+}
+
 //
 inline bool EVHTTPServerResponseImpl::sent() const
 {

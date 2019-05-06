@@ -17,13 +17,13 @@ using Poco::Net::StreamSocket;
 
 namespace Poco{ namespace EVNet {
 
-EVTCPServerNotification::EVTCPServerNotification(const StreamSocket& socket):
+EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket):
 	_socket(socket)
 {
 	_closeerrorconn = false;
 }
 
-EVTCPServerNotification::EVTCPServerNotification(const StreamSocket& socket, bool closeConnInd):
+EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket, bool closeConnInd):
 	_socket(socket),
 	_closeerrorconn(closeConnInd)
 {
@@ -33,7 +33,7 @@ EVTCPServerNotification::~EVTCPServerNotification()
 {
 }
 
-const StreamSocket& EVTCPServerNotification::socket() const
+StreamSocket& EVTCPServerNotification::socket()
 {
 	return _socket;
 }

@@ -24,17 +24,17 @@ namespace Poco{ namespace EVNet {
 class EVTCPServerNotification: public Notification
 {
 public:
-	EVTCPServerNotification(const StreamSocket& socket);
-	EVTCPServerNotification(const StreamSocket& socket, bool closeConnInd);
+	EVTCPServerNotification(StreamSocket& socket);
+	EVTCPServerNotification(StreamSocket& socket, bool closeConnInd);
 	
 	~EVTCPServerNotification();
 
-	const StreamSocket& socket() const;
+	StreamSocket& socket();
 
 	bool connInError();
 
 private:
-	StreamSocket _socket;
+	StreamSocket& _socket;
 	bool _closeerrorconn;
 };
 

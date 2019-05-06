@@ -13,6 +13,7 @@
 
 #include <ev.h>
 #include <sys/time.h>
+#include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVAcceptedStreamSocket.h"
 
 using Poco::Net::StreamSocket;
@@ -24,7 +25,8 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
-	_sockBusy(false)
+	_sockBusy(false),
+	_reqProcState(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
@@ -34,13 +36,15 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
+	//DEBUGPOINT("DESTRUCTOR OF EVASS\n");
 	if (this->_libevSocketWatcherPtr) {
 		if ((void*)(this->_libevSocketWatcherPtr->data))
 			free((void*)(this->_libevSocketWatcherPtr->data));
 		free(this->_libevSocketWatcherPtr);
 	}
+	if (this->_reqProcState) delete _reqProcState;
 }
-const StreamSocket &  EVAcceptedStreamSocket::getStreamSocket() const
+StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);
 }
@@ -104,6 +108,21 @@ long long  EVAcceptedStreamSocket::getTimeOfLastUse()
 	return _timeOfLastUse;
 }
 
+void EVAcceptedStreamSocket::setProcState(EVProcessingState* procState)
+{
+	_reqProcState = procState;
+}
+
+EVProcessingState* EVAcceptedStreamSocket::getProcState()
+{
+	return _reqProcState;
+}
+
+void EVAcceptedStreamSocket::deleteState()
+{
+	delete _reqProcState;
+	return;
+}
 
 
 } } // namespace EVNet and Poco end.
