@@ -293,6 +293,7 @@ int EVHTTPProcessingState::continueReadReqHeader()
 }
 int EVHTTPProcessingState::continueRead()
 {
+	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 	switch (_state) {
 		case HEADER_NOT_READ:
 			if (readStatusLine() != STATUS_LINE_READ) break;
@@ -304,6 +305,7 @@ int EVHTTPProcessingState::continueRead()
 		default:
 			break;
 	}
+	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 
 	return _state;
 }

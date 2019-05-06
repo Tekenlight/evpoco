@@ -126,12 +126,14 @@ void EVTCPServerDispatcher::run()
 							//pCNf->socket()->getStreamSocket().impl()->referenceCount());
 					poco_check_ptr(pConnection.get());
 					beginConnection();
-					pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
+					if (!pCNf->socket()->getProcState())
+						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start();
 					endConnection();
-					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState()))
+					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
+					}
 					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket()->getStreamSocket());
 				}
 				catch (NoMessageException&)

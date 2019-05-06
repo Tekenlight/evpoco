@@ -121,6 +121,7 @@ EVProcessingState* EVAcceptedStreamSocket::getProcState()
 void EVAcceptedStreamSocket::deleteState()
 {
 	delete _reqProcState;
+	_reqProcState = NULL;
 	return;
 }
 
