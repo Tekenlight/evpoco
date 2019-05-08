@@ -237,7 +237,7 @@ private:
 		/// Function to handle the event of completion of one request.
 	void reaquireSocket(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
-	void reqProcException(StreamSocket & streamSocket, bool connInErr);
+	void reqProcException(StreamSocket& s, poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.

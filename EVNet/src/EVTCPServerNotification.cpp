@@ -18,14 +18,22 @@ using Poco::Net::StreamSocket;
 namespace Poco{ namespace EVNet {
 
 EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket):
-	_socket(socket)
+	_socket(socket),
+	_sockfd(socket.impl()->sockfd())
+{
+	_closeerrorconn = false;
+}
+EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket, poco_socket_t sockfd):
+	_socket(socket),
+	_sockfd(sockfd)
 {
 	_closeerrorconn = false;
 }
 
-EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket, bool closeConnInd):
+EVTCPServerNotification::EVTCPServerNotification(StreamSocket& socket, poco_socket_t sockfd, bool closeConnInd):
 	_socket(socket),
-	_closeerrorconn(closeConnInd)
+	_closeerrorconn(closeConnInd),
+	_sockfd(sockfd)
 {
 }
 
@@ -41,6 +49,11 @@ StreamSocket& EVTCPServerNotification::socket()
 bool EVTCPServerNotification::connInError()
 {
 	return _closeerrorconn;
+}
+
+poco_socket_t EVTCPServerNotification::sockfd()
+{
+	return _sockfd;
 }
 
 } } // namespace EVNet and Poco end.

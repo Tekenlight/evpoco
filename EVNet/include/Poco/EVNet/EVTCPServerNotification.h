@@ -25,17 +25,20 @@ class EVTCPServerNotification: public Notification
 {
 public:
 	EVTCPServerNotification(StreamSocket& socket);
-	EVTCPServerNotification(StreamSocket& socket, bool closeConnInd);
+	EVTCPServerNotification(StreamSocket& socket, poco_socket_t sockfd);
+	EVTCPServerNotification(StreamSocket& socket, poco_socket_t fd,  bool closeConnInd);
 	
 	~EVTCPServerNotification();
 
 	StreamSocket& socket();
+	poco_socket_t sockfd();
 
 	bool connInError();
 
 private:
-	StreamSocket& _socket;
-	bool _closeerrorconn;
+	StreamSocket&			_socket;
+	poco_socket_t			_sockfd;
+	bool					_closeerrorconn;
 };
 
 } } // namespace EVNet and Poco end.

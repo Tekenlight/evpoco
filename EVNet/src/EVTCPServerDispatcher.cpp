@@ -19,6 +19,9 @@
 #include "Poco/Notification.h"
 #include "Poco/AutoPtr.h"
 #include <memory>
+
+#include <sys/socket.h>
+#include <unistd.h>
 #include <pthread.h>
 
 
@@ -38,21 +41,29 @@ class TCPConnectionNotification: public Notification
 {
 public:
 	TCPConnectionNotification(EVAcceptedStreamSocket * socket):
-		_socket(socket)
+		_socket(socket),
+		_sockfd(socket->getSockfd())
 	{
 	}
 	
 	~TCPConnectionNotification()
 	{
 	}
+
 	
 	EVAcceptedStreamSocket * socket() 
 	{
 		return _socket;
 	}
 
+	poco_socket_t sockfd()
+	{
+		return _sockfd;
+	}
+
 private:
-	EVAcceptedStreamSocket *  _socket;
+	EVAcceptedStreamSocket*		 _socket;
+	poco_socket_t				_sockfd;
 };
 
 EVTCPServerDispatcher::EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory,
@@ -129,7 +140,7 @@ void EVTCPServerDispatcher::run()
 					if (!pCNf->socket()->getProcState())
 						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
 					pConnection->setProcState(pCNf->socket()->getProcState());
-					pConnection->start();
+					pConnection->start(true);
 					endConnection();
 					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
@@ -138,17 +149,17 @@ void EVTCPServerDispatcher::run()
 				}
 				catch (NoMessageException&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (MessageException&) {
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (Poco::Exception&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (...) {
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),true);
+					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 
 			}
@@ -201,7 +212,8 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 		 * It means that the server is overwhelmed.
 		 * Closing connection in that case.
 		 * */
-		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(evAccSocket->getStreamSocket(),true);
+		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(evAccSocket->getStreamSocket(),
+												evAccSocket->getStreamSocket().impl()->sockfd(),true);
 	}
 }
 

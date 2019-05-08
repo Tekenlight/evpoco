@@ -36,7 +36,6 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
-	//DEBUGPOINT("DESTRUCTOR OF EVASS\n");
 	if (this->_libevSocketWatcherPtr) {
 		if ((void*)(this->_libevSocketWatcherPtr->data))
 			free((void*)(this->_libevSocketWatcherPtr->data));

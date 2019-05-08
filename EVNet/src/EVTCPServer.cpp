@@ -77,6 +77,7 @@ static void async_stream_socket_cb (EV_P_ ev_io *w, int revents)
 		return ;
 	}
 
+
 	cb_ptr = (strms_ic_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
 	 * EVTCPServer::handleDataAvlbl(const bool)
@@ -246,20 +247,20 @@ void EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_oc
 	return;
 }
 
-void EVTCPServer::reqProcComplete(StreamSocket & streamSocket)
+void EVTCPServer::reqProcComplete(StreamSocket & ss)
 {
 	/* Enque the socket */
-	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket));
+	_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	return;
 }
 
-void EVTCPServer::reqProcException(StreamSocket & streamSocket, bool connInErr)
+void EVTCPServer::reqProcException(StreamSocket & streamSocket, poco_socket_t fd, bool connInErr)
 {
 	/* Enque the socket */
-	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,true));
+	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,fd,true));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
@@ -274,18 +275,18 @@ void EVTCPServer::reaquireSocket(const bool& ev_occured)
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
 		StreamSocket ss = pcNf->socket();
-		socket_watcher_ptr = _ssColl[ss.impl()->sockfd()]->getSocketWatcher();
+		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketWatcher();
 
-		EVAcceptedStreamSocket *tn = _ssColl[ss.impl()->sockfd()];
+		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
 		if ((fcntl (ss.impl()->sockfd(), F_GETFD) < 0)) {
-			_ssColl.erase(ss.impl()->sockfd());
+			_ssColl.erase(pcNf->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 			delete tn;
 			continue;;
-		}
+		} 
 		else if (pcNf->connInError()) {
-			_ssColl.erase(ss.impl()->sockfd());
+			_ssColl.erase(pcNf->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
 			delete tn;

@@ -24,7 +24,6 @@
 #include "Poco/Timestamp.h"
 #include "Poco/Delegate.h"
 #include <memory>
-#include <pthread.h>
 
 using Poco::Net::HTTPServerSession;
 using Poco::Net::NoMessageException;
@@ -327,6 +326,7 @@ void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPR
 
 void EVHTTPServerConnection::onServerStopped(const bool& abortCurrent)
 {
+	printf("%s:%d onserverstopped of Connection\n",__FILE__,__LINE__);
 	_stopped = true;
 	if (abortCurrent)
 	{

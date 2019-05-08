@@ -33,7 +33,7 @@ namespace Poco {
 namespace EVNet {
 
 typedef void (EVTCPServer::*reqComplMthd)(Net::StreamSocket &);
-typedef void (EVTCPServer::*reqExcpMthd)(Net::StreamSocket &, bool);
+typedef void (EVTCPServer::*reqExcpMthd)(Net::StreamSocket & streamSocket,poco_socket_t fd, bool);
 typedef struct {
 	EVTCPServer *objPtr;
 	reqComplMthd reqComMthd;
