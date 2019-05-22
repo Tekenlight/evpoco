@@ -122,12 +122,18 @@ int EVHTTPProcessingState::readByte(int * chptr)
 	ret = recv(fd, chptr, 1 , 0);
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			DEBUGPOINT("%s\n",strerror(errno));
+			//DEBUGPOINT("%d:%s\n",errno,strerror(errno));
 			return 0;
 		}
 		else {
-			DEBUGPOINT("%s\n",strerror(errno));
-			throw NetException(strerror(errno));
+			const char * error_string = NULL;
+			if (!errno) {
+				error_string = "Peer closed connection";
+			}
+			else {
+				error_string = strerror(errno);
+			}
+			throw NetException(error_string);
 			return -1;
 		}
 	}
@@ -136,7 +142,7 @@ int EVHTTPProcessingState::readByte(int * chptr)
 
 #define readch(inpptr,retstate) {\
 	int ret = readByte(inpptr); \
-	if (!ret) {\
+	if (ret <= 0) {\
 		return retstate; \
 	}\
 }
