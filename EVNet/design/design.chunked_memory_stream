@@ -1,0 +1,17 @@
+Requirements:
+
+Provides a dynamic memory stream for reading data coming in from a socket.
+
+Assumptions:
+
+Length of the incoming data is not known
+
+
+Implementation
+
+The need is met through a list of buffers of length 4096 bytes each
+While receiving data from socket, a function is called on the class to provide a new 
+	buffer and data is read into that buffer.
+
+A method is provided for reading data from the buffer, which retrieves <= requested_length
+	of data from the buffer, if the buffer is run out, a EOF is returned.
