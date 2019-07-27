@@ -37,7 +37,8 @@ void * memory_buffer_list::node::get_buffer()
 
 memory_buffer_list::node::~node()
 {
-#ifndef NEVER
+	//printf("In node destructor\n");
+#ifndef MEM_BUF_LIST_NEVER
 	free(_buffer);
 	_buffer = 0;
 #endif
@@ -146,6 +147,7 @@ memory_buffer_list::node * memory_buffer_list::pop_head()
 
 memory_buffer_list::~memory_buffer_list()
 {
+	//printf("in memory_buffer_list destructor\n");
 	node * p = 0, *q = 0;
 	p = (node*)atomic_load(&_head);
 	while (p != 0) {
@@ -157,7 +159,7 @@ memory_buffer_list::~memory_buffer_list()
 
 
 
-#ifdef NEVER
+#ifdef MEM_BUF_LIST_NEVER
 
 struct test_inp {
 	memory_buffer_list * buf_list;
@@ -174,7 +176,7 @@ void * producer(void * inp)
 
 	for (i=0; i < n; i++) {
 		inp_ptr->buf_list->add_node((void*)i, 100);
-		//printf("Added %d th\n",i);
+		//printf("Added %ld th\n",i);
 	}
 
 	return NULL;

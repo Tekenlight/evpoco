@@ -319,9 +319,7 @@ int EVHTTPProcessingState::continueRead()
 void EVHTTPProcessingState::setSession(HTTPServerSession *session)
 {
 	_session = session;
-#ifdef NON_BLOCKING_SOCKET_IO
 	fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
-#endif
 }
 
 HTTPServerSession * EVHTTPProcessingState::getSession()

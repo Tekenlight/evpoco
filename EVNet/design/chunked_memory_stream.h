@@ -4,7 +4,7 @@
 // Chunked memory Stream
 
 #include <sys/types.h>
-#include <ev_queue.h>
+#include <memory_buffer_list.h>
 
 #define BUFFER_SIZE 4096
 
@@ -19,23 +19,14 @@ class chunked_memory_stream {
 public:
 	chunked_memory_stream();
 
-	int pull_out(void * buffer, size_t bytes);
-	// Pull out 'bytes' number of bytes from chunked_memory_stream,
-	// If there is less data, as many bytes as there are
-	// and transfer to the pointer pointed by variable buffer.
-	// The caller is expected to allocate memory to the buffer
-	//
-	// Returns the number of bytes Pulled out, or 0 if no data is available
-	// or -1 if there is any error.
-
-	int push_in(void * buffer, size_t bytes);
+	int push(void * buffer, size_t bytes);
 	// Transfers 'bytes' number of bytes to the chunked_memory_stream.
 	// From the memory buffer.
 	// The caller is expected to manage the memory for buffer.
 	// Returns the number of bytes transferred.
 	//
-	
-	int read(size_t start_pos, void *buffer, size_t bytes);
+
+	size_t read(size_t start_pos, void *buffer, size_t bytes);
 	// Copies 'bytes' number of bytes from the chunked_memory_stream,
 	// the data is copied starting at offset '0 + start_pos'.
 	// If there is less data, as many bytes as there are are copied
@@ -49,10 +40,15 @@ public:
 	// Returns the number of bytes copied, or 0 if no data is available
 	// or -1 if there is any error.
 
+	size_t erase(size_t bytes);
+	// Moves the head of the data stream to the offset 0 + bytes
+	// Memory holding the data is freed.
+	// Returns the number of bytes erased.
+
 	~chunked_memory_stream();
 
 private:
-	ev_queue_type buffer_list;
+	memory_buffer_list _buffer_list;
 };
 
 #endif
