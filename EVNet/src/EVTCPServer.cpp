@@ -322,7 +322,6 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 	int fd = 0;
 	try {
-		StreamSocket ss = _socket.acceptConnection();
 		/* If the number of connections exceeds the limit this server can handle.
 		 * Dont continue handling the connection.
 		 * TBD: This strategy needs to be examined properly. TBD
@@ -331,6 +330,8 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		if (_ssColl.size()  > _numConnections) {
 			return;
 		}
+
+		StreamSocket ss = _socket.acceptConnection();
 
 		if (!_pConnectionFilter || _pConnectionFilter->accept(ss)) {
 			// enable nodelay per default: OSX really needs that
@@ -361,7 +362,6 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb, ss.impl()->sockfd(), EV_READ);
 			ev_io_start (_loop, socket_watcher_ptr);
-
 		}
 	}
 	catch (Poco::Exception& exc) {

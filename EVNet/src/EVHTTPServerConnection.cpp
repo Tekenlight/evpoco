@@ -88,7 +88,7 @@ void EVHTTPServerConnection::setProcState(EVProcessingState *s)
 
 /* This is the event driven equivalent of run method.
  * This method is reentrant.
- * The scoekt connection is expected to be non-blocking,
+ * The socket connection is expected to be non-blocking,
  * such that when there is no data to be read (EWOULDBLOCK/EAGAIN)
  * this function will return to the caller. whenever data reading is not
  * complete and the socket fd would block.
