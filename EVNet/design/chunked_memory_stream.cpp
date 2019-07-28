@@ -120,8 +120,9 @@ size_t chunked_memory_stream::erase(size_t bytes)
 		for (int i = 0; i < (buffer_len - to_be_erased) ; i++) {
 			*((char*)(node_buffer) + i) = *((char*)(node_buffer) + to_be_erased + i);
 		}
+		buffer_len -= to_be_erased;
 		erased += to_be_erased;
-		node_ptr->set_buffer(node_buffer,(buffer_len - to_be_erased));
+		node_ptr->set_buffer(node_buffer, buffer_len);
 		to_be_erased = 0;
 
 		break;
@@ -150,23 +151,23 @@ void reader(chunked_memory_stream & cms, size_t offset, size_t length)
 
 int main()
 {
-	char * a = (char*)calloc(1,2);
-	char * b = (char*)calloc(1,2);
-	char * c = (char*)calloc(1,2);
-	char * d = (char*)calloc(1,2);
+	char * a = (char*)calloc(1, 2);
+	char * b = (char*)calloc(1, 2);
+	char * c = (char*)calloc(1, 2);
+	char * d = (char*)calloc(1, 2);
 	chunked_memory_stream cms;
 
-	memcpy(a,"01",2);
-	cms.push(a,2);
+	memcpy(a, "01", 2);
+	cms.push(a, 2);
 
-	memcpy(b,"23",2);
-	cms.push(b,2);
+	memcpy(b, "23", 2);
+	cms.push(b, 2);
 
-	memcpy(c,"45",2);
-	cms.push(c,2);
+	memcpy(c, "45", 2);
+	cms.push(c, 2);
 
-	memcpy(d,"67",2);
-	cms.push(d,2);
+	memcpy(d, "67", 2);
+	cms.push(d, 2);
 
 	reader(cms, 0, 3);
 	reader(cms, 1, 1);
