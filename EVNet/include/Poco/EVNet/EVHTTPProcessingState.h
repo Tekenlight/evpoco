@@ -95,11 +95,12 @@ public:
 	
 	void appendToUri(const char * , size_t);
 	void appendToName(const char * , size_t, int);
-	void appendToValue(const char * , size_t);
+	void appendToValue(const char * , size_t, int);
 	void setMethod(const char * );
 	void setVersion(const char * );
 	void clearName();
 	void clearValue();
+	int getHeaderFieldInProgress();
 
 
 private:
@@ -107,6 +108,7 @@ private:
 	int							_state;
 	int							_subState;
 	int							_header_field_in_progress;
+	int							_header_value_in_progress;
 	EVHTTPServerRequestImpl*	_request;
 	EVHTTPServerResponseImpl*	_response;
 	HTTPServerSession*			_session;

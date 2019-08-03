@@ -43,7 +43,18 @@ void EVHTTPProcessingState::appendToName(const char *buf, size_t len, int state)
 {
 	_header_field_in_progress = state;
 	_name.append(buf,len);
-	if (!_header_field_in_progress) _value.erase();
+	switch (_header_field_in_progress) {
+		case 0:
+			_value.erase(); // Expecting the next field is value
+			break;
+		case 1: // Already appended to name, parse is interrupted for want of data.
+			break;
+		case 2: // Signal is to discard the header field.
+			_name.erase();
+			break;
+		default:
+			break;
+	}
 }
 
 int EVHTTPProcessingState::getHeaderFieldInProgress()
@@ -51,9 +62,24 @@ int EVHTTPProcessingState::getHeaderFieldInProgress()
 	return _header_field_in_progress;
 }
 
-void EVHTTPProcessingState::appendToValue(const char *buf, size_t len)
+void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state)
 {
+	_header_value_in_progress = state;
 	_value.append(buf,len);
+	switch (_header_field_in_progress) {
+		case 0:
+			_request->add(_name, _request->decodeWord(_value));
+			_name.erase();
+			_value.erase();
+			break;
+		case 1: // Already appended to value, parse is interrupted for want of data.
+			break;
+		case 2: // Signal is to discard the header field.
+			_value.erase();
+			break;
+		default:
+			break;
+	}
 }
 
 void EVHTTPProcessingState::setMethod(const char *m)
