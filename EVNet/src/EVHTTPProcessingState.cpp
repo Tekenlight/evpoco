@@ -34,6 +34,44 @@
 namespace Poco {
 namespace EVNet {
 
+using Poco::Net::NetException;
+using Poco::Net::MessageException;
+
+EVHTTPProcessingState::EVHTTPProcessingState():
+	_request(0),
+	_response(0),
+	_session(0),
+	_state(HEADER_NOT_READ),
+	_subState(READ_START),
+	_fields(0),
+	_header_field_in_progress(0),
+	_parser(0)
+{
+	_parser = (http_parser*)malloc(sizeof(http_parser));
+	memset(_parser,0,sizeof(http_parser));
+	_parser->data = (void*)this;
+}
+
+EVHTTPProcessingState::~EVHTTPProcessingState()
+{
+	if (_request) {
+		delete _request;
+		_request = NULL;
+	}
+	if (_response) {
+		delete _response;
+		_response = NULL;
+	}
+	if (_session) {
+		delete _session;
+		_session = NULL;
+	}
+	if (_parser) {
+		free(_parser);
+		_parser = 0;
+	}
+}
+
 void EVHTTPProcessingState::appendToUri(const char *buf, size_t len)
 {
 	_uri.append(buf,len);
@@ -102,6 +140,16 @@ void EVHTTPProcessingState::clearValue()
 	_value.erase();
 }
 
+void EVHTTPProcessingState::headerComplete()
+{
+	_state = HEADER_READ_COMPLETE;
+}
+
+void EVHTTPProcessingState::bodyComplete()
+{
+	_state = BODY_READ_COMPLETE;
+}
+
 static int message_begin_cb (http_parser *p)
 {
 	printf("message_begin_cb\n");
@@ -132,12 +180,22 @@ static int request_url_cb (http_parser *p, const char *buf, size_t len, int inte
 static int headers_complete_cb (http_parser *p)
 {
 	printf("headers_complete_cb\n");
+	char v[EVHTTPProcessingState::MAX_VERSION_LENGTH] = {'\0'};
+	http_version(v,p);
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	e->setVersion(v);
+	e->setMethod(http_method_str((enum http_method)(p->method)));
+	e->headerComplete();
 	return 0;
 }
 
 static int message_complete_cb (http_parser *p)
 {
 	printf("message_complete_cb\n");
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	e->bodyComplete();
 	http_parser_pause(p, 1);
 	//http_parser_pause(p, 0);
 	return 0;
@@ -165,36 +223,6 @@ static int chunk_complete_cb (http_parser *p)
 {
 	printf("chunk_complete_cb\n");
 	return 0;
-}
-
-using Poco::Net::NetException;
-using Poco::Net::MessageException;
-
-EVHTTPProcessingState::EVHTTPProcessingState():
-	_request(0),
-	_response(0),
-	_session(0),
-	_state(HEADER_NOT_READ),
-	_subState(READ_START),
-	_fields(0),
-	_header_field_in_progress(0)
-{
-}
-
-EVHTTPProcessingState::~EVHTTPProcessingState()
-{
-	if (_request) {
-		delete _request;
-		_request = NULL;
-	}
-	if (_response) {
-		delete _response;
-		_response = NULL;
-	}
-	if (_session) {
-		delete _session;
-		_session = NULL;
-	}
 }
 
 

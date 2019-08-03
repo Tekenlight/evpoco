@@ -101,6 +101,8 @@ public:
 	void clearName();
 	void clearValue();
 	int getHeaderFieldInProgress();
+	void bodyComplete();
+	void headerComplete();
 
 
 private:
@@ -119,6 +121,7 @@ private:
 	std::string					_version;
 	int							_fields;
 	chunked_memory_stream		_memory_stream;
+	http_parser*				_parser;
 };
 
 }
