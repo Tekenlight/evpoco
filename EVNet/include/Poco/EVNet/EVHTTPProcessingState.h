@@ -23,6 +23,9 @@
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include <string>
 
+#include <chunked_memory_stream.h>
+#include <http_parser.h>
+
 #ifndef EVNet_EVHTTPProcessingState_INCLUDED
 #define EVNet_EVHTTPProcessingState_INCLUDED
 
@@ -90,11 +93,20 @@ public:
 		DFL_FIELD_LIMIT  = 100
 	};
 	
+	void appendToUri(const char * , size_t);
+	void appendToName(const char * , size_t, int);
+	void appendToValue(const char * , size_t);
+	void setMethod(const char * );
+	void setVersion(const char * );
+	void clearName();
+	void clearValue();
+
 
 private:
 
 	int							_state;
 	int							_subState;
+	int							_header_field_in_progress;
 	EVHTTPServerRequestImpl*	_request;
 	EVHTTPServerResponseImpl*	_response;
 	HTTPServerSession*			_session;
@@ -104,6 +116,7 @@ private:
 	std::string					_uri;
 	std::string					_version;
 	int							_fields;
+	chunked_memory_stream		_memory_stream;
 };
 
 }

@@ -34,6 +34,113 @@
 namespace Poco {
 namespace EVNet {
 
+void EVHTTPProcessingState::appendToUri(const char *buf, size_t len)
+{
+	_uri.append(buf,len);
+}
+
+void EVHTTPProcessingState::appendToName(const char *buf, size_t len, int state)
+{
+	_header_field_in_progress = state;
+	_name.append(buf,len);
+	if (!_header_field_in_progress) _value.erase();
+}
+
+int EVHTTPProcessingState::getHeaderFieldInProgress()
+{
+	return _header_field_in_progress;
+}
+
+void EVHTTPProcessingState::appendToValue(const char *buf, size_t len)
+{
+	_value.append(buf,len);
+}
+
+void EVHTTPProcessingState::setMethod(const char *m)
+{
+	_request->setMethod(m);
+}
+
+void EVHTTPProcessingState::setVersion(const char *v)
+{
+	_request->setVersion(_version);
+}
+
+void EVHTTPProcessingState::clearName()
+{
+	_name.erase();
+}
+
+void EVHTTPProcessingState::clearValue()
+{
+	_value.erase();
+}
+
+static int message_begin_cb (http_parser *p)
+{
+	printf("message_begin_cb\n");
+	return 0;
+}
+
+static int header_field_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	printf("header_field_cb\n");
+	return 0;
+}
+
+static int header_value_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	printf("header_value_cb\n");
+	return 0;
+}
+
+static int request_url_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	printf("request_url_cb\n");
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	
+	e->appendToUri(buf, len);
+	return 0;
+}
+
+static int headers_complete_cb (http_parser *p)
+{
+	printf("headers_complete_cb\n");
+	return 0;
+}
+
+static int message_complete_cb (http_parser *p)
+{
+	printf("message_complete_cb\n");
+	http_parser_pause(p, 1);
+	//http_parser_pause(p, 0);
+	return 0;
+}
+
+static int response_status_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	printf("response_status_cb\n");
+	return 0;
+}
+
+static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	printf("body_cb\n");
+	return 0;
+}
+
+static int chunk_header_cb (http_parser *p)
+{
+	printf("chunk_header_cb\n");
+	return 0;
+}
+
+static int chunk_complete_cb (http_parser *p)
+{
+	printf("chunk_complete_cb\n");
+	return 0;
+}
+
 using Poco::Net::NetException;
 using Poco::Net::MessageException;
 
@@ -43,7 +150,8 @@ EVHTTPProcessingState::EVHTTPProcessingState():
 	_session(0),
 	_state(HEADER_NOT_READ),
 	_subState(READ_START),
-	_fields(0)
+	_fields(0),
+	_header_field_in_progress(0)
 {
 }
 
@@ -297,6 +405,8 @@ int EVHTTPProcessingState::continueReadReqHeader()
 
 	return _state;
 }
+
+/*
 int EVHTTPProcessingState::continueRead()
 {
 	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
@@ -315,11 +425,54 @@ int EVHTTPProcessingState::continueRead()
 
 	return _state;
 }
+*/
+
+int EVHTTPProcessingState::continueRead()
+{
+	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
+	char * buffer = NULL;
+	size_t len = 0;
+	while (1) {
+		buffer = (char*)_memory_stream.get_buffer();
+		len = _memory_stream.get_buffer_len();
+		if (NULL == buffer) {
+			break;
+		}
+	}
+	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
+
+	return _state;
+}
 
 void EVHTTPProcessingState::setSession(HTTPServerSession *session)
 {
 	_session = session;
 	fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
+
+	// All this code is hack
+	ssize_t bytes = 1024;
+	char * buffer = (char*)malloc(1024);
+	int fd = _session->socket().impl()->sockfd();
+	errno = 0;
+	bytes = recv(fd, buffer, 1024 , 0);
+	if ((bytes <= 0) || errno) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			//DEBUGPOINT("%d:%s\n",errno,strerror(errno));
+			return ;
+		}
+		else {
+			const char * error_string = NULL;
+			if (!errno) {
+				error_string = "Peer closed connection";
+			}
+			else {
+				error_string = strerror(errno);
+			}
+			throw NetException(error_string);
+			return ;
+		}
+	}
+	_memory_stream.push(buffer, (size_t)bytes);
 }
 
 HTTPServerSession * EVHTTPProcessingState::getSession()

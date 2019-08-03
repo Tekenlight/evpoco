@@ -9,14 +9,9 @@ POCO_SOURCES_AUTO( SRCS ${SRCS_G})
 file(GLOB_RECURSE HDRS_G "include/*.h" )
 POCO_HEADERS_AUTO( SRCS ${HDRS_G})
 
-message(STATUS "INCLUSION HAS HAPPENED")
-message(STATUS $ENV{LIBEV_INCLUDE_DIR})
-message(STATUS $ENV{LIBEV_LIB})
-set(LIBEV_LIBRARY $ENV{LIBEV_LIB})
+set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
+set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
-include_directories($ENV{LIBEV_INCLUDE_DIR})
-message(STATUS "${OPENSSL_SSL_LIBRARY}")
-message(STATUS "${LIBEV_LIBRARY}")
 
 # Windows and WindowsCE need additional libraries
 if(WIN32)
@@ -36,20 +31,33 @@ set_target_properties( "${LIBNAME}"
     DEFINE_SYMBOL EVNet_EXPORTS
     )
 
-target_link_libraries( "${LIBNAME}" Foundation Net Util ${SYSLIBS} ${LIBEV_LIBRARY})
+foreach(lib ${ADD_LIBRARY_PATH})
+string(APPEND LINK_TIME_FLAGS "-L${lib}")
+string(APPEND LINK_TIME_FLAGS " ")
+endforeach(lib)
+string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
+set(LTF ${LINK_TIME_FLAGS})
+target_link_libraries( "${LIBNAME}" "${LTF}" Foundation Net Util ${SYSLIBS} ev evds)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
+foreach(dir ${ADD_INCLUDE_DIRECTORIES})
+	#include_directories(SYSTEM ${dir})
+	string(APPEND INC_DIRS "-I${dir} ")
+endforeach(dir)
+#string(STRIP ${INC_DIRS} INC_DIRS)
+set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
+
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 
 POCO_INSTALL("${LIBNAME}")
+
 POCO_GENERATE_PACKAGE("${LIBNAME}")
 
 if (ENABLE_TESTS)
     add_subdirectory(samples)
 #	add_subdirectory(testsuite)
 endif ()
-message(STATUS "All seems to have gone well")
