@@ -74,7 +74,7 @@ void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state
 			break;
 		case 1: // Already appended to value, parse is interrupted for want of data.
 			break;
-		case 2: // Signal is to discard the header field.
+		case 2: // Signal is to discard the header value.
 			_value.erase();
 			break;
 		default:
