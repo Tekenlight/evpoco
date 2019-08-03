@@ -103,6 +103,7 @@ public:
 	int getHeaderFieldInProgress();
 	void bodyComplete();
 	void headerComplete();
+	void bodyStarted(char * ptr);
 
 
 private:
@@ -122,6 +123,7 @@ private:
 	int							_fields;
 	chunked_memory_stream		_memory_stream;
 	http_parser*				_parser;
+	char*						_bodyPosition;
 };
 
 }

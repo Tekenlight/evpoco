@@ -1,4 +1,6 @@
 //
+//switch (_state) {
+//}
 // EVHTTPProcessingState.cpp
 //
 // Library: EVHTTPProcessingState
@@ -30,6 +32,8 @@
 #include "Poco/Ascii.h"
 #include "Poco/String.h"
 
+#include <http_parser.h>
+
 
 namespace Poco {
 namespace EVNet {
@@ -50,6 +54,7 @@ EVHTTPProcessingState::EVHTTPProcessingState():
 	_parser = (http_parser*)malloc(sizeof(http_parser));
 	memset(_parser,0,sizeof(http_parser));
 	_parser->data = (void*)this;
+	http_parser_init(_parser,HTTP_REQUEST);
 }
 
 EVHTTPProcessingState::~EVHTTPProcessingState()
@@ -140,6 +145,14 @@ void EVHTTPProcessingState::clearValue()
 	_value.erase();
 }
 
+void EVHTTPProcessingState::bodyStarted(char * ptr)
+{
+	_state = BODY_STARTED;
+	if (_subState < BODY_BEGINING_MARKED) {
+		_subState = BODY_BEGINING_MARKED;
+	}
+}
+
 void EVHTTPProcessingState::headerComplete()
 {
 	_state = HEADER_READ_COMPLETE;
@@ -181,9 +194,9 @@ static int headers_complete_cb (http_parser *p)
 {
 	printf("headers_complete_cb\n");
 	char v[EVHTTPProcessingState::MAX_VERSION_LENGTH] = {'\0'};
-	http_version(v,p);
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
+	http_version(v,p);
 	e->setVersion(v);
 	e->setMethod(http_method_str((enum http_method)(p->method)));
 	e->headerComplete();
@@ -209,6 +222,11 @@ static int response_status_cb (http_parser *p, const char *buf, size_t len, int 
 
 static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
+	void * ptr = (void*)buf;
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	e->bodyStarted((char*)ptr);
+
 	printf("body_cb\n");
 	return 0;
 }
@@ -485,12 +503,29 @@ int EVHTTPProcessingState::continueRead()
 {
 	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 	char * buffer = NULL;
-	size_t len = 0;
+	size_t parsed = 0;
+	http_parser_settings settings = {
+		.on_message_begin = message_begin_cb
+		,.on_header_field = header_field_cb
+		,.on_header_value = header_value_cb
+		,.on_url = request_url_cb
+		,.on_status = response_status_cb
+		,.on_body = body_cb
+		,.on_headers_complete = headers_complete_cb
+		,.on_message_complete = message_complete_cb
+		,.on_chunk_header = chunk_header_cb
+		,.on_chunk_complete = chunk_complete_cb
+	};
+
 	while (1) {
+		size_t len1 = 0, len2 = 0;
 		buffer = (char*)_memory_stream.get_buffer();
-		len = _memory_stream.get_buffer_len();
+		len1 = _memory_stream.get_buffer_len();
 		if (NULL == buffer) {
 			break;
+		}
+		len2 += http_parser_execute(_parser,&settings, buffer, len1);
+		switch (_state) {
 		}
 	}
 	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
