@@ -65,6 +65,7 @@
 
 
 #define DEBUGPOINT(...) { \
+	fflush(stdout); \
     printf("[%p][%s:%d] Reached:",(void*)pthread_self(),__FILE__,__LINE__); \
     printf(__VA_ARGS__);fflush(stdout); \
 }
@@ -81,8 +82,10 @@ namespace Poco {
 			HEADER_NOT_READ = 0,
 			STATUS_LINE_READ,
 			HEADER_READ_COMPLETE,
-			BODY_STARTED,
+			POST_HEADER_READ_COMPLETE,
+			BODY_POSITION_MARKED,
 			BODY_READ_COMPLETE,
+			MESSAGE_COMPLETE,
 			PROCESS_COMPLETE,
 			SERVER_STOPPED
 		};

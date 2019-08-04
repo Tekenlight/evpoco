@@ -147,9 +147,9 @@ void EVHTTPProcessingState::clearValue()
 
 void EVHTTPProcessingState::bodyStarted(char * ptr)
 {
-	_state = BODY_STARTED;
-	if (_subState < BODY_BEGINING_MARKED) {
-		_subState = BODY_BEGINING_MARKED;
+	if (_state < BODY_POSITION_MARKED) {
+		_bodyPosition = ptr;
+		_state = BODY_POSITION_MARKED;
 	}
 }
 
@@ -158,26 +158,23 @@ void EVHTTPProcessingState::headerComplete()
 	_state = HEADER_READ_COMPLETE;
 }
 
-void EVHTTPProcessingState::bodyComplete()
+void EVHTTPProcessingState::messageComplete()
 {
-	_state = BODY_READ_COMPLETE;
+	_state = MESSAGE_COMPLETE;
+}
+
+void EVHTTPProcessingState::messageBegin()
+{
+	_state = HEADER_NOT_READ;
+	_subState = READ_START;
 }
 
 static int message_begin_cb (http_parser *p)
 {
 	printf("message_begin_cb\n");
-	return 0;
-}
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
-static int header_field_cb (http_parser *p, const char *buf, size_t len, int interrupted)
-{
-	printf("header_field_cb\n");
-	return 0;
-}
-
-static int header_value_cb (http_parser *p, const char *buf, size_t len, int interrupted)
-{
-	printf("header_value_cb\n");
+	e->messageBegin();
 	return 0;
 }
 
@@ -190,27 +187,37 @@ static int request_url_cb (http_parser *p, const char *buf, size_t len, int inte
 	return 0;
 }
 
-static int headers_complete_cb (http_parser *p)
+static int header_field_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("headers_complete_cb\n");
-	char v[EVHTTPProcessingState::MAX_VERSION_LENGTH] = {'\0'};
+	printf("header_field_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
-	http_version(v,p);
-	e->setVersion(v);
-	e->setMethod(http_method_str((enum http_method)(p->method)));
-	e->headerComplete();
+	e->appendToName(buf, len, interrupted);
 	return 0;
 }
 
-static int message_complete_cb (http_parser *p)
+static int header_value_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("message_complete_cb\n");
+	printf("header_value_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
-	e->bodyComplete();
+	e->appendToValue(buf, len, interrupted);
+	return 0;
+}
+
+static int headers_complete_cb (http_parser *p)
+{
+	char v[EVHTTPProcessingState::MAX_VERSION_LENGTH] = {'\0'};
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	http_version(v, p);
+	e->setVersion(v);
+	e->setMethod(http_method_str((enum http_method)(p->method)));
+	e->headerComplete();
+
 	http_parser_pause(p, 1);
-	//http_parser_pause(p, 0);
+
+	printf("headers_complete_cb\n");
 	return 0;
 }
 
@@ -222,12 +229,12 @@ static int response_status_cb (http_parser *p, const char *buf, size_t len, int 
 
 static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
+	printf("body_cb\n");
 	void * ptr = (void*)buf;
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
 	e->bodyStarted((char*)ptr);
 
-	printf("body_cb\n");
 	return 0;
 }
 
@@ -240,6 +247,17 @@ static int chunk_header_cb (http_parser *p)
 static int chunk_complete_cb (http_parser *p)
 {
 	printf("chunk_complete_cb\n");
+	return 0;
+}
+
+static int message_complete_cb (http_parser *p)
+{
+	printf("message_complete_cb\n");
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	e->messageComplete();
+	http_parser_pause(p, 1);
+
 	return 0;
 }
 
@@ -510,25 +528,75 @@ int EVHTTPProcessingState::continueRead()
 		,.on_header_value = header_value_cb
 		,.on_url = request_url_cb
 		,.on_status = response_status_cb
-		,.on_body = body_cb
 		,.on_headers_complete = headers_complete_cb
+		,.on_body = body_cb
 		,.on_message_complete = message_complete_cb
 		,.on_chunk_header = chunk_header_cb
 		,.on_chunk_complete = chunk_complete_cb
 	};
 
+	size_t len1 = 0, len2 = 0;
+	void * nodeptr = NULL;
+
+	nodeptr = _memory_stream.get_next(0);
+	buffer = (char*)_memory_stream.get_buffer(nodeptr);
+	len1 = _memory_stream.get_buffer_len(nodeptr);
 	while (1) {
-		size_t len1 = 0, len2 = 0;
-		buffer = (char*)_memory_stream.get_buffer();
-		len1 = _memory_stream.get_buffer_len();
 		if (NULL == buffer) {
 			break;
 		}
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
-		switch (_state) {
+		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
+			DEBUGPOINT("HERE [%s]\n", http_errno_description((enum http_errno)_parser->http_errno));
+			//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
+			return -1;
+		}
+		if (_state < HEADER_READ_COMPLETE) {
+			if (len2 < len1) { 
+				// Should not happen
+				DEBUGPOINT("HERE [%s]\n", http_errno_description((enum http_errno)_parser->http_errno));
+				printf("Should not happen\n");
+				throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
+				return -1;
+			}
+			/* Have not completed reading the headers and the buffer is completely consumed
+			 * */
+			_memory_stream.erase(len2);
+			nodeptr = _memory_stream.get_next(0);
+			buffer = (char*)_memory_stream.get_buffer();
+			len1 = _memory_stream.get_buffer_len();
+			len2 = 0;
+		}
+		else if (_state == HEADER_READ_COMPLETE) {
+			/* Header reading is complete
+			 * Buffer may or may not be completely read yet.
+			 * */
+			DEBUGPOINT("_state = [%d] _subState = [%d] len2 = [%zu]\n",_state, _subState, len2);
+			_memory_stream.erase(len2);
+			/* Since the traversed portion is erased
+			 * We can start from the next position.
+			 * */
+			nodeptr = _memory_stream.get_next(0);
+			buffer = (char*)_memory_stream.get_buffer();
+			len1 = _memory_stream.get_buffer_len();
+			DEBUGPOINT("HI buffer = [%s] len=[%zu] \n", buffer, len1);
+			len2 = 0;
+			http_parser_pause(_parser, 0);
+			_state = POST_HEADER_READ_COMPLETE;
+		}
+		else if (_state == MESSAGE_COMPLETE) {
+			break;
+			/* At this point len2 will indicate the total
+			 * length of the body.
+			 * */
+		}
+		else {
+			nodeptr = _memory_stream.get_next(nodeptr);
+			buffer = (char*)_memory_stream.get_buffer(nodeptr);
+			len1 = _memory_stream.get_buffer_len(nodeptr);
 		}
 	}
-	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
+	DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 
 	return _state;
 }
@@ -541,9 +609,11 @@ void EVHTTPProcessingState::setSession(HTTPServerSession *session)
 	// All this code is hack
 	ssize_t bytes = 1024;
 	char * buffer = (char*)malloc(1024);
+	memset(buffer,0,1024);
 	int fd = _session->socket().impl()->sockfd();
 	errno = 0;
 	bytes = recv(fd, buffer, 1024 , 0);
+	DEBUGPOINT("Recieved %zu bytes\n",bytes);
 	if ((bytes <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			//DEBUGPOINT("%d:%s\n",errno,strerror(errno));

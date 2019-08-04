@@ -29,6 +29,7 @@ using Poco::Net::HTTPServerSession;
 using Poco::Net::NoMessageException;
 using Poco::Net::MessageException;
 using Poco::Net::HTTPMessage;
+using Poco::Net::NetException;
 
 namespace Poco {
 namespace EVNet {
@@ -138,17 +139,28 @@ void EVHTTPServerConnection::evrun()
 		 * Which will read the status-line plus the header fields of the HTTP
 		 * request.
 		 * */
-		if (HEADER_READ_COMPLETE > _reqProcState->getState()) {
+		if (MESSAGE_COMPLETE > _reqProcState->getState()) {
 			/* TBD: 
 			 * Pass the state to reading process, in order to retain 
 			 * partially read name or value within the reading process.
 			 * */
+			DEBUGPOINT("HERE\n");
 			int ret = _reqProcState->continueRead();
+			DEBUGPOINT("HERE\n");
+			if (ret < 0) {
+			DEBUGPOINT("HERE\n");
+				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+				throw NetException("Badly formed HTTP Request");
+				return ;
+			}
 			_reqProcState->setState(ret);
-			if (HEADER_READ_COMPLETE > _reqProcState->getState()) {
+			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
+			DEBUGPOINT("HERE\n");
 				return ;
 			}
 		}
+
+		DEBUGPOINT("Parsed the message completely\n");
 
 		Poco::Timestamp now;
 		response->setDate(now);

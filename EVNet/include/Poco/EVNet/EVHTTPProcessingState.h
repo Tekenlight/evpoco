@@ -101,8 +101,9 @@ public:
 	void clearName();
 	void clearValue();
 	int getHeaderFieldInProgress();
-	void bodyComplete();
+	void messageBegin();
 	void headerComplete();
+	void messageComplete();
 	void bodyStarted(char * ptr);
 
 
