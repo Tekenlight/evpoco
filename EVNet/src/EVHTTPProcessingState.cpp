@@ -534,7 +534,9 @@ int EVHTTPProcessingState::continueRead()
 		,.on_chunk_header = chunk_header_cb
 		,.on_chunk_complete = chunk_complete_cb
 	};
+	static int counter = 0;
 
+	counter ++;
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
@@ -561,17 +563,25 @@ int EVHTTPProcessingState::continueRead()
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
+			DEBUGPOINT("len1 = %zu, len2 = %zu\n",len1, len2);
 			_memory_stream.erase(len2);
 			nodeptr = _memory_stream.get_next(0);
 			buffer = (char*)_memory_stream.get_buffer();
 			len1 = _memory_stream.get_buffer_len();
 			len2 = 0;
+			DEBUGPOINT("len1 = %zu, len2 = %zu\n",len1, len2);
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
 			DEBUGPOINT("_state = [%d] _subState = [%d] len2 = [%zu]\n",_state, _subState, len2);
+			if (HTTP_PARSER_ERRNO(_parser) == HPE_PAUSED) {
+				// This is a dirty fix to a specific error of http_parser
+				// which occurs in case of header only messages and 
+				// http_parser_pause is called in on_headers_complete
+				if ((len1 - len2) == 1) len2++;
+			}
 			_memory_stream.erase(len2);
 			/* Since the traversed portion is erased
 			 * We can start from the next position.
@@ -598,6 +608,7 @@ int EVHTTPProcessingState::continueRead()
 	}
 	DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 
+	if (counter > 10) abort();
 	return _state;
 }
 
