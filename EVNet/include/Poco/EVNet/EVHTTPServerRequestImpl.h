@@ -23,15 +23,19 @@
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/HTTPServerSession.h"
+#include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/Net/HTTPHeaderStream.h"
 #include "Poco/Net/HTTPStream.h"
+#include "Poco/EVNet/EVHTTPStream.h"
 #include "Poco/Net/HTTPFixedLengthStream.h"
+#include "Poco/EVNet/EVHTTPFixedLengthStream.h"
 #include "Poco/Net/HTTPChunkedStream.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/AutoPtr.h"
 #include "Poco/String.h"
 #include <istream>
+#include <chunked_memory_stream.h>
 
 using Poco::Net::HTTPServerRequest;
 //using Poco::Net::HTTPServerResponseImpl;
@@ -66,9 +70,9 @@ class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest
 	/// handleRequest() method of HTTPRequestHandler.
 {
 public:
-	EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, HTTPServerSession& session, HTTPServerParams* pParams);
+	EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, EVHTTPServerSession& session, HTTPServerParams* pParams);
 		/// Creates the EVHTTPServerRequestImpl, using the
-		/// given HTTPServerSession.
+		/// given EVHTTPServerSession.
 
 	//EVHTTPServerRequestImpl(EVHTTPServerResponseImpl &response, StreamSocket& socket, HTTPServerParams* pParams);
 		/// Creates the EVHTTPServerRequestImpl, using the
@@ -77,7 +81,8 @@ public:
 	~EVHTTPServerRequestImpl();
 		/// Destroys the EVHTTPServerRequestImpl.
 		
-	std::istream& stream();
+	virtual std::istream& stream();
+	std::istream* streamp();
 		/// Returns the input stream for reading
 		/// the request body.
 		///
@@ -110,12 +115,12 @@ public:
 		/// Returns the underlying socket after detaching
 		/// it from the server session.
 		
-	void formInputStream();
+	void formInputStream(chunked_memory_stream *);
 		/// Sets up the mechanism for reading of inputs from socket etc.
 	
 private:
 	EVHTTPServerResponseImpl&       _response;
-	HTTPServerSession&              _session;
+	EVHTTPServerSession&            _session;
 	//StreamSocket&					_socket;
 	std::istream*                   _pStream;
 	Poco::AutoPtr<HTTPServerParams> _pParams;
@@ -128,6 +133,7 @@ private:
 // inlines
 //
 //
+
 inline std::istream& EVHTTPServerRequestImpl::stream()
 {
 	poco_check_ptr (_pStream);
@@ -135,6 +141,12 @@ inline std::istream& EVHTTPServerRequestImpl::stream()
 	return *_pStream;
 }
 
+inline std::istream* EVHTTPServerRequestImpl::streamp()
+{
+	//poco_check_ptr (_pStream);
+	
+	return _pStream;
+}
 
 inline const SocketAddress& EVHTTPServerRequestImpl::clientAddress() const
 {

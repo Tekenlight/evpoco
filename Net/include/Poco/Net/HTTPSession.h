@@ -123,6 +123,19 @@ public:
 	bool getSockFdForReuse() ;
 		/// Returns the value of sockFdForReuse
 
+	virtual int read(char* buffer, std::streamsize length);
+		/// Reads up to length bytes.
+		///
+		/// If there is data in the buffer, this data
+		/// is returned. Otherwise, data is read from
+		/// the socket to avoid unnecessary buffering.
+	
+	virtual int write(const char* buffer, std::streamsize length);
+		/// Writes data to the socket.
+
+	virtual int receive(char* buffer, int length);
+		/// Reads up to length bytes.
+		
 protected:
 	HTTPSession();
 		/// Creates a HTTP session using an
@@ -153,19 +166,6 @@ protected:
 		/// Peeks at the next character in the buffer.
 		/// Reads more data from the socket if there are
 		/// no bytes left in the buffer.
-		
-	virtual int read(char* buffer, std::streamsize length);
-		/// Reads up to length bytes.
-		///
-		/// If there is data in the buffer, this data
-		/// is returned. Otherwise, data is read from
-		/// the socket to avoid unnecessary buffering.
-	
-	virtual int write(const char* buffer, std::streamsize length);
-		/// Writes data to the socket.
-
-	int receive(char* buffer, int length);
-		/// Reads up to length bytes.
 		
 	int buffered() const;
 		/// Returns the number of bytes in the buffer.

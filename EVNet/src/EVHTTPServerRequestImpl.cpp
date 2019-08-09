@@ -31,7 +31,7 @@ namespace EVNet {
  *
  * */
 EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response,
-													HTTPServerSession& session,
+													EVHTTPServerSession& session,
 													HTTPServerParams* pParams):
 	_response(response),
 	_pStream(0),
@@ -44,7 +44,7 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_serverAddress = _session.clientAddress();
 }
 
-void EVHTTPServerRequestImpl::formInputStream()
+void EVHTTPServerRequestImpl::formInputStream(chunked_memory_stream * mem_inp_stream)
 {
 	// Now that we know socket is still connected, obtain addresses
 	_clientAddress = _session.clientAddress();
@@ -55,22 +55,24 @@ void EVHTTPServerRequestImpl::formInputStream()
 	}
 	else if (hasContentLength()) {
 #if defined(POCO_HAVE_INT64)
-		_pStream = new HTTPFixedLengthInputStream(_session, getContentLength64());
+		_pStream = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength64());
+		DEBUGPOINT("Fixed Length %ld\n",getContentLength64() );
 #else
-		_pStream = new HTTPFixedLengthInputStream(_session, getContentLength());
+		_pStream = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength());
+		DEBUGPOINT("Fixed Length %ld\n",getContentLength() );
 #endif
 	}
 	else if (getMethod() == HTTPRequest::HTTP_GET ||
 			getMethod() == HTTPRequest::HTTP_HEAD || getMethod() == HTTPRequest::HTTP_DELETE) {
-		_pStream = new HTTPFixedLengthInputStream(_session, 0);
+		_pStream = new EVHTTPFixedLengthInputStream(mem_inp_stream, 0);
 	}
 	else {
-		_pStream = new HTTPInputStream(_session);
+		_pStream = new EVHTTPInputStream(mem_inp_stream);
 	}
 }
 
 /*
-EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, HTTPServerSession& session, HTTPServerParams* pParams):
+EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, EVHTTPServerSession& session, HTTPServerParams* pParams):
 	_session(session),
 	_pStream(0),
 	_pParams(pParams, true)
@@ -122,6 +124,7 @@ StreamSocket& EVHTTPServerRequestImpl::socket()
 {
 	return _session.socket();
 }
+
 
 
 } } // namespace Poco::EVNet

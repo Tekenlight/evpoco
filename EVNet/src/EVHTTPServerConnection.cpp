@@ -12,9 +12,10 @@
 //
 
 
+#include <chunked_memory_stream.h>
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVHTTPServerConnection.h"
-#include "Poco/Net/HTTPServerSession.h"
+#include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -40,8 +41,10 @@ EVHTTPServerConnection::EVHTTPServerConnection(StreamSocket& socket, HTTPServerP
 	_pParams(pParams),
 	_pFactory(pFactory),
 	_stopped(false),
-	_reqProcState(0)
+	_reqProcState(0),
+	_mem_stream(0)
 {
+	_mem_stream = 0;
 	poco_check_ptr (pFactory);
 	
 	_pFactory->serverStopped += Poco::delegate(this, &EVHTTPServerConnection::onServerStopped);
@@ -100,12 +103,19 @@ void EVHTTPServerConnection::evrun()
 	std::string server = _pParams->getSoftwareVersion();
 	//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
 			//socket().impl()->referenceCount());
-	HTTPServerSession * session = NULL;
+	EVHTTPServerSession * session = NULL;
 	if (_stopped) return ;
+
+	if(0 == _mem_stream)
+		_mem_stream = new chunked_memory_stream();
+
+	if (!_reqProcState->getMemStream()) {
+		_reqProcState->setMemStream(_mem_stream);
+	}
 
 	session = _reqProcState->getSession();
 	if (!session) {
-		session = new HTTPServerSession(socket(), _pParams);
+		session = new EVHTTPServerSession(_mem_stream, socket(), _pParams);
 		_reqProcState->setSession(session);
 	}
 	session->setSockFdForReuse(true);
@@ -117,11 +127,13 @@ void EVHTTPServerConnection::evrun()
 		request = _reqProcState->getRequest();
 		response = _reqProcState->getResponse();
 		if (!response) {
+			DEBUGPOINT("CREATING THE RESPONSE\n");
 			response = new EVHTTPServerResponseImpl(*session);
 			_reqProcState->setResponse(response);
 		}
 
 		if (!request) {
+			DEBUGPOINT("CREATING THE REQUEST\n");
 			request = new EVHTTPServerRequestImpl(*response, *session, _pParams);
 			//response->attachRequest(request);
 			_reqProcState->setRequest(request);
@@ -144,18 +156,14 @@ void EVHTTPServerConnection::evrun()
 			 * Pass the state to reading process, in order to retain 
 			 * partially read name or value within the reading process.
 			 * */
-			DEBUGPOINT("HERE\n");
 			int ret = _reqProcState->continueRead();
-			DEBUGPOINT("HERE\n");
 			if (ret < 0) {
-			DEBUGPOINT("HERE\n");
 				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 				throw NetException("Badly formed HTTP Request");
 				return ;
 			}
 			_reqProcState->setState(ret);
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
-			DEBUGPOINT("HERE\n");
 				return ;
 			}
 		}

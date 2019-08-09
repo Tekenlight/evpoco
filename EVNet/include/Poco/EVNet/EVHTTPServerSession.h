@@ -18,6 +18,7 @@
 #define EVNet_EVHTTPServerSession_INCLUDED
 
 
+#include <chunked_memory_stream.h>
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/Net/HTTPSession.h"
 #include "Poco/Net/SocketAddress.h"
@@ -38,7 +39,7 @@ class Net_API EVHTTPServerSession: public Net::HTTPServerSession
 	/// HTTPServer.
 {
 public:
-	EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
+	EVHTTPServerSession(chunked_memory_stream * mem_stream, const StreamSocket& socket, HTTPServerParams::Ptr pParams);
 		/// Creates the EVHTTPServerSession.
 	
 	virtual ~EVHTTPServerSession();
@@ -49,9 +50,12 @@ public:
 	
 	bool canKeepAlive() const;
 		/// Returns true if the session can be kept alive.
+
+	virtual int receive(char* buffer, int length);
 		
 private:
 	bool           _firstRequest;
+	chunked_memory_stream *_mem_stream;
 };
 
 

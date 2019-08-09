@@ -49,7 +49,8 @@ EVHTTPProcessingState::EVHTTPProcessingState():
 	_subState(READ_START),
 	_fields(0),
 	_header_field_in_progress(0),
-	_parser(0)
+	_parser(0),
+	_memory_stream(0)
 {
 	_parser = (http_parser*)malloc(sizeof(http_parser));
 	memset(_parser,0,sizeof(http_parser));
@@ -80,6 +81,7 @@ EVHTTPProcessingState::~EVHTTPProcessingState()
 void EVHTTPProcessingState::appendToUri(const char *buf, size_t len)
 {
 	_uri.append(buf,len);
+	_request->setURI(_uri);
 }
 
 void EVHTTPProcessingState::appendToName(const char *buf, size_t len, int state)
@@ -109,7 +111,7 @@ void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state
 {
 	_header_value_in_progress = state;
 	_value.append(buf,len);
-	switch (_header_field_in_progress) {
+	switch (_header_value_in_progress) {
 		case 0:
 			_request->add(_name, _request->decodeWord(_value));
 			_name.erase();
@@ -132,6 +134,7 @@ void EVHTTPProcessingState::setMethod(const char *m)
 
 void EVHTTPProcessingState::setVersion(const char *v)
 {
+	_version.assign(v);
 	_request->setVersion(_version);
 }
 
@@ -171,7 +174,7 @@ void EVHTTPProcessingState::messageBegin()
 
 static int message_begin_cb (http_parser *p)
 {
-	printf("message_begin_cb\n");
+	//printf("message_begin_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
 	e->messageBegin();
@@ -180,7 +183,7 @@ static int message_begin_cb (http_parser *p)
 
 static int request_url_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("request_url_cb\n");
+	//printf("request_url_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 	
 	e->appendToUri(buf, len);
@@ -189,7 +192,7 @@ static int request_url_cb (http_parser *p, const char *buf, size_t len, int inte
 
 static int header_field_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("header_field_cb\n");
+	//printf("header_field_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
 	e->appendToName(buf, len, interrupted);
@@ -198,9 +201,9 @@ static int header_field_cb (http_parser *p, const char *buf, size_t len, int int
 
 static int header_value_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("header_value_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
+	//printf("header_value_cb interrupted = %d\n",interrupted);
 	e->appendToValue(buf, len, interrupted);
 	return 0;
 }
@@ -217,19 +220,19 @@ static int headers_complete_cb (http_parser *p)
 
 	http_parser_pause(p, 1);
 
-	printf("headers_complete_cb\n");
+	//printf("headers_complete_cb\n");
 	return 0;
 }
 
 static int response_status_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("response_status_cb\n");
+	//printf("response_status_cb\n");
 	return 0;
 }
 
 static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	printf("body_cb\n");
+	//printf("body_cb\n");
 	void * ptr = (void*)buf;
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
@@ -240,19 +243,19 @@ static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted
 
 static int chunk_header_cb (http_parser *p)
 {
-	printf("chunk_header_cb\n");
+	//printf("chunk_header_cb\n");
 	return 0;
 }
 
 static int chunk_complete_cb (http_parser *p)
 {
-	printf("chunk_complete_cb\n");
+	//printf("chunk_complete_cb\n");
 	return 0;
 }
 
 static int message_complete_cb (http_parser *p)
 {
-	printf("message_complete_cb\n");
+	//printf("message_complete_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
 	e->messageComplete();
@@ -320,7 +323,6 @@ int EVHTTPProcessingState::readByte(int * chptr)
 	ret = recv(fd, chptr, 1 , 0);
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			//DEBUGPOINT("%d:%s\n",errno,strerror(errno));
 			return 0;
 		}
 		else {
@@ -499,7 +501,6 @@ int EVHTTPProcessingState::continueReadReqHeader()
 /*
 int EVHTTPProcessingState::continueRead()
 {
-	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 	switch (_state) {
 		case HEADER_NOT_READ:
 			if (readStatusLine() != STATUS_LINE_READ) break;
@@ -511,7 +512,6 @@ int EVHTTPProcessingState::continueRead()
 		default:
 			break;
 	}
-	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 
 	return _state;
 }
@@ -540,79 +540,71 @@ int EVHTTPProcessingState::continueRead()
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
-	nodeptr = _memory_stream.get_next(0);
-	buffer = (char*)_memory_stream.get_buffer(nodeptr);
-	len1 = _memory_stream.get_buffer_len(nodeptr);
+	nodeptr = _memory_stream->get_next(0);
+	buffer = (char*)_memory_stream->get_buffer(nodeptr);
+	len1 = _memory_stream->get_buffer_len(nodeptr);
 	while (1) {
 		if (NULL == buffer) {
 			break;
 		}
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
-			DEBUGPOINT("HERE [%s]\n", http_errno_description((enum http_errno)_parser->http_errno));
 			//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 			return -1;
 		}
 		if (_state < HEADER_READ_COMPLETE) {
 			if (len2 < len1) { 
 				// Should not happen
-				DEBUGPOINT("HERE [%s]\n", http_errno_description((enum http_errno)_parser->http_errno));
-				printf("Should not happen\n");
-				throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
+				//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 				return -1;
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
-			DEBUGPOINT("len1 = %zu, len2 = %zu\n",len1, len2);
-			_memory_stream.erase(len2);
-			nodeptr = _memory_stream.get_next(0);
-			buffer = (char*)_memory_stream.get_buffer();
-			len1 = _memory_stream.get_buffer_len();
+			_memory_stream->erase(len2);
+			nodeptr = _memory_stream->get_next(0);
+			buffer = (char*)_memory_stream->get_buffer();
+			len1 = _memory_stream->get_buffer_len();
 			len2 = 0;
-			DEBUGPOINT("len1 = %zu, len2 = %zu\n",len1, len2);
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
-			DEBUGPOINT("_state = [%d] _subState = [%d] len2 = [%zu]\n",_state, _subState, len2);
-			if (HTTP_PARSER_ERRNO(_parser) == HPE_PAUSED) {
-				// This is a dirty fix to a specific error of http_parser
-				// which occurs in case of header only messages and 
-				// http_parser_pause is called in on_headers_complete
-				if ((len1 - len2) == 1) len2++;
-			}
-			_memory_stream.erase(len2);
+			_memory_stream->erase(len2);
 			/* Since the traversed portion is erased
 			 * We can start from the next position.
 			 * */
-			nodeptr = _memory_stream.get_next(0);
-			buffer = (char*)_memory_stream.get_buffer();
-			len1 = _memory_stream.get_buffer_len();
-			DEBUGPOINT("HI buffer = [%s] len=[%zu] \n", buffer, len1);
+			nodeptr = _memory_stream->get_next(0);
+			buffer = (char*)_memory_stream->get_buffer();
+			len1 = _memory_stream->get_buffer_len();
 			len2 = 0;
 			http_parser_pause(_parser, 0);
 			_state = POST_HEADER_READ_COMPLETE;
 		}
 		else if (_state == MESSAGE_COMPLETE) {
+			if (http_header_only_message(_parser)) {
+				_memory_stream->erase(len2);
+			}
+			else {
+				/* At this point len2 will indicate the total
+				 * length of the body.
+				 * */
+			}
 			break;
-			/* At this point len2 will indicate the total
-			 * length of the body.
-			 * */
 		}
 		else {
-			nodeptr = _memory_stream.get_next(nodeptr);
-			buffer = (char*)_memory_stream.get_buffer(nodeptr);
-			len1 = _memory_stream.get_buffer_len(nodeptr);
+			nodeptr = _memory_stream->get_next(nodeptr);
+			buffer = (char*)_memory_stream->get_buffer(nodeptr);
+			len1 = _memory_stream->get_buffer_len(nodeptr);
 		}
 	}
-	DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
+	DEBUGPOINT("_state = [%d] _subState = [%d] len = [%zu]\n",_state, _subState, len2);
 
-	if (counter > 10) abort();
+	if (_state == MESSAGE_COMPLETE) _request->formInputStream(_memory_stream);
 	return _state;
 }
 
-void EVHTTPProcessingState::setSession(HTTPServerSession *session)
+void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 {
 	_session = session;
 	fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
@@ -624,10 +616,8 @@ void EVHTTPProcessingState::setSession(HTTPServerSession *session)
 	int fd = _session->socket().impl()->sockfd();
 	errno = 0;
 	bytes = recv(fd, buffer, 1024 , 0);
-	DEBUGPOINT("Recieved %zu bytes\n",bytes);
 	if ((bytes <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			//DEBUGPOINT("%d:%s\n",errno,strerror(errno));
 			return ;
 		}
 		else {
@@ -642,14 +632,23 @@ void EVHTTPProcessingState::setSession(HTTPServerSession *session)
 			return ;
 		}
 	}
-	_memory_stream.push(buffer, (size_t)bytes);
+	_memory_stream->push(buffer, (size_t)bytes);
 }
 
-HTTPServerSession * EVHTTPProcessingState::getSession()
+void EVHTTPProcessingState::setMemStream(chunked_memory_stream *memory_stream)
+{
+	_memory_stream = memory_stream;
+}
+
+chunked_memory_stream* EVHTTPProcessingState::getMemStream()
+{
+	return _memory_stream;
+}
+
+EVHTTPServerSession * EVHTTPProcessingState::getSession()
 {
 	return _session;
 }
-
 
 }
 } // End namespace Poco::EVNet

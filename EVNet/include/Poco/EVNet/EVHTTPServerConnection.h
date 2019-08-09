@@ -17,12 +17,13 @@
 #ifndef EVNet_EVHTTPServerConnection_INCLUDED
 #define EVNet_EVHTTPServerConnection_INCLUDED
 
+#include <chunked_memory_stream.h>
 
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVTCPServerConnection.h"
 #include "Poco/Net/HTTPResponse.h"
-#include "Poco/Net/HTTPServerSession.h"
+#include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/HTTPServerParams.h"
@@ -74,6 +75,7 @@ private:
 	bool								_stopped;
 	Poco::FastMutex						_mutex;
 	EVHTTPProcessingState*				_reqProcState;
+	chunked_memory_stream				*_mem_stream;
 };
 
 

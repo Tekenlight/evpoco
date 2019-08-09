@@ -18,6 +18,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
+#include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/EVNet/EVProcessingState.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
@@ -48,8 +49,8 @@ public:
 	EVHTTPServerRequestImpl * getRequest();
 	void setResponse(EVHTTPServerResponseImpl * resp);
 	EVHTTPServerResponseImpl * getResponse();
-	void setSession(HTTPServerSession *);
-	HTTPServerSession * getSession();
+	void setSession(EVHTTPServerSession *);
+	EVHTTPServerSession * getSession();
 	virtual int getState();
 	void setState(int state);
 	std::string getCurName();
@@ -105,6 +106,8 @@ public:
 	void headerComplete();
 	void messageComplete();
 	void bodyStarted(char * ptr);
+	void setMemStream(chunked_memory_stream *);
+	chunked_memory_stream* getMemStream();
 
 
 private:
@@ -115,14 +118,14 @@ private:
 	int							_header_value_in_progress;
 	EVHTTPServerRequestImpl*	_request;
 	EVHTTPServerResponseImpl*	_response;
-	HTTPServerSession*			_session;
+	EVHTTPServerSession*		_session;
 	std::string					_name;
 	std::string					_value;
 	std::string					_method;
 	std::string					_uri;
 	std::string					_version;
 	int							_fields;
-	chunked_memory_stream		_memory_stream;
+	chunked_memory_stream		*_memory_stream;
 	http_parser*				_parser;
 	char*						_bodyPosition;
 };
