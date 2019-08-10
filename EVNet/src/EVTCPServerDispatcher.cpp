@@ -137,8 +137,10 @@ void EVTCPServerDispatcher::run()
 							//pCNf->socket()->getStreamSocket().impl()->referenceCount());
 					poco_check_ptr(pConnection.get());
 					beginConnection();
-					if (!pCNf->socket()->getProcState())
+					if (!(pCNf->socket()->getProcState())) {
 						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
+					}
+					pCNf->socket()->getProcState()->setMemStream(pCNf->socket()->getMemStream());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();

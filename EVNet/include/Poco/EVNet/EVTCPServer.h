@@ -225,13 +225,15 @@ private:
 	static const std::string NUM_CONNECTIONS_CFG_NAME;
 	static const std::string SERVER_PREFIX_CFG_NAME;
 
+	static const int TCP_BUFFER_SIZE = 1024;
+
 	EVTCPServer();
 	EVTCPServer(const EVTCPServer&);
 	EVTCPServer& operator = (const EVTCPServer&);
 	
 	void handleConnReq(const bool& abortCurrent);
 		/// Function to handle the event of socket receiving a connection request.
-	void handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_occured);
+	ssize_t handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
 	void reqProcComplete(StreamSocket & streamSocket);
 		/// Function to handle the event of completion of one request.
@@ -242,6 +244,7 @@ private:
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
+	ssize_t receiveData(int fd, void * chptr, size_t size);
 
 	ServerSocket					_socket;
 	EVTCPServerDispatcher*			_pDispatcher;
@@ -269,7 +272,7 @@ typedef struct {
 	sockReAcquireMethod procComplete;
 } strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
 
-typedef void (EVTCPServer::*dataAvlblMethod)(StreamSocket &, const bool& );
+typedef ssize_t (EVTCPServer::*dataAvlblMethod)(StreamSocket &, const bool& );
 typedef struct {
 	EVTCPServer *objPtr;
 	dataAvlblMethod dataAvailable;

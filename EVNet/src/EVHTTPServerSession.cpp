@@ -30,6 +30,7 @@ EVHTTPServerSession::EVHTTPServerSession(chunked_memory_stream * mem_stream, con
 
 EVHTTPServerSession::~EVHTTPServerSession()
 {
+	_mem_stream = 0;
 }
 				
 bool EVHTTPServerSession::hasMoreRequests()

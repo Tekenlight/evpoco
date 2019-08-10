@@ -36,7 +36,8 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_response(response),
 	_pStream(0),
 	_session(session),
-	_pParams(pParams, true)
+	_pParams(pParams, true),
+	_contentLength(0)
 {
 	response.attachRequest(this);
 	// Now that we know socket is still connected, obtain addresses
@@ -56,10 +57,8 @@ void EVHTTPServerRequestImpl::formInputStream(chunked_memory_stream * mem_inp_st
 	else if (hasContentLength()) {
 #if defined(POCO_HAVE_INT64)
 		_pStream = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength64());
-		DEBUGPOINT("Fixed Length %ld\n",getContentLength64() );
 #else
 		_pStream = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength());
-		DEBUGPOINT("Fixed Length %ld\n",getContentLength() );
 #endif
 	}
 	else if (getMethod() == HTTPRequest::HTTP_GET ||

@@ -16,6 +16,7 @@
 //
 
 
+#include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
 
 #ifndef EVNet_EVProcessingState_INCLUDED
@@ -37,6 +38,7 @@ public:
 	EVProcessingState();
 	virtual int getState() = 0;
 	virtual ~EVProcessingState();
+	virtual void setMemStream(chunked_memory_stream *memory_stream) = 0;
 
 
 };

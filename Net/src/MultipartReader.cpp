@@ -205,6 +205,7 @@ void MultipartReader::nextPart(MessageHeader& messageHeader)
 	}
 	else if (_pMPI->lastPart())
 	{
+		printf("%s:%d Here\n",__FILE__,__LINE__);
 		throw MultipartException("No more parts available");
 	}
 	parseHeader(messageHeader);
@@ -246,7 +247,10 @@ void MultipartReader::findFirstBoundary()
 	}
 	while (ok && line != expect);
 
-	if (!ok) throw MultipartException("No boundary line found");
+	if (!ok) {
+		printf("%s:%d Here\n",__FILE__,__LINE__);
+		throw MultipartException("No boundary line found");
+	}
 }
 
 
@@ -265,14 +269,19 @@ void MultipartReader::guessBoundary()
 			_boundary += (char) _istr.get();
 			ch = _istr.peek();
 		}
-		if (ch != '\r' && ch != '\n')
+		if (ch != '\r' && ch != '\n') {
+		printf("%s:%d Here\n",__FILE__,__LINE__);
 			throw MultipartException("Invalid boundary line found");
+		}
 		if (ch == '\r' || ch == '\n')
 			_istr.get();
 		if (_istr.peek() == '\n')
 			_istr.get();
 	}
-	else throw MultipartException("No boundary line found");
+	else {
+		printf("%s:%d Here\n",__FILE__,__LINE__);
+		throw MultipartException("No boundary line found");
+	}
 }
 
 

@@ -127,13 +127,11 @@ void EVHTTPServerConnection::evrun()
 		request = _reqProcState->getRequest();
 		response = _reqProcState->getResponse();
 		if (!response) {
-			DEBUGPOINT("CREATING THE RESPONSE\n");
 			response = new EVHTTPServerResponseImpl(*session);
 			_reqProcState->setResponse(response);
 		}
 
 		if (!request) {
-			DEBUGPOINT("CREATING THE REQUEST\n");
 			request = new EVHTTPServerRequestImpl(*response, *session, _pParams);
 			//response->attachRequest(request);
 			_reqProcState->setRequest(request);

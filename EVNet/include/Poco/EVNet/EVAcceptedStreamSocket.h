@@ -14,6 +14,7 @@
 
 #include <ev.h>
 #include <sys/time.h>
+#include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/EVNet/EVProcessingState.h"
@@ -70,7 +71,11 @@ public:
 	
 	void setSockBusy();
 	// Sets the _sockBusy glag to true.
-	//
+
+	size_t push(void * buffer, size_t size);
+	// Transfers the bytes read from socket to the stream.
+
+	bool dataAvlbl();
 	
 	bool sockBusy();
 
@@ -82,6 +87,7 @@ public:
 	void setPrevPtr(EVAcceptedStreamSocket * ptr);
 	EVAcceptedStreamSocket * getNextPtr();
 	EVAcceptedStreamSocket * getPrevPtr();
+	chunked_memory_stream * getMemStream();
 	void deleteState();
 
 private:
@@ -93,6 +99,7 @@ private:
 	EVAcceptedStreamSocket*		_nextPtr;
 	bool						_sockBusy;
 	EVProcessingState*			_reqProcState;
+	chunked_memory_stream*		_memory_stream;
 };
 
 

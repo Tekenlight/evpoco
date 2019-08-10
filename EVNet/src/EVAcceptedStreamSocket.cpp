@@ -26,11 +26,13 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 	_prevPtr(0),
 	_nextPtr(0),
 	_sockBusy(false),
-	_reqProcState(0)
+	_reqProcState(0),
+	_memory_stream(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec * 1000000 + tv.tv_usec;
+	_memory_stream = new chunked_memory_stream();
 }
 
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
@@ -41,7 +43,8 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 			free((void*)(this->_libevSocketWatcherPtr->data));
 		free(this->_libevSocketWatcherPtr);
 	}
-	if (this->_reqProcState) delete _reqProcState;
+	if (this->_reqProcState) delete this->_reqProcState;
+	if (this->_memory_stream) delete this->_memory_stream;
 }
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
@@ -124,6 +127,21 @@ void EVAcceptedStreamSocket::deleteState()
 	return;
 }
 
+size_t EVAcceptedStreamSocket::push(void * buffer, size_t size)
+{
+	return _memory_stream->push(buffer, size);
+}
+
+bool EVAcceptedStreamSocket::dataAvlbl()
+{
+	int c = 0;
+	return (_memory_stream->copy(0, &c, 1) > 0);
+}
+
+chunked_memory_stream * EVAcceptedStreamSocket::getMemStream()
+{
+	return _memory_stream;
+}
 
 } } // namespace EVNet and Poco end.
 

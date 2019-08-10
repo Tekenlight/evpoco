@@ -345,12 +345,16 @@ void HTMLForm::readMultipart(std::istream& istr, PartHandler& handler)
 
 	int fields = 0;
 	MultipartReader reader(istr, _boundary);
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 	while (reader.hasNextPart())
 	{
 		if (_fieldLimit > 0 && fields == _fieldLimit)
 			throw HTMLFormException("Too many form fields");
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 		MessageHeader header;
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 		reader.nextPart(header);
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 		std::string disp;
 		NameValueCollection params;
 		if (header.has("Content-Disposition"))
@@ -358,11 +362,13 @@ void HTMLForm::readMultipart(std::istream& istr, PartHandler& handler)
 			std::string cd = header.get("Content-Disposition");
 			MessageHeader::splitParameters(cd, disp, params);
 		}
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 		if (params.has("filename"))
 		{
 			handler.handlePart(header, reader.stream());
 			// Ensure that the complete part has been read.
-			while (reader.stream().good()) reader.stream().get();
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
+			while (reader.stream().good()) { reader.stream().get(); putchar('a'); }
 		}
 		else
 		{
@@ -380,6 +386,7 @@ void HTMLForm::readMultipart(std::istream& istr, PartHandler& handler)
 			}
 			add(name, value);
 		}
+	printf("%s:%d Reached here\n", __FILE__, __LINE__);
 		++fields;
 	}
 }

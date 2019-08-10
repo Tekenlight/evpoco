@@ -117,6 +117,8 @@ public:
 		
 	void formInputStream(chunked_memory_stream *);
 		/// Sets up the mechanism for reading of inputs from socket etc.
+		//
+	void setContentLength(unsigned long);
 	
 private:
 	EVHTTPServerResponseImpl&       _response;
@@ -126,6 +128,7 @@ private:
 	Poco::AutoPtr<HTTPServerParams> _pParams;
 	SocketAddress                   _clientAddress;
 	SocketAddress                   _serverAddress;
+	unsigned long					_contentLength;
 };
 
 
@@ -171,7 +174,10 @@ inline HTTPServerResponse& EVHTTPServerRequestImpl::response() const
 	return _response;
 }
 
-
+inline void EVHTTPServerRequestImpl::setContentLength(unsigned long l)
+{
+	_contentLength = l;
+}
 
 } } // namespace Poco::EVNet
 

@@ -21,6 +21,9 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <ev_buffered_stream.h>
+#include <istream>
+
 
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
@@ -114,6 +117,7 @@ void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state
 	switch (_header_value_in_progress) {
 		case 0:
 			_request->add(_name, _request->decodeWord(_value));
+			printf("Added %s : %s\n",_name.c_str(), _value.c_str());
 			_name.erase();
 			_value.erase();
 			break;
@@ -534,9 +538,7 @@ int EVHTTPProcessingState::continueRead()
 		,.on_chunk_header = chunk_header_cb
 		,.on_chunk_complete = chunk_complete_cb
 	};
-	static int counter = 0;
 
-	counter ++;
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
@@ -560,6 +562,7 @@ int EVHTTPProcessingState::continueRead()
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
+			//DEBUGPOINT("ERASING %zu\n", len2);
 			_memory_stream->erase(len2);
 			nodeptr = _memory_stream->get_next(0);
 			buffer = (char*)_memory_stream->get_buffer();
@@ -570,7 +573,10 @@ int EVHTTPProcessingState::continueRead()
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
+			//DEBUGPOINT("ERASING %zu\n", len2);
 			_memory_stream->erase(len2);
+
+			//DEBUGPOINT("This remained in header parsing [%d]\n", c);
 			/* Since the traversed portion is erased
 			 * We can start from the next position.
 			 * */
@@ -580,15 +586,35 @@ int EVHTTPProcessingState::continueRead()
 			len2 = 0;
 			http_parser_pause(_parser, 0);
 			_state = POST_HEADER_READ_COMPLETE;
+			_request->setContentLength(_parser->header_content_length);
 		}
 		else if (_state == MESSAGE_COMPLETE) {
+			/*
 			if (http_header_only_message(_parser)) {
+				//DEBUGPOINT("ERASING %zu\n", len2);
 				_memory_stream->erase(len2);
+				len2 = 0;
 			}
 			else {
-				/* At this point len2 will indicate the total
-				 * length of the body.
-				 * */
+			*/
+			/* At this point len2 will indicate the total
+			 * length of the body + 1.
+			}
+			 * */
+
+			/* This is a hack to circumvent the issue caused by combination of
+			 * http_parser_execute when on_headers_complete event is registered and
+			 * the strategy  of erasing the header.
+			 * The index in http_parser_execute stops at the last character of the header
+			 * segment, which is a newline (char 10) and we erase the buffer here till the
+			 * previous char.
+			 * In such a situation we should erase it by one more char.
+			 * */
+			int n = 0, c = 0;
+			n = _memory_stream->copy(0, &c, 1);
+			if (n && (c == 10)) {
+				//DEBUGPOINT("Erasing char %d\n",c);
+				_memory_stream->erase(1);
 			}
 			break;
 		}
@@ -598,24 +624,50 @@ int EVHTTPProcessingState::continueRead()
 			len1 = _memory_stream->get_buffer_len(nodeptr);
 		}
 	}
-	DEBUGPOINT("_state = [%d] _subState = [%d] len = [%zu]\n",_state, _subState, len2);
+	//DEBUGPOINT("_state = [%d] _subState = [%d] len = [%zu]\n",_state, _subState, len2);
+	//DEBUGPOINT("Content length = [%llu]\n", _parser->header_content_length);
 
-	if (_state == MESSAGE_COMPLETE) _request->formInputStream(_memory_stream);
+	//if ((enum http_method)(_parser->method)) == HTTP_POST)
+	/*
+	if (_state == MESSAGE_COMPLETE) {
+		int i = 0, cl = _parser->header_content_length;
+		ev_buffered_stream buf(_memory_stream, 1024, 8192);
+		std::istream is(&buf);
+		int c = 0;
+		printf("\r\n");
+		while ((EOF != (c = is.get()) && (i < cl))) {
+			i++;
+			putchar(c);
+		}
+		puts("");
+		printf("i=%d c=%d\n", i, cl);
+		puts("done");
+		if (cl != i) puts("Probably, the header parsing did not consume the complete part");
+	}
+	*/
+
+	if (_state == MESSAGE_COMPLETE) {
+		_request->formInputStream(_memory_stream);
+		memset(_parser,0,sizeof(http_parser));
+		_parser->data = (void*)this;
+		http_parser_init(_parser,HTTP_REQUEST);
+	}
 	return _state;
 }
 
 void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 {
 	_session = session;
-	fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
+	//fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
 
+	/*
 	// All this code is hack
-	ssize_t bytes = 1024;
-	char * buffer = (char*)malloc(1024);
+	ssize_t bytes = 2048;
+	char * buffer = (char*)malloc(2048);
 	memset(buffer,0,1024);
 	int fd = _session->socket().impl()->sockfd();
 	errno = 0;
-	bytes = recv(fd, buffer, 1024 , 0);
+	bytes = recv(fd, buffer, 2048 , 0);
 	if ((bytes <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return ;
@@ -633,6 +685,7 @@ void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 		}
 	}
 	_memory_stream->push(buffer, (size_t)bytes);
+	*/
 }
 
 void EVHTTPProcessingState::setMemStream(chunked_memory_stream *memory_stream)
