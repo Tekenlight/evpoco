@@ -292,7 +292,7 @@ ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev
 				}
 			}
 			DEBUGPOINT("ret1 = [%zd] count = [%d]\n",ret1, count);
-			if (count > 10) abort();
+			//if (count > 10) abort();
 		} while(ret1>0);
 	}
 

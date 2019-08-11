@@ -101,21 +101,12 @@ void EVHTTPServerConnection::setProcState(EVProcessingState *s)
 void EVHTTPServerConnection::evrun()
 {
 	std::string server = _pParams->getSoftwareVersion();
-	//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
-			//socket().impl()->referenceCount());
 	EVHTTPServerSession * session = NULL;
 	if (_stopped) return ;
 
-	if(0 == _mem_stream)
-		_mem_stream = new chunked_memory_stream();
-
-	if (!_reqProcState->getMemStream()) {
-		_reqProcState->setMemStream(_mem_stream);
-	}
-
 	session = _reqProcState->getSession();
 	if (!session) {
-		session = new EVHTTPServerSession(_mem_stream, socket(), _pParams);
+		session = new EVHTTPServerSession(socket(), _pParams);
 		_reqProcState->setSession(session);
 	}
 	session->setSockFdForReuse(true);
@@ -157,10 +148,27 @@ void EVHTTPServerConnection::evrun()
 			int ret = _reqProcState->continueRead();
 			if (ret < 0) {
 				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+				DEBUGPOINT("Here\n");
 				throw NetException("Badly formed HTTP Request");
 				return ;
 			}
 			_reqProcState->setState(ret);
+			if (HEADER_READ_COMPLETE <= _reqProcState->getState()) {
+				switch (request->getReqType()) {
+					case HTTP_HEADER_ONLY:
+					case HTTP_FIXED_LENGTH:
+						break;
+					case HTTP_MULTI_PART:
+					case HTTP_MESSAGE_TILL_EOF:
+					case HTTP_CHUNKED:
+					case HTTP_INVALID_TYPE:
+					default:
+						DEBUGPOINT("Here\n");
+						throw NetException("Unsupported HTTP Request type");
+						return;
+				}
+			}
+
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
 				return ;
 			}
@@ -202,6 +210,7 @@ void EVHTTPServerConnection::evrun()
 			{
 				try
 				{
+						DEBUGPOINT("Here\n");
 					sendErrorResponse(*session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 				}
 				catch (...)
@@ -211,15 +220,20 @@ void EVHTTPServerConnection::evrun()
 			throw e;
 		}
 		catch (...) {
+						DEBUGPOINT("Here\n");
+			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			throw;
 		}
 	}
 	catch (NoMessageException& e)
 	{
+						DEBUGPOINT("Here\n");
+		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
 	catch (MessageException& e)
 	{
+						DEBUGPOINT("Here\n");
 		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
@@ -227,13 +241,19 @@ void EVHTTPServerConnection::evrun()
 	{
 		if (session->networkException())
 		{
+						DEBUGPOINT("Here\n");
+			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			session->networkException()->rethrow();
 		}
 		else { 
+						DEBUGPOINT("Here\n");
+			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			throw e;
 		}
 	}
 	catch (...) {
+						DEBUGPOINT("Here\n");
+		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw;
 	}
 	return ;
@@ -243,93 +263,6 @@ void EVHTTPServerConnection::run()
 {
 	return evrun();
 }
-/* REF: HTTP RFC
- * Request       =	Request-Line
-					*(( general-header
-					 | request-header
-					 | entity-header ) CRLF)
-					CRLF
-					[ message-body ]
- * */
-/* This construction will land in read method of HTTPRequest.cpp
- * Which will read the status-line plus the header fields of the HTTP
- * request.
- * */
-/*
-void EVHTTPServerConnection::run()
-{
-	std::string server = _pParams->getSoftwareVersion();
-	HTTPServerSession session(socket(), _pParams);
-	session.setSockFdForReuse(true);
-	if (_stopped) return ;
-
-	try {
-		Poco::FastMutex::ScopedLock lock(_mutex);
-		EVHTTPServerResponseImpl response(session);
-		EVHTTPServerRequestImpl request(response, socket(), _pParams);
-		response.attachRequest(&request);
-
-		Poco::Timestamp now;
-		response.setDate(now);
-		response.setVersion(request.getVersion());
-		response.setKeepAlive(_pParams->getKeepAlive() && request.getKeepAlive());
-		if (!server.empty())
-			response.set("Server", server);
-		try
-		{
-#ifndef POCO_ENABLE_CPP11
-			std::auto_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
-#else
-			std::unique_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(request));
-#endif
-			if (pHandler.get())
-			{
-				if (request.getExpectContinue() && response.getStatus() == HTTPResponse::HTTP_OK)
-					response.sendContinue();
-
-				pHandler->handleRequest(request, response);
-				session.setKeepAlive(_pParams->getKeepAlive() && response.getKeepAlive());
-			}
-			else sendErrorResponse(session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
-		}
-		catch (Poco::Exception&)
-		{
-			if (!response.sent())
-			{
-				try
-				{
-					sendErrorResponse(session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-				}
-				catch (...)
-				{
-				}
-			}
-			throw;
-		}
-	}
-	catch (NoMessageException&)
-	{
-		throw;
-	}
-	catch (MessageException&)
-	{
-		sendErrorResponse(session, HTTPResponse::HTTP_BAD_REQUEST);
-	}
-	catch (Poco::Exception&)
-	{
-		if (session.networkException())
-		{
-			session.networkException()->rethrow();
-		}
-		else { 
-			throw;
-		}
-	}
-
-	return ;
-}
-*/
-
 
 void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status)
 {
@@ -344,7 +277,6 @@ void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPR
 
 void EVHTTPServerConnection::onServerStopped(const bool& abortCurrent)
 {
-	printf("%s:%d onserverstopped of Connection\n",__FILE__,__LINE__);
 	_stopped = true;
 	if (abortCurrent)
 	{

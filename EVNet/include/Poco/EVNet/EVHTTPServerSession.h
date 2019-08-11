@@ -39,7 +39,7 @@ class Net_API EVHTTPServerSession: public Net::HTTPServerSession
 	/// HTTPServer.
 {
 public:
-	EVHTTPServerSession(chunked_memory_stream * mem_stream, const StreamSocket& socket, HTTPServerParams::Ptr pParams);
+	EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
 		/// Creates the EVHTTPServerSession.
 	
 	virtual ~EVHTTPServerSession();

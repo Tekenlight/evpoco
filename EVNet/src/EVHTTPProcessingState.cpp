@@ -28,9 +28,10 @@
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVHTTPProcessingState.h"
-#include "Poco/Net/HTTPRequest.h"
+#include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/Net/NameValueCollection.h"
+#include "Poco/Net/MessageHeader.h"
 #include "Poco/NumberFormatter.h"
 #include "Poco/Ascii.h"
 #include "Poco/String.h"
@@ -116,8 +117,10 @@ void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state
 	_value.append(buf,len);
 	switch (_header_value_in_progress) {
 		case 0:
+			Poco::trimInPlace(_name);
+			Poco::trimInPlace(_value);
 			_request->add(_name, _request->decodeWord(_value));
-			printf("Added %s : %s\n",_name.c_str(), _value.c_str());
+			//printf("%s:%s\n",_name.c_str(), _value.c_str());
 			_name.erase();
 			_value.erase();
 			break;
@@ -551,7 +554,8 @@ int EVHTTPProcessingState::continueRead()
 		}
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
-			//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
+			DEBUGPOINT("Here:%s\n", http_errno_description((enum http_errno)_parser->http_errno));
+			throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 			return -1;
 		}
 		if (_state < HEADER_READ_COMPLETE) {
@@ -624,6 +628,38 @@ int EVHTTPProcessingState::continueRead()
 			len1 = _memory_stream->get_buffer_len(nodeptr);
 		}
 	}
+
+	if (_state >= HEADER_READ_COMPLETE) {
+		if (http_header_only_message(_parser)) {
+				DEBUGPOINT("Here\n");
+			_request->setReqType(HTTP_HEADER_ONLY);
+		}
+		else if (_parser->flags & F_CHUNKED) {
+				DEBUGPOINT("Here\n");
+			_request->setReqType(HTTP_CHUNKED);
+		}
+		else if (_request->getContentLength()) {
+				DEBUGPOINT("Here\n");
+			std::string mediaType;
+			Poco::Net::NameValueCollection params;
+			Poco::Net::MessageHeader::splitParameters(_request->getContentType(), mediaType, params); 
+			Poco::trimInPlace(mediaType);
+			DEBUGPOINT("Here [%s]\n",mediaType.c_str());
+			if (!strncmp("multipart", mediaType.c_str(), 9)) {
+				DEBUGPOINT("Here\n");
+				_request->setReqType(HTTP_MULTI_PART);
+			}
+			else {
+				DEBUGPOINT("Here\n");
+				_request->setReqType(HTTP_FIXED_LENGTH);
+			}
+		}
+		else {
+				DEBUGPOINT("Here\n");
+			_request->setReqType(HTTP_MESSAGE_TILL_EOF);
+		}
+	}
+
 	//DEBUGPOINT("_state = [%d] _subState = [%d] len = [%zu]\n",_state, _subState, len2);
 	//DEBUGPOINT("Content length = [%llu]\n", _parser->header_content_length);
 
@@ -652,6 +688,7 @@ int EVHTTPProcessingState::continueRead()
 		_parser->data = (void*)this;
 		http_parser_init(_parser,HTTP_REQUEST);
 	}
+
 	return _state;
 }
 

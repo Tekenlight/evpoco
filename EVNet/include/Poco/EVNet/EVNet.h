@@ -70,6 +70,10 @@
     printf(__VA_ARGS__);fflush(stdout); \
 }
 
+#ifndef ULLONG_MAX
+#define ULLONG_MAX ((uint64_t) -1) /* 2^64-1 */
+#endif
+
 /*
 #define DEBUGPOINT(s) {\
 	printf("%s:%d:%p %s\n",__FILE__,__LINE__,pthread_self(),s); \
@@ -84,7 +88,7 @@ namespace Poco {
 			HEADER_READ_COMPLETE,
 			POST_HEADER_READ_COMPLETE,
 			BODY_POSITION_MARKED,
-			BODY_READ_COMPLETE,
+			PART_OR_CHUNK_COMPLETE,
 			MESSAGE_COMPLETE,
 			PROCESS_COMPLETE,
 			SERVER_STOPPED

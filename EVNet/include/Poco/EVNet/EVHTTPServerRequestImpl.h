@@ -58,8 +58,14 @@ namespace Poco {
 
 namespace EVNet {
 
-
-
+typedef enum {
+	HTTP_INVALID_TYPE,
+	HTTP_HEADER_ONLY,
+	HTTP_FIXED_LENGTH,
+	HTTP_MULTI_PART,
+	HTTP_MESSAGE_TILL_EOF,
+	HTTP_CHUNKED
+} HTTP_REQ_TYPE_ENUM;
 
 
 class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest
@@ -119,6 +125,9 @@ public:
 		/// Sets up the mechanism for reading of inputs from socket etc.
 		//
 	void setContentLength(unsigned long);
+	unsigned long getContentLength();
+	void setReqType(HTTP_REQ_TYPE_ENUM);
+	HTTP_REQ_TYPE_ENUM getReqType();
 	
 private:
 	EVHTTPServerResponseImpl&       _response;
@@ -129,6 +138,7 @@ private:
 	SocketAddress                   _clientAddress;
 	SocketAddress                   _serverAddress;
 	unsigned long					_contentLength;
+	HTTP_REQ_TYPE_ENUM				_reqType;
 };
 
 
@@ -136,6 +146,17 @@ private:
 // inlines
 //
 //
+inline void EVHTTPServerRequestImpl::setReqType(HTTP_REQ_TYPE_ENUM t)
+{
+	if (HTTP_INVALID_TYPE == _reqType) {
+		_reqType = t;
+	}
+}
+
+inline HTTP_REQ_TYPE_ENUM EVHTTPServerRequestImpl::getReqType()
+{
+	return _reqType;
+}
 
 inline std::istream& EVHTTPServerRequestImpl::stream()
 {
@@ -176,7 +197,14 @@ inline HTTPServerResponse& EVHTTPServerRequestImpl::response() const
 
 inline void EVHTTPServerRequestImpl::setContentLength(unsigned long l)
 {
-	_contentLength = l;
+	if ((l != 0) && (l != ULLONG_MAX)) {
+		_contentLength = l;
+	}
+}
+
+inline unsigned long EVHTTPServerRequestImpl::getContentLength()
+{
+	return _contentLength;
 }
 
 } } // namespace Poco::EVNet

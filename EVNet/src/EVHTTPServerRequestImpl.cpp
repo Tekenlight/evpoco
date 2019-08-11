@@ -37,7 +37,8 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_pStream(0),
 	_session(session),
 	_pParams(pParams, true),
-	_contentLength(0)
+	_contentLength(0),
+	_reqType(HTTP_INVALID_TYPE)
 {
 	response.attachRequest(this);
 	// Now that we know socket is still connected, obtain addresses

@@ -24,7 +24,7 @@ namespace Poco {
 namespace EVNet {
 
 
-EVHTTPServerSession::EVHTTPServerSession(chunked_memory_stream * mem_stream, const StreamSocket& socket, HTTPServerParams::Ptr pParams):HTTPServerSession(socket,pParams), _mem_stream(mem_stream)
+EVHTTPServerSession::EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams):HTTPServerSession(socket,pParams)
 {
 }
 
