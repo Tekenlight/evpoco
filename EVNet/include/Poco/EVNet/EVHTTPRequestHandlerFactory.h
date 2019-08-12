@@ -80,7 +80,7 @@ private:
 	EVHTTPRequestHandlerFactory& operator = (const EVHTTPRequestHandlerFactory&);
 	
 	friend class EVHTTPServer;
-	friend class EVHTTPServerConnection;
+	friend class EVHTTPServerStream;
 };
 
 

@@ -563,11 +563,11 @@ int EVHTTPProcessingState::continueRead()
 			if (len2 < len1) { 
 				// Should not happen
 				//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
+				DEBUGPOINT("Should not happen %s \n", http_errno_description((enum http_errno)_parser->http_errno));
 				return -1;
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
-			//DEBUGPOINT("ERASING %zu\n", len2);
 			_req_memory_stream->erase(len2);
 			nodeptr = _req_memory_stream->get_next(0);
 			buffer = (char*)_req_memory_stream->get_buffer();
@@ -578,10 +578,8 @@ int EVHTTPProcessingState::continueRead()
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
-			//DEBUGPOINT("ERASING %zu\n", len2);
 			_req_memory_stream->erase(len2);
 
-			//DEBUGPOINT("This remained in header parsing [%d]\n", c);
 			/* Since the traversed portion is erased
 			 * We can start from the next position.
 			 * */
@@ -632,31 +630,24 @@ int EVHTTPProcessingState::continueRead()
 
 	if (_state >= HEADER_READ_COMPLETE) {
 		if (http_header_only_message(_parser)) {
-				DEBUGPOINT("Here\n");
 			_request->setReqType(HTTP_HEADER_ONLY);
 		}
 		else if (_parser->flags & F_CHUNKED) {
-				DEBUGPOINT("Here\n");
 			_request->setReqType(HTTP_CHUNKED);
 		}
 		else if (_request->getContentLength()) {
-				DEBUGPOINT("Here\n");
 			std::string mediaType;
 			Poco::Net::NameValueCollection params;
 			Poco::Net::MessageHeader::splitParameters(_request->getContentType(), mediaType, params); 
 			Poco::trimInPlace(mediaType);
-			DEBUGPOINT("Here [%s]\n",mediaType.c_str());
 			if (!strncmp("multipart", mediaType.c_str(), 9)) {
-				DEBUGPOINT("Here\n");
 				_request->setReqType(HTTP_MULTI_PART);
 			}
 			else {
-				DEBUGPOINT("Here\n");
 				_request->setReqType(HTTP_FIXED_LENGTH);
 			}
 		}
 		else {
-				DEBUGPOINT("Here\n");
 			_request->setReqType(HTTP_MESSAGE_TILL_EOF);
 		}
 	}

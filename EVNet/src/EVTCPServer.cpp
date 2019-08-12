@@ -77,10 +77,9 @@ static void async_stream_socket_cb (EV_P_ ev_io *w, int revents)
 		return ;
 	}
 
-
 	cb_ptr = (strms_ic_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
-	 * EVTCPServer::handleDataAvlbl(const bool)
+	 * EVTCPServer::handleDataAvlblOnAccSock(const bool)
 	 */
 	((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , ev_occurred);
 	// Suspending interest in events of this fd until one request is processed
@@ -135,7 +134,7 @@ static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 
 	cb_ptr = (strms_pc_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
-	 * EVTCPServer::waitForDataOnAccSocket(const bool)
+	 * EVTCPServer::monitorDataOnAccSocket(const bool)
 	 */
 	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
 
@@ -281,7 +280,7 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_occured)
+ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	EVAcceptedStreamSocket *tn = _ssColl[streamSocket.impl()->sockfd()];
@@ -310,7 +309,7 @@ ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev
 					ret = -1;
 				}
 			}
-			DEBUGPOINT("ret1 = [%zd] count = [%d]\n",ret1, count);
+			//DEBUGPOINT("ret1 = [%zd] count = [%d]\n",ret1, count);
 			//if (count > 10) abort();
 		} while(ret1>0);
 	}
@@ -320,7 +319,7 @@ ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev
 		_ssLRUList.remove(tn);
 	}
 
-	if (ret > 0) _pDispatcher->enqueue(tn);
+	if (tn->reqDataAvlbl()) _pDispatcher->enqueue(tn);
 
 	return ret;
 }
@@ -386,7 +385,7 @@ void EVTCPServer::sendDataOnAccSocket(const bool& ev_occured)
 	return;
 }
 
-void EVTCPServer::waitForDataOnAccSocket(const bool& ev_occured)
+void EVTCPServer::monitorDataOnAccSocket(const bool& ev_occured)
 {
 	ev_io * socket_watcher_ptr = 0;
 	AutoPtr<Notification> pNf = 0;
@@ -413,7 +412,7 @@ void EVTCPServer::waitForDataOnAccSocket(const bool& ev_occured)
 		}
 
 		if (tn->reqDataAvlbl()) {
-			handleDataAvlbl(ss, false);
+			handleDataAvlblOnAccSock(ss, false);
 		}
 		else {
 			tn->setSockFree();
@@ -480,7 +479,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			_ssLRUList.add(acceptedSock);
 
 			cb_ptr->objPtr = this;
-			cb_ptr->dataAvailable = &EVTCPServer::handleDataAvlbl;
+			cb_ptr->dataAvailable = &EVTCPServer::handleDataAvlblOnAccSock;
 			cb_ptr->ssPtr =acceptedSock->getStreamSocketPtr();
 			socket_watcher_ptr->data = (void*)cb_ptr;
 
@@ -537,7 +536,7 @@ void EVTCPServer::run()
 		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
 		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
 		pc_cb_ptr->objPtr = this;
-		pc_cb_ptr->method = &EVTCPServer::waitForDataOnAccSocket;
+		pc_cb_ptr->method = &EVTCPServer::monitorDataOnAccSocket;
 
 		stop_watcher_2.data = (void*)pc_cb_ptr;
 		ev_async_init (&(stop_watcher_2), async_stop_cb_2);

@@ -13,7 +13,7 @@
 
 
 #include "Poco/EVNet/EVHTTPServer.h"
-#include "Poco/EVNet/EVHTTPServerConnectionFactory.h"
+#include "Poco/EVNet/EVHTTPServerStreamFactory.h"
 
 
 namespace Poco {
@@ -22,21 +22,21 @@ namespace EVNet {
 
 EVHTTPServer::EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, Poco::UInt16 portNumber, HTTPServerParams::Ptr pParams)
 {
-	_pTCPServer = new EVTCPServer(new EVHTTPServerConnectionFactory(pParams, pFactory), portNumber, pParams);
+	_pTCPServer = new EVTCPServer(new EVHTTPServerStreamFactory(pParams, pFactory), portNumber, pParams);
 	_pFactory = pFactory;
 }
 
 
 EVHTTPServer::EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, const ServerSocket& socket, HTTPServerParams::Ptr pParams)
 {
-	_pTCPServer = new EVTCPServer(new EVHTTPServerConnectionFactory(pParams, pFactory), socket, pParams);
+	_pTCPServer = new EVTCPServer(new EVHTTPServerStreamFactory(pParams, pFactory), socket, pParams);
 	_pFactory = pFactory;
 }
 
 
 EVHTTPServer::EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, Poco::ThreadPool& threadPool, const ServerSocket& socket, HTTPServerParams::Ptr pParams)
 {
-	_pTCPServer = new EVTCPServer(new EVHTTPServerConnectionFactory(pParams, pFactory), threadPool, socket, pParams);
+	_pTCPServer = new EVTCPServer(new EVHTTPServerStreamFactory(pParams, pFactory), threadPool, socket, pParams);
 	_pFactory = pFactory;
 }
 

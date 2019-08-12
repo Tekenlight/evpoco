@@ -1,9 +1,9 @@
 //
-// EVHTTPServerConnection.cpp
+// EVHTTPServerStream.cpp
 //
 // Library: EVNet
 // Package: EVHTTPServer
-// Module:  EVHTTPServerConnection
+// Module:  EVHTTPServerStream
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -14,7 +14,7 @@
 
 #include <chunked_memory_stream.h>
 #include "Poco/EVNet/EVNet.h"
-#include "Poco/EVNet/EVHTTPServerConnection.h"
+#include "Poco/EVNet/EVHTTPServerStream.h"
 #include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
@@ -36,7 +36,7 @@ namespace Poco {
 namespace EVNet {
 
 
-EVHTTPServerConnection::EVHTTPServerConnection(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory):
+EVHTTPServerStream::EVHTTPServerStream(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory):
 	EVTCPServerConnection(socket),
 	_pParams(pParams),
 	_pFactory(pFactory),
@@ -47,10 +47,10 @@ EVHTTPServerConnection::EVHTTPServerConnection(StreamSocket& socket, HTTPServerP
 	_mem_stream = 0;
 	poco_check_ptr (pFactory);
 	
-	_pFactory->serverStopped += Poco::delegate(this, &EVHTTPServerConnection::onServerStopped);
+	_pFactory->serverStopped += Poco::delegate(this, &EVHTTPServerStream::onServerStopped);
 }
 
-EVHTTPServerConnection::EVHTTPServerConnection(StreamSocket& socket,
+EVHTTPServerStream::EVHTTPServerStream(StreamSocket& socket,
 												HTTPServerParams::Ptr pParams,
 												EVHTTPRequestHandlerFactory::Ptr pFactory,
 												EVProcessingState *procState):
@@ -62,16 +62,16 @@ EVHTTPServerConnection::EVHTTPServerConnection(StreamSocket& socket,
 {
 	poco_check_ptr (pFactory);
 	
-	_pFactory->serverStopped += Poco::delegate(this, &EVHTTPServerConnection::onServerStopped);
+	_pFactory->serverStopped += Poco::delegate(this, &EVHTTPServerStream::onServerStopped);
 }
 
 
 
-EVHTTPServerConnection::~EVHTTPServerConnection()
+EVHTTPServerStream::~EVHTTPServerStream()
 {
 	try
 	{
-		_pFactory->serverStopped -= Poco::delegate(this, &EVHTTPServerConnection::onServerStopped);
+		_pFactory->serverStopped -= Poco::delegate(this, &EVHTTPServerStream::onServerStopped);
 	}
 	catch (...)
 	{
@@ -79,12 +79,12 @@ EVHTTPServerConnection::~EVHTTPServerConnection()
 	}
 }
 
-EVProcessingState * EVHTTPServerConnection::getProcState()
+EVProcessingState * EVHTTPServerStream::getProcState()
 {
 	return _reqProcState;
 }
 
-void EVHTTPServerConnection::setProcState(EVProcessingState *s)
+void EVHTTPServerStream::setProcState(EVProcessingState *s)
 {
 	_reqProcState = (EVHTTPProcessingState *)s;
 }
@@ -98,7 +98,7 @@ void EVHTTPServerConnection::setProcState(EVProcessingState *s)
  * complete and the socket fd would block.
  * The caller is expected to call this function agian, when the 
  * socket fd becomes readable. */
-void EVHTTPServerConnection::evrun()
+void EVHTTPServerStream::evrun()
 {
 	std::string server = _pParams->getSoftwareVersion();
 	EVHTTPServerSession * session = NULL;
@@ -174,7 +174,7 @@ void EVHTTPServerConnection::evrun()
 			}
 		}
 
-		DEBUGPOINT("Parsed the message completely\n");
+		//DEBUGPOINT("Parsed the message completely\n");
 
 		Poco::Timestamp now;
 		response->setDate(now);
@@ -259,12 +259,12 @@ void EVHTTPServerConnection::evrun()
 	return ;
 }
 
-void EVHTTPServerConnection::run()
+void EVHTTPServerStream::run()
 {
 	return evrun();
 }
 
-void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status)
+void EVHTTPServerStream::sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status)
 {
 	EVHTTPServerResponseImpl response(session);
 	response.setVersion(HTTPMessage::HTTP_1_1);
@@ -275,7 +275,7 @@ void EVHTTPServerConnection::sendErrorResponse(HTTPServerSession& session, HTTPR
 }
 
 
-void EVHTTPServerConnection::onServerStopped(const bool& abortCurrent)
+void EVHTTPServerStream::onServerStopped(const bool& abortCurrent)
 {
 	_stopped = true;
 	if (abortCurrent)
