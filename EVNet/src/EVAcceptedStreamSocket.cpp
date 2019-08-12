@@ -27,12 +27,14 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 	_nextPtr(0),
 	_sockBusy(false),
 	_reqProcState(0),
-	_memory_stream(0)
+	_req_memory_stream(0),
+	_res_memory_stream(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec * 1000000 + tv.tv_usec;
-	_memory_stream = new chunked_memory_stream();
+	_req_memory_stream = new chunked_memory_stream();
+	_res_memory_stream = new chunked_memory_stream();
 }
 
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
@@ -44,7 +46,8 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		free(this->_libevSocketWatcherPtr);
 	}
 	if (this->_reqProcState) delete this->_reqProcState;
-	if (this->_memory_stream) delete this->_memory_stream;
+	if (this->_req_memory_stream) delete this->_req_memory_stream;
+	if (this->_res_memory_stream) delete this->_res_memory_stream;
 }
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
@@ -127,20 +130,36 @@ void EVAcceptedStreamSocket::deleteState()
 	return;
 }
 
-size_t EVAcceptedStreamSocket::push(void * buffer, size_t size)
+size_t EVAcceptedStreamSocket::pushResData(void * buffer, size_t size)
 {
-	return _memory_stream->push(buffer, size);
+	return _req_memory_stream->push(buffer, size);
 }
 
-bool EVAcceptedStreamSocket::dataAvlbl()
+size_t EVAcceptedStreamSocket::pushReqData(void * buffer, size_t size)
+{
+	return _req_memory_stream->push(buffer, size);
+}
+
+bool EVAcceptedStreamSocket::resDataAvlbl()
 {
 	int c = 0;
-	return (_memory_stream->copy(0, &c, 1) > 0);
+	return (_res_memory_stream->copy(0, &c, 1) > 0);
 }
 
-chunked_memory_stream * EVAcceptedStreamSocket::getMemStream()
+bool EVAcceptedStreamSocket::reqDataAvlbl()
 {
-	return _memory_stream;
+	int c = 0;
+	return (_req_memory_stream->copy(0, &c, 1) > 0);
+}
+
+chunked_memory_stream * EVAcceptedStreamSocket::getResMemStream()
+{
+	return _res_memory_stream;
+}
+
+chunked_memory_stream * EVAcceptedStreamSocket::getReqMemStream()
+{
+	return _req_memory_stream;
 }
 
 } } // namespace EVNet and Poco end.

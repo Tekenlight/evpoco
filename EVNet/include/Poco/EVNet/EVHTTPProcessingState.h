@@ -106,8 +106,10 @@ public:
 	void headerComplete();
 	void messageComplete();
 	void bodyStarted(char * ptr);
-	void setMemStream(chunked_memory_stream *);
-	chunked_memory_stream* getMemStream();
+	void setReqMemStream(chunked_memory_stream *);
+	void setResMemStream(chunked_memory_stream *);
+	chunked_memory_stream* getReqMemStream();
+	chunked_memory_stream* getResMemStream();
 
 
 private:
@@ -125,7 +127,8 @@ private:
 	std::string					_uri;
 	std::string					_version;
 	int							_fields;
-	chunked_memory_stream		*_memory_stream;
+	chunked_memory_stream*		_req_memory_stream;
+	chunked_memory_stream*		_res_memory_stream;
 	http_parser*				_parser;
 	char*						_bodyPosition;
 };

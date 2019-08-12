@@ -104,6 +104,25 @@ static void async_stop_cb_1 (struct ev_loop *loop, ev_async *w, int revents)
 	return;
 }
 
+/* This callback is for sending data on socket when data is ready. */
+static void async_stop_cb_3 (struct ev_loop *loop, ev_async *w, int revents)
+{
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::sendDataOnAccSocket(const bool)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+
+	return;
+}
+
 /* This callback is for completion of processing of one socket. */
 static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 {
@@ -116,9 +135,9 @@ static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 
 	cb_ptr = (strms_pc_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
-	 * EVTCPServer::reaquireSocket(const bool)
+	 * EVTCPServer::waitForDataOnAccSocket(const bool)
 	 */
-	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->procComplete))(ev_occurred);
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
 
 	return;
 }
@@ -140,7 +159,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::reqProcComplete, &EVTCPServer::reqProcException};
+	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed, &EVTCPServer::errorInAccSocket};
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
 	if (pParams) {
 		int toAdd = pParams->getMaxThreads() - pool.capacity();
@@ -164,7 +183,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::reqProcComplete, &EVTCPServer::reqProcException};
+	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed, &EVTCPServer::errorInAccSocket};
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
 	if (pParams) {
 		int toAdd = pParams->getMaxThreads() - pool.capacity();
@@ -187,7 +206,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::reqProcComplete, &EVTCPServer::reqProcException};
+	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed, &EVTCPServer::errorInAccSocket};
 	_pDispatcher = new EVTCPServerDispatcher(pFactory, threadPool, pParams, evtHandler);
 }
 
@@ -282,7 +301,7 @@ ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev
 			memset(buffer,0,TCP_BUFFER_SIZE);
 			ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
-				tn->push(buffer, (size_t)ret1);
+				tn->pushReqData(buffer, (size_t)ret1);
 				ret += ret1;
 			}
 			else {
@@ -306,7 +325,17 @@ ssize_t EVTCPServer::handleDataAvlbl(StreamSocket & streamSocket, const bool& ev
 	return ret;
 }
 
-void EVTCPServer::reqProcComplete(StreamSocket & ss)
+void EVTCPServer::dataReadyForSendOnAccSocket(StreamSocket & ss)
+{
+	/* Enque the socket */
+	_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
+
+	/* And then wake up the loop calls async_stop_cb_3*/
+	ev_async_send(_loop, this->stop_watcher_ptr3);
+	return;
+}
+
+void EVTCPServer::dataInAccSocketConsumed(StreamSocket & ss)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
@@ -316,7 +345,7 @@ void EVTCPServer::reqProcComplete(StreamSocket & ss)
 	return;
 }
 
-void EVTCPServer::reqProcException(StreamSocket & streamSocket, poco_socket_t fd, bool connInErr)
+void EVTCPServer::errorInAccSocket(StreamSocket & streamSocket, poco_socket_t fd, bool connInErr)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,fd,true));
@@ -326,7 +355,7 @@ void EVTCPServer::reqProcException(StreamSocket & streamSocket, poco_socket_t fd
 	return;
 }
 
-void EVTCPServer::reaquireSocket(const bool& ev_occured)
+void EVTCPServer::sendDataOnAccSocket(const bool& ev_occured)
 {
 	ev_io * socket_watcher_ptr = 0;
 	AutoPtr<Notification> pNf = 0;
@@ -352,7 +381,38 @@ void EVTCPServer::reaquireSocket(const bool& ev_occured)
 			continue;;
 		}
 
-		if (tn->dataAvlbl()) {
+	}
+
+	return;
+}
+
+void EVTCPServer::waitForDataOnAccSocket(const bool& ev_occured)
+{
+	ev_io * socket_watcher_ptr = 0;
+	AutoPtr<Notification> pNf = 0;
+	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
+		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
+
+		StreamSocket ss = pcNf->socket();
+		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketWatcher();
+
+		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
+		if ((fcntl (ss.impl()->sockfd(), F_GETFD) < 0)) {
+			_ssColl.erase(pcNf->sockfd());
+			_ssLRUList.remove(tn);
+			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
+			delete tn;
+			continue;;
+		} 
+		else if (pcNf->connInError()) {
+			_ssColl.erase(pcNf->sockfd());
+			_ssLRUList.remove(tn);
+			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
+			delete tn;
+			continue;;
+		}
+
+		if (tn->reqDataAvlbl()) {
 			handleDataAvlbl(ss, false);
 		}
 		else {
@@ -366,6 +426,7 @@ void EVTCPServer::reaquireSocket(const bool& ev_occured)
 
 	return;
 }
+
 void EVTCPServer::handleConnReq(const bool& ev_occured)
 {
 	ev_io * socket_watcher_ptr = 0;
@@ -449,19 +510,16 @@ void EVTCPServer::run()
 	ev_io socket_watcher;
 	ev_async stop_watcher_1;
 	ev_async stop_watcher_2;
-
-	strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
-
-	pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
-	pc_cb_ptr->objPtr = this;
-	pc_cb_ptr->procComplete = &EVTCPServer::reaquireSocket;
+	ev_async stop_watcher_3;
 
 	_loop = EV_DEFAULT;
 	memset(&(socket_watcher), 0, sizeof(ev_io));
 	memset(&(stop_watcher_1), 0, sizeof(ev_async));
 	memset(&(stop_watcher_2), 0, sizeof(ev_async));
+	memset(&(stop_watcher_3), 0, sizeof(ev_async));
 	this->stop_watcher_ptr1 = &(stop_watcher_1);
 	this->stop_watcher_ptr2 = &(stop_watcher_2);
+	this->stop_watcher_ptr3 = &(stop_watcher_3);
 
 	this->_cbStruct.objPtr = this;
 	this->_cbStruct.connArrived = &EVTCPServer::handleConnReq;
@@ -473,12 +531,37 @@ void EVTCPServer::run()
 	ev_async_init (&(stop_watcher_1), async_stop_cb_1);
 	ev_async_start (_loop, &(stop_watcher_1));
 
-	stop_watcher_2.data = (void*)pc_cb_ptr;
-	ev_async_init (&(stop_watcher_2), async_stop_cb_2);
-	ev_async_start (_loop, &(stop_watcher_2));
+	{
+		/* When request processing either completes or more data is required
+		 * for processing. */
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::waitForDataOnAccSocket;
+
+		stop_watcher_2.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_2), async_stop_cb_2);
+		ev_async_start (_loop, &(stop_watcher_2));
+	}
+
+	{
+		/* When data is ready to be sent on socket.
+		 * */
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::sendDataOnAccSocket;
+
+		stop_watcher_3.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_3), async_stop_cb_3);
+		ev_async_start (_loop, &(stop_watcher_3));
+	}
 
 	// now wait for events to arrive
 	ev_run (_loop, 0);
+
+	free(stop_watcher_2.data);
+	free(stop_watcher_3.data);
 
 	return;
 }

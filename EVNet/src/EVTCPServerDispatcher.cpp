@@ -140,7 +140,7 @@ void EVTCPServerDispatcher::run()
 					if (!(pCNf->socket()->getProcState())) {
 						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
 					}
-					pCNf->socket()->getProcState()->setMemStream(pCNf->socket()->getMemStream());
+					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();

@@ -235,11 +235,15 @@ private:
 		/// Function to handle the event of socket receiving a connection request.
 	ssize_t handleDataAvlbl(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
-	void reqProcComplete(StreamSocket & streamSocket);
+	void dataReadyForSendOnAccSocket(StreamSocket & streamSocket);
+		/// Function to handle the event of data being ready to be sent on a socket.
+	void sendDataOnAccSocket(const bool& flag);
+		/// Function to data on a sockets for which data is ready.
+	void dataInAccSocketConsumed(StreamSocket & streamSocket);
 		/// Function to handle the event of completion of one request.
-	void reaquireSocket(const bool& flag);
+	void waitForDataOnAccSocket(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
-	void reqProcException(StreamSocket& s, poco_socket_t fd, bool connInErr);
+	void errorInAccSocket(StreamSocket& s, poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.
@@ -255,6 +259,7 @@ private:
 	srvrs_io_cb_struct_type			_cbStruct;
 	ev_async*						stop_watcher_ptr1;
 	ev_async*						stop_watcher_ptr2;;
+	ev_async*						stop_watcher_ptr3;;
 
 	SSColMapType					_ssColl;
 	struct ev_loop*					_loop;
@@ -269,7 +274,7 @@ private:
 typedef void (EVTCPServer::*sockReAcquireMethod)(const bool& );
 typedef struct {
 	EVTCPServer *objPtr;
-	sockReAcquireMethod procComplete;
+	sockReAcquireMethod method;
 } strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
 
 typedef ssize_t (EVTCPServer::*dataAvlblMethod)(StreamSocket &, const bool& );

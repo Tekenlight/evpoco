@@ -38,7 +38,8 @@ public:
 	EVProcessingState();
 	virtual int getState() = 0;
 	virtual ~EVProcessingState();
-	virtual void setMemStream(chunked_memory_stream *memory_stream) = 0;
+	virtual void setReqMemStream(chunked_memory_stream *memory_stream) = 0;
+	virtual void setResMemStream(chunked_memory_stream *memory_stream) = 0;
 
 
 };

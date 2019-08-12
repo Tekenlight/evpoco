@@ -54,7 +54,8 @@ EVHTTPProcessingState::EVHTTPProcessingState():
 	_fields(0),
 	_header_field_in_progress(0),
 	_parser(0),
-	_memory_stream(0)
+	_req_memory_stream(0),
+	_res_memory_stream(0)
 {
 	_parser = (http_parser*)malloc(sizeof(http_parser));
 	memset(_parser,0,sizeof(http_parser));
@@ -545,9 +546,9 @@ int EVHTTPProcessingState::continueRead()
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
-	nodeptr = _memory_stream->get_next(0);
-	buffer = (char*)_memory_stream->get_buffer(nodeptr);
-	len1 = _memory_stream->get_buffer_len(nodeptr);
+	nodeptr = _req_memory_stream->get_next(0);
+	buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
+	len1 = _req_memory_stream->get_buffer_len(nodeptr);
 	while (1) {
 		if (NULL == buffer) {
 			break;
@@ -567,10 +568,10 @@ int EVHTTPProcessingState::continueRead()
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
 			//DEBUGPOINT("ERASING %zu\n", len2);
-			_memory_stream->erase(len2);
-			nodeptr = _memory_stream->get_next(0);
-			buffer = (char*)_memory_stream->get_buffer();
-			len1 = _memory_stream->get_buffer_len();
+			_req_memory_stream->erase(len2);
+			nodeptr = _req_memory_stream->get_next(0);
+			buffer = (char*)_req_memory_stream->get_buffer();
+			len1 = _req_memory_stream->get_buffer_len();
 			len2 = 0;
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
@@ -578,15 +579,15 @@ int EVHTTPProcessingState::continueRead()
 			 * Buffer may or may not be completely read yet.
 			 * */
 			//DEBUGPOINT("ERASING %zu\n", len2);
-			_memory_stream->erase(len2);
+			_req_memory_stream->erase(len2);
 
 			//DEBUGPOINT("This remained in header parsing [%d]\n", c);
 			/* Since the traversed portion is erased
 			 * We can start from the next position.
 			 * */
-			nodeptr = _memory_stream->get_next(0);
-			buffer = (char*)_memory_stream->get_buffer();
-			len1 = _memory_stream->get_buffer_len();
+			nodeptr = _req_memory_stream->get_next(0);
+			buffer = (char*)_req_memory_stream->get_buffer();
+			len1 = _req_memory_stream->get_buffer_len();
 			len2 = 0;
 			http_parser_pause(_parser, 0);
 			_state = POST_HEADER_READ_COMPLETE;
@@ -596,7 +597,7 @@ int EVHTTPProcessingState::continueRead()
 			/*
 			if (http_header_only_message(_parser)) {
 				//DEBUGPOINT("ERASING %zu\n", len2);
-				_memory_stream->erase(len2);
+				_req_memory_stream->erase(len2);
 				len2 = 0;
 			}
 			else {
@@ -615,17 +616,17 @@ int EVHTTPProcessingState::continueRead()
 			 * In such a situation we should erase it by one more char.
 			 * */
 			int n = 0, c = 0;
-			n = _memory_stream->copy(0, &c, 1);
+			n = _req_memory_stream->copy(0, &c, 1);
 			if (n && (c == 10)) {
 				//DEBUGPOINT("Erasing char %d\n",c);
-				_memory_stream->erase(1);
+				_req_memory_stream->erase(1);
 			}
 			break;
 		}
 		else {
-			nodeptr = _memory_stream->get_next(nodeptr);
-			buffer = (char*)_memory_stream->get_buffer(nodeptr);
-			len1 = _memory_stream->get_buffer_len(nodeptr);
+			nodeptr = _req_memory_stream->get_next(nodeptr);
+			buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
+			len1 = _req_memory_stream->get_buffer_len(nodeptr);
 		}
 	}
 
@@ -667,7 +668,7 @@ int EVHTTPProcessingState::continueRead()
 	/*
 	if (_state == MESSAGE_COMPLETE) {
 		int i = 0, cl = _parser->header_content_length;
-		ev_buffered_stream buf(_memory_stream, 1024, 8192);
+		ev_buffered_stream buf(_req_memory_stream, 1024, 8192);
 		std::istream is(&buf);
 		int c = 0;
 		printf("\r\n");
@@ -683,7 +684,7 @@ int EVHTTPProcessingState::continueRead()
 	*/
 
 	if (_state == MESSAGE_COMPLETE) {
-		_request->formInputStream(_memory_stream);
+		_request->formInputStream(_req_memory_stream);
 		memset(_parser,0,sizeof(http_parser));
 		_parser->data = (void*)this;
 		http_parser_init(_parser,HTTP_REQUEST);
@@ -721,18 +722,28 @@ void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 			return ;
 		}
 	}
-	_memory_stream->push(buffer, (size_t)bytes);
+	_req_memory_stream->push(buffer, (size_t)bytes);
 	*/
 }
 
-void EVHTTPProcessingState::setMemStream(chunked_memory_stream *memory_stream)
+void EVHTTPProcessingState::setResMemStream(chunked_memory_stream *memory_stream)
 {
-	_memory_stream = memory_stream;
+	_res_memory_stream = memory_stream;
 }
 
-chunked_memory_stream* EVHTTPProcessingState::getMemStream()
+void EVHTTPProcessingState::setReqMemStream(chunked_memory_stream *memory_stream)
 {
-	return _memory_stream;
+	_req_memory_stream = memory_stream;
+}
+
+chunked_memory_stream* EVHTTPProcessingState::getResMemStream()
+{
+	return _res_memory_stream;
+}
+
+chunked_memory_stream* EVHTTPProcessingState::getReqMemStream()
+{
+	return _req_memory_stream;
 }
 
 EVHTTPServerSession * EVHTTPProcessingState::getSession()

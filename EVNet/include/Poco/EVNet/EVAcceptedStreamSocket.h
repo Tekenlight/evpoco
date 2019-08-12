@@ -72,10 +72,12 @@ public:
 	void setSockBusy();
 	// Sets the _sockBusy glag to true.
 
-	size_t push(void * buffer, size_t size);
+	size_t pushReqData(void * buffer, size_t size);
+	size_t pushResData(void * buffer, size_t size);
 	// Transfers the bytes read from socket to the stream.
 
-	bool dataAvlbl();
+	bool reqDataAvlbl();
+	bool resDataAvlbl();
 	
 	bool sockBusy();
 
@@ -87,7 +89,8 @@ public:
 	void setPrevPtr(EVAcceptedStreamSocket * ptr);
 	EVAcceptedStreamSocket * getNextPtr();
 	EVAcceptedStreamSocket * getPrevPtr();
-	chunked_memory_stream * getMemStream();
+	chunked_memory_stream * getReqMemStream();
+	chunked_memory_stream * getResMemStream();
 	void deleteState();
 
 private:
@@ -99,7 +102,8 @@ private:
 	EVAcceptedStreamSocket*		_nextPtr;
 	bool						_sockBusy;
 	EVProcessingState*			_reqProcState;
-	chunked_memory_stream*		_memory_stream;
+	chunked_memory_stream*		_req_memory_stream;
+	chunked_memory_stream*		_res_memory_stream;
 };
 
 
