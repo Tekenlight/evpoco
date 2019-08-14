@@ -35,8 +35,6 @@ EVHTTPFixedLengthStreamBuf::~EVHTTPFixedLengthStreamBuf()
 {
 }
 
-
-
 //
 // EVHTTPFixedLengthIOS
 //
@@ -53,7 +51,7 @@ EVHTTPFixedLengthIOS::~EVHTTPFixedLengthIOS()
 {
 	try
 	{
-		//_buf.sync(); TBD
+		_buf.sync();
 	}
 	catch (...)
 	{
@@ -72,9 +70,6 @@ EVHTTPFixedLengthStreamBuf* EVHTTPFixedLengthIOS::rdbuf()
 //
 
 
-Poco::MemoryPool EVHTTPFixedLengthInputStream::_pool(sizeof(EVHTTPFixedLengthInputStream));
-
-
 EVHTTPFixedLengthInputStream::EVHTTPFixedLengthInputStream(chunked_memory_stream *cms, EVHTTPFixedLengthStreamBuf::ContentLength length):
 	EVHTTPFixedLengthIOS(cms, length, std::ios::in),
 	std::istream(&_buf)
@@ -87,63 +82,21 @@ EVHTTPFixedLengthInputStream::~EVHTTPFixedLengthInputStream()
 }
 
 
-void* EVHTTPFixedLengthInputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
-
-void EVHTTPFixedLengthInputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-
-
 //
-// HTTPFixedLengthOutputStream
+// EVHTTPFixedLengthOutputStream
 //
 
-/*
 
-Poco::MemoryPool HTTPFixedLengthOutputStream::_pool(sizeof(HTTPFixedLengthOutputStream));
-
-
-HTTPFixedLengthOutputStream::HTTPFixedLengthOutputStream(HTTPSession& session, EVHTTPFixedLengthStreamBuf::ContentLength length):
-	EVHTTPFixedLengthIOS(session, length, std::ios::out),
+EVHTTPFixedLengthOutputStream::EVHTTPFixedLengthOutputStream(chunked_memory_stream *cms, EVHTTPFixedLengthStreamBuf::ContentLength length):
+	EVHTTPFixedLengthIOS(cms, length, std::ios::out),
 	std::ostream(&_buf)
 {
 }
 
 
-HTTPFixedLengthOutputStream::~HTTPFixedLengthOutputStream()
+EVHTTPFixedLengthOutputStream::~EVHTTPFixedLengthOutputStream()
 {
 }
 
-
-void* HTTPFixedLengthOutputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
-
-
-void HTTPFixedLengthOutputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-
-*/
 
 } } // namespace Poco::EVNet

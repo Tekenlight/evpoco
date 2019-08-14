@@ -233,6 +233,9 @@ private:
 	
 	void handleConnReq(const bool& abortCurrent);
 		/// Function to handle the event of socket receiving a connection request.
+	ssize_t handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured);
+		/// Function to handle the event of stream socket becoming writable.
+		/// Returns the number of bytes remaining to be written.
 	ssize_t handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
 	void dataReadyForSendOnAccSocket(StreamSocket & streamSocket);
@@ -249,6 +252,7 @@ private:
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
 	ssize_t receiveData(int fd, void * chptr, size_t size);
+	ssize_t sendData(int fd, void * chptr, size_t size);
 
 	ServerSocket					_socket;
 	EVTCPServerDispatcher*			_pDispatcher;
@@ -264,6 +268,7 @@ private:
 	SSColMapType					_ssColl;
 	struct ev_loop*					_loop;
 	NotificationQueue				_queue;
+	NotificationQueue				_write_event_queue;
 
 	EVStreamSocketLRUList			_ssLRUList;
 	int								_numThreads;
@@ -277,10 +282,11 @@ typedef struct {
 	sockReAcquireMethod method;
 } strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
 
-typedef ssize_t (EVTCPServer::*dataAvlblMethod)(StreamSocket &, const bool& );
+typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
 typedef struct {
 	EVTCPServer *objPtr;
-	dataAvlblMethod dataAvailable;
+	fdReadyMethod dataAvailable;
+	fdReadyMethod socketWritable;
 	StreamSocket *ssPtr;
 } strms_io_cb_struct_type , *strms_ic_cb_ptr_type;
 

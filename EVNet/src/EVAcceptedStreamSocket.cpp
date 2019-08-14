@@ -19,9 +19,10 @@
 using Poco::Net::StreamSocket;
 namespace Poco{ namespace EVNet {
 
-EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, StreamSocket & streamSocket):
+EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_sockFd(streamSocket.impl()->sockfd()),
-	_libevSocketWatcherPtr(libevSocketWatcherPtr),
+	_socket_read_watcher(0),
+	_socket_write_watcher(0),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
@@ -40,15 +41,41 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, Str
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
-	if (this->_libevSocketWatcherPtr) {
-		if ((void*)(this->_libevSocketWatcherPtr->data))
-			free((void*)(this->_libevSocketWatcherPtr->data));
-		free(this->_libevSocketWatcherPtr);
+	if (this->_socket_read_watcher) {
+		if ((void*)(this->_socket_read_watcher->data))
+			free((void*)(this->_socket_read_watcher->data));
+		free(this->_socket_read_watcher);
+	}
+	if (this->_socket_write_watcher) {
+		if ((void*)(this->_socket_write_watcher->data))
+			free((void*)(this->_socket_write_watcher->data));
+		free(this->_socket_write_watcher);
 	}
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
 }
+
+void EVAcceptedStreamSocket::setSocketReadWatcher(ev_io *socket_watcher_ptr)
+{
+	this->_socket_read_watcher = socket_watcher_ptr;
+}
+
+ev_io * EVAcceptedStreamSocket::getSocketReadWatcher()
+{
+	return this->_socket_read_watcher;
+}
+
+void EVAcceptedStreamSocket::setSocketWriteWatcher(ev_io *socket_watcher_ptr)
+{
+	this->_socket_write_watcher = socket_watcher_ptr;
+}
+
+ev_io * EVAcceptedStreamSocket::getSocketWriteWatcher()
+{
+	return this->_socket_write_watcher;
+}
+
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);
@@ -75,10 +102,7 @@ StreamSocket *  EVAcceptedStreamSocket::getStreamSocketPtr()
 {
 	return &(this->_streamSocket);
 }
-ev_io * EVAcceptedStreamSocket::getSocketWatcher()
-{
-	return (this->_libevSocketWatcherPtr);
-}
+
 poco_socket_t EVAcceptedStreamSocket::getSockfd()
 {
 	return _sockFd;

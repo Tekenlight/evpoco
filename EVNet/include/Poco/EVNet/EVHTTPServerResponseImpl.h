@@ -27,6 +27,12 @@
 #include "Poco/Net/HTTPStream.h"
 #include "Poco/Net/HTTPFixedLengthStream.h"
 #include "Poco/Net/HTTPChunkedStream.h"
+
+#include "Poco/EVNet/EVHTTPHeaderStream.h"
+#include "Poco/EVNet/EVHTTPStream.h"
+#include "Poco/EVNet/EVHTTPFixedLengthStream.h"
+#include "Poco/EVNet/EVHTTPChunkedStream.h"
+
 #include "Poco/File.h"
 #include "Poco/Timestamp.h"
 #include "Poco/NumberFormatter.h"
@@ -36,6 +42,8 @@
 #include "Poco/FileStream.h"
 #include "Poco/DateTimeFormatter.h"
 #include "Poco/DateTimeFormat.h"
+
+#include <chunked_memory_stream.h>
 
 using Poco::Net::HTTPServerResponse;
 using Poco::Net::HTTPServerSession;
@@ -140,12 +148,15 @@ public:
 
 	void attachRequest(EVHTTPServerRequestImpl* pRequest);
 
+	void setMemoryStream(chunked_memory_stream* cms);
+
 protected:
 	
 private:
 	HTTPServerSession& _session;
 	EVHTTPServerRequestImpl* _pRequest;
 	std::ostream*      _pStream;
+	chunked_memory_stream* _out_memory_stream;
 	
 	friend class EVHTTPServerRequestImpl;
 };

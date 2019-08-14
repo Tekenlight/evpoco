@@ -141,12 +141,14 @@ void EVTCPServerDispatcher::run()
 						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
 					}
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
+					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();
 					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
 					}
+					((_cbHandle.objPtr)->*(_cbHandle.dataSendMthd))(pCNf->socket()->getStreamSocket());
 					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket()->getStreamSocket());
 				}
 				catch (NoMessageException&)

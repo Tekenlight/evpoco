@@ -119,6 +119,8 @@ void EVHTTPServerStream::evrun()
 		response = _reqProcState->getResponse();
 		if (!response) {
 			response = new EVHTTPServerResponseImpl(*session);
+			//DEBUGPOINT("Here mems = %p\n",_reqProcState->getResMemStream());
+			response->setMemoryStream(_reqProcState->getResMemStream());
 			_reqProcState->setResponse(response);
 		}
 

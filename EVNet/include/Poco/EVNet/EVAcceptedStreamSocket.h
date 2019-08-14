@@ -41,7 +41,7 @@ class Net_API EVAcceptedStreamSocket
 	/// are freed.
 {
 public:
-	EVAcceptedStreamSocket(ev_io *libevSocketWatcherPtr, StreamSocket & streamSocket);
+	EVAcceptedStreamSocket(StreamSocket & streamSocket);
 	~EVAcceptedStreamSocket();
 
 	StreamSocket & getStreamSocket();
@@ -93,9 +93,15 @@ public:
 	chunked_memory_stream * getResMemStream();
 	void deleteState();
 
+	void setSocketReadWatcher(ev_io *socket_watcher_ptr);
+	ev_io * getSocketReadWatcher();
+	void setSocketWriteWatcher(ev_io *socket_watcher_ptr);
+	ev_io * getSocketWriteWatcher();
+
 private:
 	poco_socket_t				_sockFd;
-	ev_io*						_libevSocketWatcherPtr ;
+	ev_io*						_socket_read_watcher;
+	ev_io*						_socket_write_watcher;
 	StreamSocket				_streamSocket;
 	long long					_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;

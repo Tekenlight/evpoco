@@ -687,39 +687,12 @@ int EVHTTPProcessingState::continueRead()
 void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 {
 	_session = session;
-	//fcntl(_session->socket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
-
-	/*
-	// All this code is hack
-	ssize_t bytes = 2048;
-	char * buffer = (char*)malloc(2048);
-	memset(buffer,0,1024);
-	int fd = _session->socket().impl()->sockfd();
-	errno = 0;
-	bytes = recv(fd, buffer, 2048 , 0);
-	if ((bytes <= 0) || errno) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			return ;
-		}
-		else {
-			const char * error_string = NULL;
-			if (!errno) {
-				error_string = "Peer closed connection";
-			}
-			else {
-				error_string = strerror(errno);
-			}
-			throw NetException(error_string);
-			return ;
-		}
-	}
-	_req_memory_stream->push(buffer, (size_t)bytes);
-	*/
 }
 
 void EVHTTPProcessingState::setResMemStream(chunked_memory_stream *memory_stream)
 {
 	_res_memory_stream = memory_stream;
+	//DEBUGPOINT("Setting _res_memory_stream = %p\n", _res_memory_stream);
 }
 
 void EVHTTPProcessingState::setReqMemStream(chunked_memory_stream *memory_stream)
@@ -729,6 +702,7 @@ void EVHTTPProcessingState::setReqMemStream(chunked_memory_stream *memory_stream
 
 chunked_memory_stream* EVHTTPProcessingState::getResMemStream()
 {
+	//DEBUGPOINT("Getting _res_memory_stream = %p\n", _res_memory_stream);
 	return _res_memory_stream;
 }
 

@@ -1,11 +1,11 @@
 //
-// HTTPChunkedStream.h
+// EVHTTPChunkedStream.h
 //
-// Library: Net
+// Library: EVNet
 // Package: HTTP
-// Module:  HTTPChunkedStream
+// Module:  EVHTTPChunkedStream
 //
-// Definition of the HTTPChunkedStream class.
+// Definition of the EVHTTPChunkedStream class.
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -14,92 +14,93 @@
 //
 
 
-#ifndef Net_HTTPChunkedStream_INCLUDED
-#define Net_HTTPChunkedStream_INCLUDED
+#ifndef Net_EVHTTPChunkedStream_INCLUDED
+#define Net_EVHTTPChunkedStream_INCLUDED
 
 
 #include "Poco/Net/Net.h"
-#include "Poco/Net/HTTPBasicStreamBuf.h"
 #include "Poco/MemoryPool.h"
+#include <ev_buffered_stream.h>
 #include <cstddef>
 #include <istream>
 #include <ostream>
 
 
 namespace Poco {
-namespace Net {
+namespace EVNet {
 
-
-class HTTPSession;
-
-
-class Net_API HTTPChunkedStreamBuf: public HTTPBasicStreamBuf
+class Net_API EVHTTPChunkedStreamBuf: public ev_buffered_stream
 	/// This is the streambuf class used for reading and writing
 	/// HTTP message bodies in chunked transfer coding.
 {
 public:
-	typedef HTTPBasicStreamBuf::openmode openmode;
+	typedef std::basic_ios<char, std::char_traits<char>>::openmode openmode;
 
-	HTTPChunkedStreamBuf(HTTPSession& session, openmode mode);
-	~HTTPChunkedStreamBuf();
+	EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openmode mode);
+	~EVHTTPChunkedStreamBuf();
+	void pre_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr);
+	void post_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr);
 	void close();
 
 protected:
 	int readFromDevice(char* buffer, std::streamsize length);
-	int writeToDevice(const char* buffer, std::streamsize length);
 
 private:
-	HTTPSession&    _session;
 	openmode        _mode;
 	std::streamsize _chunk;
 	std::string     _chunkBuffer;
+	static Poco::MemoryPool _pool;
 };
 
 
-class Net_API HTTPChunkedIOS: public virtual std::ios
+class Net_API EVHTTPChunkedIOS: public virtual std::ios
 	/// The base class for HTTPInputStream.
 {
 public:
-	HTTPChunkedIOS(HTTPSession& session, HTTPChunkedStreamBuf::openmode mode);
-	~HTTPChunkedIOS();
-	HTTPChunkedStreamBuf* rdbuf();
+	EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStreamBuf::openmode mode);
+	~EVHTTPChunkedIOS();
+	EVHTTPChunkedStreamBuf* rdbuf();
 
 protected:
-	HTTPChunkedStreamBuf _buf;
+	EVHTTPChunkedStreamBuf _buf;
 };
 
 
-class Net_API HTTPChunkedInputStream: public HTTPChunkedIOS, public std::istream
-	/// This class is for internal use by HTTPSession only.
+class Net_API EVHTTPChunkedInputStream: public EVHTTPChunkedIOS, public std::istream
+	/// This class is for internal use by Poco::Net::HTTPSession only.
 {
 public:
-	HTTPChunkedInputStream(HTTPSession& session);
-	~HTTPChunkedInputStream();
+	EVHTTPChunkedInputStream(chunked_memory_stream *cms);
+	~EVHTTPChunkedInputStream();
 	
+	/*
 	void* operator new(std::size_t size);
 	void operator delete(void* ptr);
 	
 private:
 	static Poco::MemoryPool _pool;
+	*/
 };
 
 
-class Net_API HTTPChunkedOutputStream: public HTTPChunkedIOS, public std::ostream
-	/// This class is for internal use by HTTPSession only.
+class Net_API EVHTTPChunkedOutputStream: public EVHTTPChunkedIOS, public std::ostream
+	/// This class is for internal use by Poco::Net::HTTPSession only.
 {
 public:
-	HTTPChunkedOutputStream(HTTPSession& session);
-	~HTTPChunkedOutputStream();
+	EVHTTPChunkedOutputStream(chunked_memory_stream *cms);
+	~EVHTTPChunkedOutputStream();
 
+	/*
 	void* operator new(std::size_t size);
 	void operator delete(void* ptr);
 	
 private:
 	static Poco::MemoryPool _pool;
+	*/
 };
 
 
 } } // namespace Poco::Net
 
 
-#endif // Net_HTTPChunkedStream_INCLUDED
+#endif // Net_EVHTTPChunkedStream_INCLUDED

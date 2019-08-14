@@ -13,7 +13,7 @@
 
 
 #include "Poco/EVNet/EVHTTPStream.h"
-#include "Poco/Net/HTTPSession.h"
+#include "Poco/StreamUtil.h"
 
 
 namespace Poco {
@@ -38,12 +38,9 @@ EVHTTPStreamBuf::~EVHTTPStreamBuf()
 
 void EVHTTPStreamBuf::close()
 {
-	/*
 	if (_mode & std::ios::out) {
-        sync();
-        _session.socket().shutdownSend();
-    }
-	*/
+		sync();
+	}
 	return ;
 }
 
@@ -61,6 +58,13 @@ EVHTTPIOS::EVHTTPIOS(chunked_memory_stream *cms, EVHTTPStreamBuf::openmode mode)
 
 EVHTTPIOS::~EVHTTPIOS()
 {
+	try
+	{
+		_buf.close();
+	}
+	catch (...)
+	{
+	}
 }
 
 
@@ -75,9 +79,6 @@ EVHTTPStreamBuf* EVHTTPIOS::rdbuf()
 //
 
 
-Poco::MemoryPool EVHTTPInputStream::_pool(sizeof(EVHTTPInputStream));
-
-
 EVHTTPInputStream::EVHTTPInputStream(chunked_memory_stream *cms):
 	EVHTTPIOS(cms, 1024),
 	std::istream(&_buf)
@@ -90,64 +91,24 @@ EVHTTPInputStream::~EVHTTPInputStream()
 }
 
 
-void* EVHTTPInputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
 
-
-void EVHTTPInputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-
-/*
 
 //
-// HTTPOutputStream
+// EVHTTPOutputStream
 //
 
 
-Poco::MemoryPool HTTPOutputStream::_pool(sizeof(HTTPOutputStream));
 
-
-HTTPOutputStream::HTTPOutputStream(HTTPSession& session):
-	EVHTTPIOS(session, std::ios::out),
+EVHTTPOutputStream::EVHTTPOutputStream(chunked_memory_stream *cms):
+	EVHTTPIOS(cms, std::ios::out),
 	std::ostream(&_buf)
 {
 }
 
 
-HTTPOutputStream::~HTTPOutputStream()
+EVHTTPOutputStream::~EVHTTPOutputStream()
 {
 }
 
-
-void* HTTPOutputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
-
-
-void HTTPOutputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-
-*/
 
 } } // namespace Poco::EVNet

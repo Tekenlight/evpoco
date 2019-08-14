@@ -73,30 +73,18 @@ public:
 	EVHTTPInputStream(chunked_memory_stream *cms);
 	~EVHTTPInputStream();
 
-	void* operator new(std::size_t size);
-	void operator delete(void* ptr);
-	
-private:
-	static Poco::MemoryPool _pool;
 };
 
 
-/*
-class Net_API HTTPOutputStream: public EVHTTPIOS, public std::ostream
+class Net_API EVHTTPOutputStream: public EVHTTPIOS, public std::ostream
 	/// This class is for internal use by HTTPSession only.
 {
 public:
-	HTTPOutputStream(HTTPSession& session);
-	~HTTPOutputStream();
+	EVHTTPOutputStream(chunked_memory_stream *cms);
+	~EVHTTPOutputStream();
 
-	void* operator new(std::size_t size);
-	void operator delete(void* ptr);
-	
-private:
-	static Poco::MemoryPool _pool;
 };
 
-*/
 
 } } // namespace Poco::EVNet
 

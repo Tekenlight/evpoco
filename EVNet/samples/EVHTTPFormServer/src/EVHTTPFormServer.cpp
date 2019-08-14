@@ -63,33 +63,20 @@ public:
 	void handlePart(const MessageHeader& header, std::istream& stream)
 	{
 		try {
-			DEBUGPOINT("Here \n");
 		_type = header.get("Content-Type", "(unspecified)");
-			DEBUGPOINT("Here \n");
 		if (header.has("Content-Disposition"))
 		{
-			DEBUGPOINT("Here \n");
 			std::string disp;
-			DEBUGPOINT("Here \n");
 			NameValueCollection params;
-			DEBUGPOINT("Here \n");
 			MessageHeader::splitParameters(header["Content-Disposition"], disp, params);
-			DEBUGPOINT("Here \n");
 			_name = params.get("name", "(unnamed)");
-			DEBUGPOINT("Here \n");
 			_fileName = params.get("filename", "(unnamed)");
-			DEBUGPOINT("Here \n");
 		}
-			DEBUGPOINT("Here \n");
 		
 		CountingInputStream istr(stream);
-			DEBUGPOINT("Here \n");
 		NullOutputStream ostr;
-			DEBUGPOINT("Here \n");
 		StreamCopier::copyStream(istr, ostr);
-			DEBUGPOINT("Here \n");
 		_length = istr.chars();
-			DEBUGPOINT("Here \n");
 		} catch (std::exception& ex) {
 			DEBUGPOINT("EXCEPTION HERE %s\n", ex.what());
 			abort();
@@ -138,7 +125,6 @@ public:
 		app.logger().information("Request from " + request.clientAddress().toString());
 
 		EVMyPartHandler partHandler;
-		DEBUGPOINT("CHA \n");
 		HTMLForm *form1 = NULL;
 		try {
 		form1 = new HTMLForm(request, request.stream(), partHandler);
@@ -152,10 +138,8 @@ public:
 		response.setChunkedTransferEncoding(true);
 		response.setContentType("text/html");
 
-		DEBUGPOINT("CHA \n");
 		std::ostream& ostr = response.send();
 
-		DEBUGPOINT("CHA \n");
 		ostr <<
 			"<html>\n"
 			"<head>\n"

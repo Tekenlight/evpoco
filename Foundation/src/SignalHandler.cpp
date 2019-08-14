@@ -91,6 +91,7 @@ void SignalHandler::handleSignal(int sig)
 		siglongjmp(jb.back().buf, sig);
 		
 	// Abort if no jump buffer registered
+	printf("%s:%d signal %d\n", __FILE__, __LINE__, sig);
 	std::abort();
 }
 

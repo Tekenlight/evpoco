@@ -72,30 +72,32 @@ public:
 	EVHTTPFixedLengthInputStream(chunked_memory_stream *cms, EVHTTPFixedLengthStreamBuf::ContentLength length);
 	~EVHTTPFixedLengthInputStream();
 	
+	/*
 	void* operator new(std::size_t size);
 	void operator delete(void* ptr);
 	
 private:
 	static Poco::MemoryPool _pool;
+	*/
 };
 
 
-/*
-class Net_API HTTPFixedLengthOutputStream: public EVHTTPFixedLengthIOS, public std::ostream
+class Net_API EVHTTPFixedLengthOutputStream: public EVHTTPFixedLengthIOS, public std::ostream
 	/// This class is for internal use by HTTPSession only.
 {
 public:
-	HTTPFixedLengthOutputStream(HTTPSession& session, EVHTTPFixedLengthStreamBuf::ContentLength length);
-	~HTTPFixedLengthOutputStream();
+	EVHTTPFixedLengthOutputStream(chunked_memory_stream *cms, EVHTTPFixedLengthStreamBuf::ContentLength length);
+	~EVHTTPFixedLengthOutputStream();
 
+	/*
 	void* operator new(std::size_t size);
 	void operator delete(void* ptr);
 	
 private:
 	static Poco::MemoryPool _pool;
+	*/
 };
 
-*/
 
 } } // namespace Poco::EVNet
 

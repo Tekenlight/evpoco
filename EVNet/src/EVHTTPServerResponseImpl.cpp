@@ -32,14 +32,16 @@ namespace EVNet {
 EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,HTTPServerSession& session):
 	_session(session),
 	_pRequest(request),
-	_pStream(0)
+	_pStream(0),
+	_out_memory_stream(0)
 {
 }
 
 EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(HTTPServerSession& session):
 	_session(session),
 	_pRequest(0),
-	_pStream(0)
+	_pStream(0),
+	_out_memory_stream(0)
 {
 }
 
@@ -52,13 +54,21 @@ EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 
 void EVHTTPServerResponseImpl::sendContinue()
 {
-	HTTPHeaderOutputStream hs(_session);
+	EVHTTPHeaderOutputStream hs(_out_memory_stream);
 	hs << getVersion() << " 100 Continue\r\n\r\n";
+}
+
+void EVHTTPServerResponseImpl::setMemoryStream(chunked_memory_stream* cms)
+{
+	if (!_out_memory_stream) _out_memory_stream = cms;
 }
 
 std::ostream& EVHTTPServerResponseImpl::send()
 {
 	poco_assert (!_pStream);
+
+	//DEBUGPOINT(" oms = %p\n", _out_memory_stream);
+	poco_assert (_out_memory_stream);
 
 	if ((_pRequest && _pRequest->getMethod() == HTTPRequest::HTTP_HEAD) ||
 		getStatus() < 200 ||
@@ -67,29 +77,29 @@ std::ostream& EVHTTPServerResponseImpl::send()
 	{
 		Poco::CountingOutputStream cs;
 		write(cs);
-		_pStream = new HTTPFixedLengthOutputStream(_session, cs.chars());
+		_pStream = new EVHTTPFixedLengthOutputStream(_out_memory_stream, cs.chars());
 		write(*_pStream);
 	}
 	else if (getChunkedTransferEncoding())
 	{
-		HTTPHeaderOutputStream hs(_session);
-		write(hs);
-		_pStream = new HTTPChunkedOutputStream(_session);
+			EVHTTPHeaderOutputStream hs(_out_memory_stream);
+			write(hs);
+			_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
 	}
 	else if (hasContentLength())
 	{
 		Poco::CountingOutputStream cs;
 		write(cs);
 #if defined(POCO_HAVE_INT64)	
-		_pStream = new HTTPFixedLengthOutputStream(_session, getContentLength64() + cs.chars());
+		_pStream = new EVHTTPFixedLengthOutputStream(_out_memory_stream, getContentLength64() + cs.chars());
 #else
-		_pStream = new HTTPFixedLengthOutputStream(_session, getContentLength() + cs.chars());
+		_pStream = new EVHTTPFixedLengthOutputStream(_out_memory_stream, getContentLength() + cs.chars());
 #endif
 		write(*_pStream);
 	}
 	else
 	{
-		_pStream = new HTTPOutputStream(_session);
+		_pStream = new EVHTTPOutputStream(_out_memory_stream);
 		setKeepAlive(false);
 		write(*_pStream);
 	}
@@ -116,7 +126,7 @@ void EVHTTPServerResponseImpl::sendFile(const std::string& path, const std::stri
 	Poco::FileInputStream istr(path);
 	if (istr.good())
 	{
-		_pStream = new HTTPHeaderOutputStream(_session);
+		_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 		write(*_pStream);
 		if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 		{
@@ -134,7 +144,7 @@ void EVHTTPServerResponseImpl::sendBuffer(const void* pBuffer, std::size_t lengt
 	setContentLength(static_cast<int>(length));
 	setChunkedTransferEncoding(false);
 	
-	_pStream = new HTTPHeaderOutputStream(_session);
+	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 	write(*_pStream);
 	if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 	{
@@ -153,7 +163,7 @@ void EVHTTPServerResponseImpl::redirect(const std::string& uri, HTTPStatus statu
 	setStatusAndReason(status);
 	set("Location", uri);
 
-	_pStream = new HTTPHeaderOutputStream(_session);
+	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 	write(*_pStream);
 }
 

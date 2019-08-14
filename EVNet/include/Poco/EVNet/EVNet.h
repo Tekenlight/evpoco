@@ -67,7 +67,7 @@
 #define DEBUGPOINT(...) { \
 	fflush(stdout); \
     printf("[%p][%s:%d] Reached:",(void*)pthread_self(),__FILE__,__LINE__); \
-    printf(__VA_ARGS__);fflush(stdout); \
+    printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
 }
 
 #ifndef ULLONG_MAX
