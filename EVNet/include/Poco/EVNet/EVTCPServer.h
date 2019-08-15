@@ -34,6 +34,7 @@
 #include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/EVNet/EVAcceptedStreamSocket.h"
 #include "Poco/EVNet/EVStreamSocketLRUList.h"
+#include "Poco/EVNet/EVServer.h"
 
 namespace Poco { namespace Net {
 	class StreamSocket;
@@ -62,7 +63,7 @@ typedef struct {
 	connArrivedMethod connArrived;
 } srvrs_io_cb_struct_type , *srvrs_ic_cb_ptr_type;
 
-class Net_API EVTCPServer: public Poco::Runnable
+class Net_API EVTCPServer: public Poco::Runnable, public EVServer
 	/// This class implements a multithreaded TCP server.
 	///
 	/// The server uses a ServerSocket to listen for incoming
@@ -238,15 +239,15 @@ private:
 		/// Returns the number of bytes remaining to be written.
 	ssize_t handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
-	void dataReadyForSendOnAccSocket(StreamSocket & streamSocket);
+	virtual void dataReadyForSendOnAccSocket(StreamSocket & streamSocket);
 		/// Function to handle the event of data being ready to be sent on a socket.
 	void sendDataOnAccSocket(const bool& flag);
 		/// Function to data on a sockets for which data is ready.
-	void dataInAccSocketConsumed(StreamSocket & streamSocket);
+	virtual void dataInAccSocketConsumed(StreamSocket & streamSocket);
 		/// Function to handle the event of completion of one request.
 	void monitorDataOnAccSocket(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
-	void errorInAccSocket(StreamSocket& s, poco_socket_t fd, bool connInErr);
+	virtual void errorInAccSocket(StreamSocket& s, poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.

@@ -40,7 +40,7 @@ public:
 	typedef std::basic_ios<char, std::char_traits<char>>::openmode openmode;
 
 	EVHTTPHeaderStreamBuf(chunked_memory_stream *cms, openmode mode);
-	void pre_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr);
+	void get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len);
 	~EVHTTPHeaderStreamBuf();
 	
 };

@@ -82,9 +82,9 @@ std::ostream& EVHTTPServerResponseImpl::send()
 	}
 	else if (getChunkedTransferEncoding())
 	{
-			EVHTTPHeaderOutputStream hs(_out_memory_stream);
-			write(hs);
-			_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
+		EVHTTPHeaderOutputStream hs(_out_memory_stream);
+		write(hs);
+		_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
 	}
 	else if (hasContentLength())
 	{

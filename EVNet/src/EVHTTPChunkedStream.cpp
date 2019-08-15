@@ -32,8 +32,11 @@ namespace EVNet {
 EVHTTPChunkedStreamBuf::EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openmode mode):
 	ev_buffered_stream(cms, 1024),
 	_mode(mode),
-	_chunk(0)
+	_chunk(0),
+	_closed_state(0)
 {
+	set_prefix_len(5);
+	set_suffix_len(2);
 }
 
 EVHTTPChunkedStreamBuf::~EVHTTPChunkedStreamBuf()
@@ -44,8 +47,9 @@ void EVHTTPChunkedStreamBuf::close()
 {
 	/* THIS IS JUNK */
 	if (_mode & std::ios::out) {
+		_closed_state = 1;
 		std::ostream os(this);
-		os << "0\r\n\r\n";
+		os << "\r\n";
 		sync();
 		//_session.write("0\r\n\r\n", 5);
 	}
@@ -88,54 +92,52 @@ int EVHTTPChunkedStreamBuf::readFromDevice(char* buffer, std::streamsize length)
 	return 0;
 }
 
-void EVHTTPChunkedStreamBuf::pre_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr)
+void EVHTTPChunkedStreamBuf::get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len)
 {
-	*buffer_ptr = (char*)malloc(128);
-	memset(*buffer_ptr, 0, 128);
+	//if (_closed_state) return;
+	int buf0_len = 0;
+
+
+	{
+		std::string buf0;
+		std::string buf;
+		buf.clear();
+		buf0.clear();
+		if (_closed_state) {
+			NumberFormatter::appendHex(buf0, 0);
+			if (strncmp("\r\n", buffer, 2)) std::abort();
+			if (('\r' != buffer[0]) || ('\n' != buffer[1])) std::abort();
+		}
+		else {
+			NumberFormatter::appendHex(buf0, bytes);
+			buf0.append("\r\n", 2);
+		}
+		{
+			int i = 0;
+			while (prefix_len>(buf0.size()+buf.size())) {
+				buf.append("0",1);
+				i++;
+				if (i>10) std::abort();
+			}
+		}
+		buf.append(buf0);
+		memcpy(prefix, buf.c_str(), (buf.size()));
+		//printf("%s%s",prefix, buffer);
+	}
+}
+
+void EVHTTPChunkedStreamBuf::get_suffix(char* buffer, std::streamsize bytes, char *suffix, size_t suffix_len)
+{
+	//if (_closed_state) return;
 
 	{
 		std::string buf;
 		buf.clear();
-		NumberFormatter::appendHex(buf, bytes);
 		buf.append("\r\n", 2);
-		memcpy(*buffer_ptr, buf.c_str(), static_cast<std::streamsize>(buf.size()));
-		*bytes_ptr = static_cast<std::streamsize>(buf.size());
-		printf("%s",*buffer_ptr);
-		printf("%s",buffer);
+		memcpy(suffix, buf.c_str(), suffix_len);
+		//printf("%s------------------------------------------------------------\n",suffix);
 	}
 }
-
-void EVHTTPChunkedStreamBuf::post_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr)
-{
-	*buffer_ptr = (char*)malloc(128);
-	memset(*buffer_ptr, 0, 128);
-
-	{
-		static int count = 0;
-		count++;
-		std::string buf;
-		buf.clear();
-		buf.append("\r\n", 2);
-		memcpy(*buffer_ptr, buf.c_str(), static_cast<std::streamsize>(buf.size()));
-		*bytes_ptr = static_cast<std::streamsize>(buf.size());
-		printf("%s",*buffer_ptr);
-		printf("--------------------------------------------count = %d---------------------------------------------\n",count);
-	}
-}
-
-/*
-int EVHTTPChunkedStreamBuf::writeToDevice(const char* buffer, std::streamsize length)
-{
-	_chunkBuffer.clear();
-	NumberFormatter::appendHex(_chunkBuffer, length);
-	_chunkBuffer.append("\r\n", 2);
-	_chunkBuffer.append(buffer, static_cast<std::string::size_type>(length));
-	_chunkBuffer.append("\r\n", 2);
-	_session.write(_chunkBuffer.data(), static_cast<std::streamsize>(_chunkBuffer.size()));
-	return static_cast<int>(length);
-	return 0;
-}
-*/
 
 EVHTTPChunkedIOS::EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStreamBuf::openmode mode):
 	_buf(cms, mode)

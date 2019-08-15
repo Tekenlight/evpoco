@@ -196,6 +196,7 @@ public:
 			ostr << "</p>";
 		}
 		ostr << "</body>\n";
+		ostr.flush();
 	}
 };
 

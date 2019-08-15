@@ -36,9 +36,8 @@ EVHTTPHeaderStreamBuf::~EVHTTPHeaderStreamBuf()
 {
 }
 
-void EVHTTPHeaderStreamBuf::pre_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr)
+void EVHTTPHeaderStreamBuf::get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len)
 {
-	printf("%s",buffer);
 }
 
 /*

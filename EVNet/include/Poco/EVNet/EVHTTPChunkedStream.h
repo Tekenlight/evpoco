@@ -38,8 +38,8 @@ public:
 
 	EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openmode mode);
 	~EVHTTPChunkedStreamBuf();
-	void pre_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr);
-	void post_write_buffer(char* buffer, std::streamsize bytes, char **buffer_ptr, size_t *bytes_ptr);
+	void get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len);
+	void get_suffix(char* buffer, std::streamsize bytes, char *suffix, size_t suffix_len);
 	void close();
 
 protected:
@@ -50,6 +50,7 @@ private:
 	std::streamsize _chunk;
 	std::string     _chunkBuffer;
 	static Poco::MemoryPool _pool;
+	int				_closed_state;
 };
 
 
