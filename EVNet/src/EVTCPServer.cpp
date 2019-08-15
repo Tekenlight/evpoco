@@ -71,6 +71,7 @@ static void async_stream_socket_cb (EV_P_ ev_io *w, int revents);
 // this callback is called when socket is writable
 static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
 {
+	DEBUGPOINT("Here %x %d\n", revents, w->fd);
 	bool ev_occurred = true;
 	strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
@@ -99,12 +100,14 @@ static void async_stream_socket_cb (EV_P_ ev_io *w, int revents)
 	if (revents & EV_WRITE) async_stream_socket_cb_2(loop, w, revents);
 
 	if (revents & EV_READ) {
+	DEBUGPOINT("Here %X %d\n", revents&EV_READ, w->fd);
 		strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
 		/* for one-shot events, one must manually stop the watcher
 		 * with its corresponding stop function.
 		 * ev_io_stop (loop, w);
 		 */
 		if (!ev_is_active(w)) {
+			DEBUGPOINT("Here\n");
 			return ;
 		}
 
@@ -128,6 +131,25 @@ static void async_stop_cb_1 (struct ev_loop *loop, ev_async *w, int revents)
 	return;
 }
 
+/* This callback is for completion of processing of one socket. */
+static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
+{
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::monitorDataOnAccSocket(const bool)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+
+	return;
+}
+
 /* This callback is for sending data on socket when data is ready. */
 static void async_stop_cb_3 (struct ev_loop *loop, ev_async *w, int revents)
 {
@@ -142,25 +164,6 @@ static void async_stop_cb_3 (struct ev_loop *loop, ev_async *w, int revents)
 	/* The below line of code essentially calls
 	 * EVTCPServer::sendDataOnAccSocket(const bool)
 	 * 
-	 */
-	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
-
-	return;
-}
-
-/* This callback is for completion of processing of one socket. */
-static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
-{
-	bool ev_occurred = true;
-	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
-
-	if (!ev_is_active(w)) {
-		return ;
-	}
-
-	cb_ptr = (strms_pc_cb_ptr_type)w->data;
-	/* The below line of code essentially calls
-	 * EVTCPServer::monitorDataOnAccSocket(const bool)
 	 */
 	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
 
@@ -184,14 +187,12 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed,
-						&EVTCPServer::errorInAccSocket, &EVTCPServer::dataReadyForSendOnAccSocket};
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
 	if (pParams) {
 		int toAdd = pParams->getMaxThreads() - pool.capacity();
 		if (toAdd > 0) pool.addCapacity(toAdd);
 	}
-	_pDispatcher = new EVTCPServerDispatcher(pFactory, pool, pParams, evtHandler);
+	_pDispatcher = new EVTCPServerDispatcher(pFactory, pool, pParams, this);
 	
 }
 
@@ -209,14 +210,12 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed,
-						&EVTCPServer::errorInAccSocket, &EVTCPServer::dataReadyForSendOnAccSocket};
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
 	if (pParams) {
 		int toAdd = pParams->getMaxThreads() - pool.capacity();
 		if (toAdd > 0) pool.addCapacity(toAdd);
 	}
-	_pDispatcher = new EVTCPServerDispatcher(pFactory, pool, pParams, evtHandler);
+	_pDispatcher = new EVTCPServerDispatcher(pFactory, pool, pParams, this);
 }
 
 
@@ -233,9 +232,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
-	reqComplEvntHandler evtHandler = {this, &EVTCPServer::dataInAccSocketConsumed,
-						&EVTCPServer::errorInAccSocket, &EVTCPServer::dataReadyForSendOnAccSocket};
-	_pDispatcher = new EVTCPServerDispatcher(pFactory, threadPool, pParams, evtHandler);
+	_pDispatcher = new EVTCPServerDispatcher(pFactory, threadPool, pParams, this);
 }
 
 EVTCPServer::~EVTCPServer()
@@ -309,29 +306,6 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
-{
-	ssize_t ret = 0;
-	errno = 0;
-	ret = recv(fd, chptr, size , 0);
-	if ((ret <= 0) || errno) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			return 0;
-		}
-		else {
-			const char * error_string = NULL;
-			if (!errno) {
-				error_string = "Peer closed connection";
-			}
-			else {
-				error_string = strerror(errno);
-			}
-			return -1;
-		}
-	}
-	return ret;
-}
-
 ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
@@ -339,7 +313,9 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 	if (!tn) return -1;
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
-	if (!tn->resDataAvlbl()) return 1;
+	if (!tn->resDataAvlbl()) {
+		goto handleAccSocketWritable_finally;
+	}
 
 	tn->setSockBusy();
 
@@ -389,13 +365,16 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 		* */
 	}
 
-finally:
 	tn->setSockFree();
+
+handleAccSocketWritable_finally:
 	if (ret >=0) {
 		if (!tn->resDataAvlbl()) ret = 1;
 		else ret = 0;
 	}
+	DEBUGPOINT("Here\n");
 	if (ret != 0) {
+	DEBUGPOINT("Here\n");
 		ev_io * socket_watcher_ptr = 0;
 		strms_ic_cb_ptr_type cb_ptr = 0;
 
@@ -404,8 +383,34 @@ finally:
 		cb_ptr = (strms_ic_cb_ptr_type)socket_watcher_ptr->data;
 
 		ev_io_stop(_loop, socket_watcher_ptr);
-		ev_io_set (socket_watcher_ptr, streamSocket.impl()->sockfd(), EV_READ);
+		//ev_io_set (socket_watcher_ptr, streamSocket.impl()->sockfd(), EV_READ);
+		ev_clear_pending(_loop, socket_watcher_ptr);
+		ev_io_init (socket_watcher_ptr, async_stream_socket_cb, streamSocket.impl()->sockfd(), EV_READ);
 		ev_io_start (_loop, socket_watcher_ptr);
+	}
+	return ret;
+}
+
+ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
+{
+	ssize_t ret = 0;
+	errno = 0;
+	ret = recv(fd, chptr, size , 0);
+	if ((ret <= 0) || errno) {
+		DEBUGPOINT("Here ret = %zd errno = %d %s\n", ret, errno, strerror(errno));
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return 0;
+		}
+		else {
+			const char * error_string = NULL;
+			if (!errno) {
+				error_string = "Peer closed connection";
+			}
+			else {
+				error_string = strerror(errno);
+			}
+			return -1;
+		}
 	}
 	return ret;
 }
@@ -443,12 +448,7 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 		} while(ret1>0);
 	}
 
-finally:
-	if (ret < 0)  {
-		_ssColl.erase(streamSocket.impl()->sockfd());
-		_ssLRUList.remove(tn);
-	}
-
+handleDataAvlblOnAccSock_finally:
 	if (tn->reqDataAvlbl()) {
 		_pDispatcher->enqueue(tn);
 	}
@@ -460,10 +460,18 @@ finally:
 		ev_clear_pending(_loop, socket_watcher_ptr);
 	}
 
+	DEBUGPOINT("ret = %zd errno = %d %s\n", ret, errno, strerror(errno));
+	if (ret < 0)  {
+		_ssColl.erase(streamSocket.impl()->sockfd());
+		_ssLRUList.remove(tn);
+		delete tn;
+	}
+
+
 	return ret;
 }
 
-void EVTCPServer::dataReadyForSendOnAccSocket(StreamSocket & ss)
+void EVTCPServer::dataReadyForSend(StreamSocket & ss)
 {
 	/* Enque the socket */
 	_write_event_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
@@ -473,7 +481,7 @@ void EVTCPServer::dataReadyForSendOnAccSocket(StreamSocket & ss)
 	return;
 }
 
-void EVTCPServer::dataInAccSocketConsumed(StreamSocket & ss)
+void EVTCPServer::receivedDataConsumed(StreamSocket & ss)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
@@ -483,7 +491,7 @@ void EVTCPServer::dataInAccSocketConsumed(StreamSocket & ss)
 	return;
 }
 
-void EVTCPServer::errorInAccSocket(StreamSocket & streamSocket, poco_socket_t fd, bool connInErr)
+void EVTCPServer::errorInReceivedData(StreamSocket & streamSocket, poco_socket_t fd, bool connInErr)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,fd,true));
@@ -495,18 +503,23 @@ void EVTCPServer::errorInAccSocket(StreamSocket & streamSocket, poco_socket_t fd
 
 void EVTCPServer::sendDataOnAccSocket(const bool& ev_occured)
 {
-	AutoPtr<Notification> pNf = 0;
+	Notification::Ptr pNf = 0;
+	//AutoPtr<Notification> pNf = 0;
 	for  (pNf = _write_event_queue.dequeueNotification(); pNf ; pNf = _write_event_queue.dequeueNotification()) {
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
-		StreamSocket ss = pcNf->socket();
-
 		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
 		if (!tn) continue;
-		if ((fcntl (ss.impl()->sockfd(), F_GETFD) < 0)) {
+		if ((fcntl (pcNf->sockfd(), F_GETFD) < 0)) {
 			_ssColl.erase(pcNf->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketReadWatcher();
+				ev_io_stop(_loop, socket_watcher_ptr);
+				ev_clear_pending(_loop, socket_watcher_ptr);
+			}
 			delete tn;
 			continue;;
 		} 
@@ -514,6 +527,13 @@ void EVTCPServer::sendDataOnAccSocket(const bool& ev_occured)
 			_ssColl.erase(pcNf->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
+
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketReadWatcher();
+				ev_io_stop(_loop, socket_watcher_ptr);
+				ev_clear_pending(_loop, socket_watcher_ptr);
+			}
 			delete tn;
 			continue;;
 		}
@@ -523,14 +543,17 @@ void EVTCPServer::sendDataOnAccSocket(const bool& ev_occured)
 			strms_ic_cb_ptr_type cb_ptr = 0;
 
 			socket_watcher_ptr = tn->getSocketReadWatcher();
+		DEBUGPOINT("Here for socket %d\n", socket_watcher_ptr->fd);
 
 			cb_ptr = (strms_ic_cb_ptr_type)socket_watcher_ptr->data;
 
 			cb_ptr->socketWritable = &EVTCPServer::handleAccSocketWritable;
 
 			ev_io_stop(_loop, socket_watcher_ptr);
-			ev_io_set (socket_watcher_ptr, ss.impl()->sockfd(), EV_READ|EV_WRITE);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+			ev_io_init (socket_watcher_ptr, async_stream_socket_cb, pcNf->sockfd(), EV_READ|EV_WRITE);
 			ev_io_start (_loop, socket_watcher_ptr);
+		DEBUGPOINT("Here for socket %d\n", socket_watcher_ptr->fd);
 		}
 	}
 
@@ -544,11 +567,11 @@ void EVTCPServer::monitorDataOnAccSocket(const bool& ev_occured)
 	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
-		StreamSocket ss = pcNf->socket();
 		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketReadWatcher();
 
 		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
-		if ((fcntl (ss.impl()->sockfd(), F_GETFD) < 0)) {
+		StreamSocket ss = tn->getStreamSocket();
+		if ((fcntl (pcNf->sockfd(), F_GETFD) < 0)) {
 			_ssColl.erase(pcNf->sockfd());
 			_ssLRUList.remove(tn);
 			//_ssLRUList.debugPrint(__FILE__,__LINE__,pthread_self());
@@ -570,9 +593,13 @@ void EVTCPServer::monitorDataOnAccSocket(const bool& ev_occured)
 			tn->setSockFree();
 			ev_clear_pending(_loop,socket_watcher_ptr);
 			socket_watcher_ptr->events = 0;
-			ev_io_stop(_loop, socket_watcher_ptr);
-			ev_io_set (socket_watcher_ptr, ss.impl()->sockfd(), EV_READ);
-			ev_io_start (_loop, socket_watcher_ptr);
+			if (!ev_is_active(socket_watcher_ptr)) {
+				ev_io_stop(_loop, socket_watcher_ptr);
+				ev_clear_pending(_loop, socket_watcher_ptr);
+				//ev_io_set (socket_watcher_ptr, ss.impl()->sockfd(), EV_READ);
+				ev_io_init(socket_watcher_ptr, async_stream_socket_cb, ss.impl()->sockfd(), EV_READ);
+				ev_io_start (_loop, socket_watcher_ptr);
+			}
 		}
 	}
 
@@ -593,8 +620,8 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		ev_io_stop(_loop, ptr->getSocketReadWatcher());
 		ev_clear_pending(_loop, ptr->getSocketReadWatcher());
 
-		ev_io_stop(_loop, ptr->getSocketWriteWatcher());
-		ev_clear_pending(_loop, ptr->getSocketWriteWatcher());
+		//ev_io_stop(_loop, ptr->getSocketWriteWatcher());
+		//ev_clear_pending(_loop, ptr->getSocketWriteWatcher());
 
 		delete ptr;
 	}
@@ -642,6 +669,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 			// Make the socket non blocking.
 			fcntl(fd, F_SETFL, O_NONBLOCK);
+			DEBUGPOINT("Here %d\n", ss.impl()->sockfd());
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb, ss.impl()->sockfd(), EV_READ);
 			ev_io_start (_loop, socket_watcher_ptr);
 		}

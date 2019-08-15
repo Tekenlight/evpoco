@@ -18,6 +18,8 @@
 
 #include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
+#include "Poco/EVNet/EVNet.h"
+#include "Poco/EVNet/EVServer.h"
 
 #ifndef EVNet_EVProcessingState_INCLUDED
 #define EVNet_EVProcessingState_INCLUDED
@@ -35,17 +37,21 @@ class Net_API EVProcessingState
 {
 public:
 
-	EVProcessingState();
+	EVProcessingState(EVServer * server);
 	virtual int getState() = 0;
 	virtual ~EVProcessingState();
 	virtual void setReqMemStream(chunked_memory_stream *memory_stream) = 0;
 	virtual void setResMemStream(chunked_memory_stream *memory_stream) = 0;
+	EVServer* getServer();
 
+private:
+	EVServer* _server;
 
 };
 
-inline EVProcessingState::EVProcessingState() { }
+inline EVProcessingState::EVProcessingState(EVServer * server):_server(server) { }
 inline EVProcessingState::~EVProcessingState() { }
+inline EVServer* EVProcessingState::getServer() { return _server; }
 
 }
 } // End namespace Poco::EVNet

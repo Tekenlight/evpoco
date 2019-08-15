@@ -239,15 +239,15 @@ private:
 		/// Returns the number of bytes remaining to be written.
 	ssize_t handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
-	virtual void dataReadyForSendOnAccSocket(StreamSocket & streamSocket);
+	virtual void dataReadyForSend(StreamSocket & streamSocket);
 		/// Function to handle the event of data being ready to be sent on a socket.
 	void sendDataOnAccSocket(const bool& flag);
 		/// Function to data on a sockets for which data is ready.
-	virtual void dataInAccSocketConsumed(StreamSocket & streamSocket);
+	virtual void receivedDataConsumed(StreamSocket & streamSocket);
 		/// Function to handle the event of completion of one request.
 	void monitorDataOnAccSocket(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
-	virtual void errorInAccSocket(StreamSocket& s, poco_socket_t fd, bool connInErr);
+	virtual void errorInReceivedData(StreamSocket& s, poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( SSColMapType & );
 		/// Function to cleanup the memory allocated for socket management.

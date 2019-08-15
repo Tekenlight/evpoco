@@ -23,6 +23,7 @@
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/EVNet/EVHTTPProcessingState.h"
+#include "Poco/EVNet/EVServer.h"
 
 using Poco::Net::HTTPServerParams;
 using Poco::Net::StreamSocket;
@@ -50,7 +51,7 @@ public:
 		/// Creates an instance of HTTPServerConnection
 		/// using the given StreamSocket.
 	
-	EVProcessingState* createReaProcState();
+	EVProcessingState* createReaProcState(EVServer *);
 		/// Creates an instance of EVHTTPProcessingState
 
 private:

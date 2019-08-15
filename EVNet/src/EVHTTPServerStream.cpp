@@ -107,6 +107,7 @@ void EVHTTPServerStream::evrun()
 	session = _reqProcState->getSession();
 	if (!session) {
 		session = new EVHTTPServerSession(socket(), _pParams);
+		session->setServer(_reqProcState->getServer());
 		_reqProcState->setSession(session);
 	}
 	session->setSockFdForReuse(true);
@@ -266,7 +267,7 @@ void EVHTTPServerStream::run()
 	return evrun();
 }
 
-void EVHTTPServerStream::sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status)
+void EVHTTPServerStream::sendErrorResponse(EVHTTPServerSession& session, HTTPResponse::HTTPStatus status)
 {
 	EVHTTPServerResponseImpl response(session);
 	response.setVersion(HTTPMessage::HTTP_1_1);

@@ -30,6 +30,7 @@
 #include "Poco/Mutex.h"
 #include "Poco/EVNet/EVProcessingState.h"
 #include "Poco/EVNet/EVHTTPProcessingState.h"
+#include "Poco/EVNet/EVHTTPServerSession.h"
 
 using Poco::Net::HTTPServerSession;
 using Poco::Net::StreamSocket;
@@ -64,7 +65,7 @@ public:
 		/// Handles HTTP requests coming, in an event driven way.
 	
 protected:
-	void sendErrorResponse(HTTPServerSession& session, HTTPResponse::HTTPStatus status);
+	void sendErrorResponse(EVHTTPServerSession& session, HTTPResponse::HTTPStatus status);
 	void onServerStopped(const bool& abortCurrent);
 	EVProcessingState * getProcState();
 	void setProcState(EVProcessingState *s);

@@ -12,9 +12,9 @@ class Net_API EVServer {
 public:
 	EVServer();
 	~EVServer();
-	virtual void dataInAccSocketConsumed(Poco::Net::StreamSocket & streamSocket) = 0;
-	virtual void errorInAccSocket(Poco::Net::StreamSocket& s, poco_socket_t fd, bool connInErr) = 0;
-	virtual void dataReadyForSendOnAccSocket(Poco::Net::StreamSocket & streamSocket) = 0;
+	virtual void receivedDataConsumed(Poco::Net::StreamSocket & streamSocket) = 0;
+	virtual void errorInReceivedData(Poco::Net::StreamSocket& s, poco_socket_t fd, bool connInErr) = 0;
+	virtual void dataReadyForSend(Poco::Net::StreamSocket & streamSocket) = 0;
 };
 
 /*

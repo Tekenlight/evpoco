@@ -67,7 +67,7 @@ private:
 };
 
 EVTCPServerDispatcher::EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory,
-				Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, reqComplEvntHandler &complEvtHandle):
+				Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, EVServer* server):
 	_rc(1),
 	_pParams(pParams),
 	_currentThreads(0),
@@ -78,7 +78,7 @@ EVTCPServerDispatcher::EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr p
 	_stopped(false),
 	_pConnectionFactory(pFactory),
 	_threadPool(threadPool),
-	_cbHandle(complEvtHandle)
+	_server(server)
 {
 	poco_check_ptr (pFactory);
 
@@ -138,7 +138,7 @@ void EVTCPServerDispatcher::run()
 					poco_check_ptr(pConnection.get());
 					beginConnection();
 					if (!(pCNf->socket()->getProcState())) {
-						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState());
+						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState(_server));
 					}
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
@@ -148,22 +148,22 @@ void EVTCPServerDispatcher::run()
 					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
 					}
-					((_cbHandle.objPtr)->*(_cbHandle.dataSendMthd))(pCNf->socket()->getStreamSocket());
-					((_cbHandle.objPtr)->*(_cbHandle.reqComMthd))(pCNf->socket()->getStreamSocket());
+					_server->dataReadyForSend(pCNf->socket()->getStreamSocket());
+					_server->receivedDataConsumed(pCNf->socket()->getStreamSocket());
 				}
 				catch (NoMessageException&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (MessageException&) {
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (Poco::Exception&)
 				{
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 				catch (...) {
-					((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
 				}
 
 			}
@@ -216,7 +216,7 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 		 * It means that the server is overwhelmed.
 		 * Closing connection in that case.
 		 * */
-		((_cbHandle.objPtr)->*(_cbHandle.reqExcMthd))(evAccSocket->getStreamSocket(),
+		_server->errorInReceivedData(evAccSocket->getStreamSocket(),
 												evAccSocket->getStreamSocket().impl()->sockfd(),true);
 	}
 }

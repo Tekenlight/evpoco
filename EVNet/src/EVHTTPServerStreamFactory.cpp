@@ -15,6 +15,7 @@
 #include "Poco/EVNet/EVHTTPServerStreamFactory.h"
 #include "Poco/EVNet/EVHTTPServerStream.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
+#include "Poco/EVNet/EVServer.h"
 
 
 namespace Poco {
@@ -45,9 +46,9 @@ EVTCPServerConnection* EVHTTPServerStreamFactory::createConnection(StreamSocket&
 	return new EVHTTPServerStream(socket, _pParams, _pFactory, reqProcState);
 }
 
-EVProcessingState* EVHTTPServerStreamFactory::createReaProcState()
+EVProcessingState* EVHTTPServerStreamFactory::createReaProcState(EVServer * server)
 {
-	return new EVHTTPProcessingState();
+	return new EVHTTPProcessingState(server);
 }
 
 } } // namespace Poco::EVNet

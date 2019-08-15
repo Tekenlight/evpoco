@@ -29,7 +29,7 @@ namespace Poco {
 namespace EVNet {
 
 
-EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,HTTPServerSession& session):
+EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,EVHTTPServerSession& session):
 	_session(session),
 	_pRequest(request),
 	_pStream(0),
@@ -37,7 +37,7 @@ EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * req
 {
 }
 
-EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(HTTPServerSession& session):
+EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerSession& session):
 	_session(session),
 	_pRequest(0),
 	_pStream(0),
@@ -54,7 +54,7 @@ EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 
 void EVHTTPServerResponseImpl::sendContinue()
 {
-	EVHTTPHeaderOutputStream hs(_out_memory_stream);
+	EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
 	hs << getVersion() << " 100 Continue\r\n\r\n";
 }
 
@@ -82,7 +82,7 @@ std::ostream& EVHTTPServerResponseImpl::send()
 	}
 	else if (getChunkedTransferEncoding())
 	{
-		EVHTTPHeaderOutputStream hs(_out_memory_stream);
+		EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
 		write(hs);
 		_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
 	}
@@ -126,7 +126,7 @@ void EVHTTPServerResponseImpl::sendFile(const std::string& path, const std::stri
 	Poco::FileInputStream istr(path);
 	if (istr.good())
 	{
-		_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
+		_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
 		write(*_pStream);
 		if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 		{
@@ -144,7 +144,7 @@ void EVHTTPServerResponseImpl::sendBuffer(const void* pBuffer, std::size_t lengt
 	setContentLength(static_cast<int>(length));
 	setChunkedTransferEncoding(false);
 	
-	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
+	_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
 	write(*_pStream);
 	if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 	{
@@ -163,7 +163,7 @@ void EVHTTPServerResponseImpl::redirect(const std::string& uri, HTTPStatus statu
 	setStatusAndReason(status);
 	set("Location", uri);
 
-	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
+	_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
 	write(*_pStream);
 }
 

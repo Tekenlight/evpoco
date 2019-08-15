@@ -22,6 +22,7 @@
 #include "Poco/EVNet/EVProcessingState.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
+#include "Poco/EVNet/EVServer.h"
 #include <string>
 
 #include <chunked_memory_stream.h>
@@ -43,7 +44,7 @@ class Net_API EVHTTPProcessingState : public EVProcessingState
 {
 public:
 
-	EVHTTPProcessingState();
+	EVHTTPProcessingState(EVServer *);
 	virtual ~EVHTTPProcessingState();
 	void setRequest(EVHTTPServerRequestImpl * req);
 	EVHTTPServerRequestImpl * getRequest();

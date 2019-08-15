@@ -45,7 +45,8 @@ namespace EVNet {
 using Poco::Net::NetException;
 using Poco::Net::MessageException;
 
-EVHTTPProcessingState::EVHTTPProcessingState():
+EVHTTPProcessingState::EVHTTPProcessingState(EVServer * server):
+	EVProcessingState(server),
 	_request(0),
 	_response(0),
 	_session(0),

@@ -24,7 +24,7 @@ namespace Poco {
 namespace EVNet {
 
 
-EVHTTPServerSession::EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams):HTTPServerSession(socket,pParams)
+EVHTTPServerSession::EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams):HTTPServerSession(socket,pParams), _server(0)
 {
 }
 
@@ -41,6 +41,16 @@ bool EVHTTPServerSession::hasMoreRequests()
 int EVHTTPServerSession::receive(char* buffer, int length)
 {
 	return HTTPServerSession::receive(buffer, length);
+}
+
+EVServer* EVHTTPServerSession::getServer()
+{
+	return _server;
+}
+
+void EVHTTPServerSession::setServer(EVServer * server)
+{
+	_server = server;
 }
 
 

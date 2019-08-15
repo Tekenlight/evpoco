@@ -23,6 +23,7 @@
 #include "Poco/EVNet/EVTCPServerConnection.h"
 #include "Poco/SharedPtr.h"
 #include "Poco/EVNet/EVProcessingState.h"
+#include "Poco/EVNet/EVServer.h"
 
 
 namespace Poco {
@@ -54,7 +55,7 @@ public:
 		/// Creates an instance of a subclass of TCPServerConnection,
 		/// using the given StreamSocket.
 
-	virtual EVProcessingState* createReaProcState() = 0;
+	virtual EVProcessingState* createReaProcState(EVServer *) = 0;
 		/// Creates an instance of EVHTTPProcessingState
 protected:
 	EVTCPServerConnectionFactory();

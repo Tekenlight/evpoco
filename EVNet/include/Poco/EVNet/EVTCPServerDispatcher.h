@@ -32,23 +32,13 @@
 namespace Poco {
 namespace EVNet {
 
-typedef void (EVTCPServer::*reqComplMthd)(Net::StreamSocket &);
-typedef void (EVTCPServer::*dataReadyMthd)(Net::StreamSocket &);
-typedef void (EVTCPServer::*reqExcpMthd)(Net::StreamSocket & streamSocket,poco_socket_t fd, bool);
-typedef struct {
-	EVTCPServer *objPtr;
-	reqComplMthd reqComMthd;
-	reqExcpMthd reqExcMthd;
-	dataReadyMthd dataSendMthd;
-} reqComplEvntHandler , *reqComplEvntHandlerPtr;
-
 class Net_API EVTCPServerDispatcher: public Poco::Runnable
 	/// A helper class for EVTCPServer that dispatches
 	/// connections to server connection threads.
 {
 public:
 
-	EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, reqComplEvntHandler & evtHandle);
+	EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr pFactory, Poco::ThreadPool& threadPool, Net::TCPServerParams::Ptr pParams, EVServer*  server);
 		/// Creates the EVTCPServerDispatcher.
 		///
 		/// The dispatcher takes ownership of the TCPServerParams object.
@@ -126,7 +116,7 @@ private:
 	EVTCPServerConnectionFactory::Ptr _pConnectionFactory;
 	Poco::ThreadPool&               _threadPool;
 	mutable Poco::FastMutex         _mutex;
-	reqComplEvntHandler				_cbHandle;
+	EVServer*				_server;
 };
 
 

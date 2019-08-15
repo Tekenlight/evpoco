@@ -20,6 +20,7 @@
 
 #include <chunked_memory_stream.h>
 #include "Poco/EVNet/EVNet.h"
+#include "Poco/EVNet/EVServer.h"
 #include "Poco/Net/HTTPSession.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/HTTPServerSession.h"
@@ -52,10 +53,14 @@ public:
 		/// Returns true if the session can be kept alive.
 
 	virtual int receive(char* buffer, int length);
-		
+
+	EVServer* getServer();
+	void setServer(EVServer * server);
+
 private:
 	bool           _firstRequest;
 	chunked_memory_stream *_mem_stream;
+	EVServer* _server;
 };
 
 
