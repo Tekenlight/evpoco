@@ -29,7 +29,8 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_sockBusy(false),
 	_reqProcState(0),
 	_req_memory_stream(0),
-	_res_memory_stream(0)
+	_res_memory_stream(0),
+	_state(NOT_WAITING)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);

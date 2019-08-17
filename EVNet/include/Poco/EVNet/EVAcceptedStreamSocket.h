@@ -41,6 +41,12 @@ class Net_API EVAcceptedStreamSocket
 	/// are freed.
 {
 public:
+	typedef enum {
+		NOT_WAITING = 0
+		,WAITING_FOR_SOCKET_TO_BECOME_READABLE = EV_READ
+		,WAITING_FOR_SOCKET_TO_BECOME_WRITABLE = EV_WRITE
+		,WAITING_FOR_SOCKET_TO_BECOME_READABLE_OR_WRITABLE = EV_READ|EV_WRITE
+	} accepted_sock_state;
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
 	~EVAcceptedStreamSocket();
 
@@ -98,6 +104,9 @@ public:
 	void setSocketWriteWatcher(ev_io *socket_watcher_ptr);
 	ev_io * getSocketWriteWatcher();
 
+	accepted_sock_state getState();
+	void setState(accepted_sock_state state);
+
 private:
 	poco_socket_t				_sockFd;
 	ev_io*						_socket_read_watcher;
@@ -110,8 +119,18 @@ private:
 	EVProcessingState*			_reqProcState;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
+	accepted_sock_state			_state;
 };
 
+inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()
+{
+	return _state;
+}
+
+inline void EVAcceptedStreamSocket::setState(EVAcceptedStreamSocket::accepted_sock_state state)
+{
+	_state = state;
+}
 
 } } // namespace EVNet and Poco end.
 

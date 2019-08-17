@@ -24,22 +24,36 @@ namespace Poco{ namespace EVNet {
 class EVTCPServerNotification: public Notification
 {
 public:
-	EVTCPServerNotification(StreamSocket& socket);
-	EVTCPServerNotification(StreamSocket& socket, poco_socket_t sockfd);
-	EVTCPServerNotification(StreamSocket& socket, poco_socket_t fd,  bool closeConnInd);
+	typedef enum {
+		DATA_FOR_READ_READY
+		,PROCESSING_COMPLETE
+		,DATA_FOR_SEND_READY
+		,ERROR_IN_PROCESSING
+	} what;
+	//EVTCPServerNotification(StreamSocket& socket);
+	EVTCPServerNotification(poco_socket_t sockfd, what event);
+	//EVTCPServerNotification(poco_socket_t fd,  bool closeConnInd);
 	
 	~EVTCPServerNotification();
 
-	StreamSocket& socket();
+	//StreamSocket& socket();
 	poco_socket_t sockfd();
 
-	bool connInError();
+	what getEvent();
+
+	//bool connInError();
 
 private:
-	StreamSocket&			_socket;
+	//StreamSocket&			_socket;
 	poco_socket_t			_sockfd;
-	bool					_closeerrorconn;
+	//bool					_closeerrorconn;
+	what					_event;
 };
+
+inline EVTCPServerNotification::what EVTCPServerNotification::getEvent()
+{
+	return _event;
+}
 
 } } // namespace EVNet and Poco end.
 

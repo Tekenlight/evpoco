@@ -36,7 +36,7 @@ EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(EVHTTPServerSession& session, chunk
 EVHTTPHeaderStreamBuf::~EVHTTPHeaderStreamBuf()
 {
 	//DEBUGPOINT("Here %p\n", _session.getServer());
-	//_session.getServer()->dataReadyForSend(_session.socket());
+	_session.getServer()->dataReadyForSend(_session.socket());
 	//DEBUGPOINT("Here\n");
 }
 
