@@ -160,7 +160,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(true)
+	_blocking(false)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -184,7 +184,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(true)
+	_blocking(false)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -207,7 +207,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(true)
+	_blocking(false)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -795,9 +795,10 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			acceptedSock->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
 
 			// Make the socket non blocking.
-			_blocking = false;
-			ss.impl()->setBlocking(_blocking);
-			fcntl(fd, F_SETFL, O_NONBLOCK);
+			if (!_blocking) {
+				ss.impl()->setBlocking(_blocking);
+				fcntl(fd, F_SETFL, O_NONBLOCK);
+			}
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), EV_READ);
 			ev_io_start (_loop, socket_watcher_ptr);
 		}
@@ -836,7 +837,7 @@ void EVTCPServer::run()
 
 	/* Making the server socket non-blocking. */
 
-	this->socket().impl()->setBlocking(_blocking);
+	if (!_blocking) this->socket().impl()->setBlocking(_blocking);
 
 	/* Making the server socket non-blocking. */
 	ev_io_init (&(socket_watcher), async_socket_cb, this->sockfd(), EV_READ);
