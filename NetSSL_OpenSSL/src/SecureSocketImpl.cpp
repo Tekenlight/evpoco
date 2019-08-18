@@ -29,6 +29,8 @@
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
 
+#include <errno.h>
+
 
 using Poco::IOException;
 using Poco::TimeoutException;
@@ -53,6 +55,16 @@ SecureSocketImpl::SecureSocketImpl(Poco::AutoPtr<SocketImpl> pSocketImpl, Contex
 {
 	poco_check_ptr (_pSocket);
 	poco_check_ptr (_pContext);
+}
+
+void SecureSocketImpl::setBlocking(bool flag)
+{
+	_pSocket->setBlocking(flag);
+}
+
+bool SecureSocketImpl::getBlocking()
+{
+	return _pSocket->getBlocking();
 }
 
 
@@ -86,13 +98,17 @@ void SecureSocketImpl::acceptSSL()
 	poco_assert (!_pSSL);
 
 	BIO* pBIO = BIO_new(BIO_s_socket());
-	if (!pBIO) throw SSLException("Cannot create BIO object");
+	if (!pBIO) {
+		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		throw SSLException("Cannot create BIO object");
+	}
 	BIO_set_fd(pBIO, static_cast<int>(_pSocket->sockfd()), BIO_NOCLOSE);
 
 	_pSSL = SSL_new(_pContext->sslContext());
 	if (!_pSSL)
 	{
 		BIO_free(pBIO);
+		printf("%s:%d Reached here \n", __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
@@ -146,13 +162,17 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 	poco_assert (_pSocket->initialized());
 
 	BIO* pBIO = BIO_new(BIO_s_socket());
-	if (!pBIO) throw SSLException("Cannot create SSL BIO object");
+	if (!pBIO) {
+		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		throw SSLException("Cannot create SSL BIO object");
+	}
 	BIO_set_fd(pBIO, static_cast<int>(_pSocket->sockfd()), BIO_NOCLOSE);
 
 	_pSSL = SSL_new(_pContext->sslContext());
 	if (!_pSSL)
 	{
 		BIO_free(pBIO);
+		printf("%s:%d Reached here \n", __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
@@ -287,10 +307,12 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 	if (_needHandshake)
 	{
 		rc = completeHandshake();
-		if (rc == 1)
+		if (rc == 1) {
 			verifyPeerCertificate();
-		else
+		}
+		else {
 			return rc;
+		}
 	}
 	do
 	{
@@ -406,10 +428,12 @@ bool SecureSocketImpl::mustRetry(int rc)
 		case SSL_ERROR_WANT_READ:
 			if (_pSocket->getBlocking())
 			{
-				if (_pSocket->poll(_pSocket->getReceiveTimeout(), Poco::Net::Socket::SELECT_READ))
+				if (_pSocket->poll(_pSocket->getReceiveTimeout(), Poco::Net::Socket::SELECT_READ)) {
 					return true;
-				else
+				}
+				else {
 					throw Poco::TimeoutException();
+				}
 			}
 			break;
 		case SSL_ERROR_WANT_WRITE:
@@ -485,6 +509,8 @@ int SecureSocketImpl::handleError(int rc)
 				char buffer[256];
 				ERR_error_string_n(lastError, buffer, sizeof(buffer));
 				std::string msg(buffer);
+				printf("%s:%d Reached here %d %s\n", __FILE__, __LINE__, errno, strerror(errno));
+				//std::abort();
 				throw SSLException(msg);
 			}
 		}

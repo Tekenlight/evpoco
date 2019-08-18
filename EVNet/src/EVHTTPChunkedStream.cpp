@@ -45,8 +45,8 @@ EVHTTPChunkedStreamBuf::~EVHTTPChunkedStreamBuf()
 
 void EVHTTPChunkedStreamBuf::close()
 {
-	/* THIS IS JUNK */
 	if (_mode & std::ios::out) {
+		sync();
 		_closed_state = 1;
 		std::ostream os(this);
 		os << "\r\n";

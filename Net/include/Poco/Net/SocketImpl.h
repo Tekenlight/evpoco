@@ -488,11 +488,6 @@ inline int SocketImpl::lastError()
 }
 
 
-inline bool SocketImpl::getBlocking() const
-{
-	return _blocking;
-}
-
 
 } } // namespace Poco::Net
 

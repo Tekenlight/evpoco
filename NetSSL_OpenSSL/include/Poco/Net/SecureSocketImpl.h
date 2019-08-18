@@ -179,6 +179,8 @@ public:
 	bool sessionWasReused();
 		/// Returns true iff a reused session was negotiated during
 		/// the handshake.
+	void setBlocking(bool flag);
+	bool getBlocking();
 		
 protected:
 	void acceptSSL();

@@ -895,6 +895,11 @@ bool SocketImpl::getBroadcast()
 	return value != 0;
 }
 
+bool SocketImpl::getBlocking() const
+{
+	return _blocking;
+}
+
 
 void SocketImpl::setBlocking(bool flag)
 {

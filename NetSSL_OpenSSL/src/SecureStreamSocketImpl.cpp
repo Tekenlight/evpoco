@@ -224,5 +224,17 @@ int SecureStreamSocketImpl::completeHandshake()
 	return _impl.completeHandshake();
 }
 
+void SecureStreamSocketImpl::setBlocking(bool flag)
+{
+	_impl.setBlocking(flag);
+	SocketImpl::setBlocking(flag);
+}
+
+bool SecureStreamSocketImpl::getBlocking()
+{
+	bool f =  _impl.getBlocking();
+	printf("BLOCKING = %d\n",(int)f);
+	return f;
+}
 
 } } // namespace Poco::Net

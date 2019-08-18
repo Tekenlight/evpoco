@@ -196,6 +196,14 @@ public:
 		/// Returns true iff a reused session was negotiated during
 		/// the handshake.
 		
+	virtual void setBlocking(bool flag);
+		/// Sets the socket in blocking mode if flag is true,
+		/// disables blocking mode if flag is false.
+
+	virtual bool getBlocking();
+		/// Returns the blocking mode of the socket.
+		/// This method will only work if the blocking modes of
+		/// the socket are changed via the setBlocking method!
 protected:
 	void acceptSSL();
 		/// Performs a SSL server-side handshake.

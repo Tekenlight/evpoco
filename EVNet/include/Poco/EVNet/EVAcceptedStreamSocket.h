@@ -43,9 +43,9 @@ class Net_API EVAcceptedStreamSocket
 public:
 	typedef enum {
 		NOT_WAITING = 0
-		,WAITING_FOR_SOCKET_TO_BECOME_READABLE = EV_READ
-		,WAITING_FOR_SOCKET_TO_BECOME_WRITABLE = EV_WRITE
-		,WAITING_FOR_SOCKET_TO_BECOME_READABLE_OR_WRITABLE = EV_READ|EV_WRITE
+		,WAITING_FOR_READ = EV_READ
+		,WAITING_FOR_WRITE = EV_WRITE
+		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
 	} accepted_sock_state;
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
 	~EVAcceptedStreamSocket();

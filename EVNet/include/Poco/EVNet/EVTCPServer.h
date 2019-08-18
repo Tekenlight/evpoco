@@ -255,7 +255,9 @@ private:
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
 	ssize_t receiveData(int fd, void * chptr, size_t size);
+	ssize_t receiveData(StreamSocket&, void * chptr, size_t size);
 	ssize_t sendData(int fd, void * chptr, size_t size);
+	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 
 	ServerSocket					_socket;
 	EVTCPServerDispatcher*			_pDispatcher;
