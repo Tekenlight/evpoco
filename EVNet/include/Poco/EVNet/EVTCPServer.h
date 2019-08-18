@@ -278,6 +278,7 @@ private:
 	EVStreamSocketLRUList			_ssLRUList;
 	int								_numThreads;
 	int								_numConnections;
+	bool							_blocking;
 
 };
 

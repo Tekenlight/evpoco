@@ -30,6 +30,7 @@
 #include <openssl/err.h>
 
 #include <errno.h>
+#include <pthread.h>
 
 
 using Poco::IOException;
@@ -99,7 +100,7 @@ void SecureSocketImpl::acceptSSL()
 
 	BIO* pBIO = BIO_new(BIO_s_socket());
 	if (!pBIO) {
-		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
 		throw SSLException("Cannot create BIO object");
 	}
 	BIO_set_fd(pBIO, static_cast<int>(_pSocket->sockfd()), BIO_NOCLOSE);
@@ -108,7 +109,7 @@ void SecureSocketImpl::acceptSSL()
 	if (!_pSSL)
 	{
 		BIO_free(pBIO);
-		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
@@ -306,14 +307,20 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 	int rc;
 	if (_needHandshake)
 	{
+		printf("[%p]:%s:%d when handshake is neeed \n", pthread_self(), __FILE__, __LINE__);
 		rc = completeHandshake();
+		printf("[%p]:%s:%d After handshake %d \n", pthread_self(), __FILE__, __LINE__, rc);
 		if (rc == 1) {
 			verifyPeerCertificate();
+		printf("[%p]:%s:%d Two way SSL\n", pthread_self(), __FILE__, __LINE__);
 		}
 		else {
+		printf("[%p]:%s:%d It will always come here\n", pthread_self(), __FILE__, __LINE__);
 			return rc;
 		}
+		printf("[%p]:%s:%d Will it ever come here\n", pthread_self(), __FILE__, __LINE__);
 	}
+		printf("[%p]:%s:%d when handshake is no more neeed \n", pthread_self(), __FILE__, __LINE__);
 	do
 	{
 		rc = SSL_read(_pSSL, buffer, length);
@@ -509,7 +516,7 @@ int SecureSocketImpl::handleError(int rc)
 				char buffer[256];
 				ERR_error_string_n(lastError, buffer, sizeof(buffer));
 				std::string msg(buffer);
-				printf("%s:%d Reached here %d %s\n", __FILE__, __LINE__, errno, strerror(errno));
+				printf("[%p]:%s:%d Reached here SSLERROR = %d  %d %s\n",pthread_self(), __FILE__, __LINE__, sslError,  errno, strerror(errno));
 				//std::abort();
 				throw SSLException(msg);
 			}

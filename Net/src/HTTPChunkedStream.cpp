@@ -98,7 +98,6 @@ int HTTPChunkedStreamBuf::writeToDevice(const char* buffer, std::streamsize leng
 	_chunkBuffer.append(buffer, static_cast<std::string::size_type>(length));
 	_chunkBuffer.append("\r\n", 2);
 	_session.write(_chunkBuffer.data(), static_cast<std::streamsize>(_chunkBuffer.size()));
-	printf("Buffer = \n%s-----------------------------------------------\n",_chunkBuffer.c_str());
 	return static_cast<int>(length);
 }
 
