@@ -23,7 +23,8 @@ TCPServerParams::TCPServerParams():
 	_threadIdleTime(10000000),
 	_maxThreads(0),
 	_maxQueued(64),
-	_threadPriority(Poco::Thread::PRIO_NORMAL)
+	_threadPriority(Poco::Thread::PRIO_NORMAL),
+	_blocking(false)
 {
 }
 
@@ -59,6 +60,12 @@ void TCPServerParams::setThreadPriority(Poco::Thread::Priority prio)
 {
 	_threadPriority = prio;
 }
+
+void TCPServerParams::setBlocking(bool blocking)
+{
+	_blocking = blocking;
+}
+
 
 
 } } // namespace Poco::Net

@@ -160,7 +160,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(false)
+	_blocking(pParams->getBlocking())
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -184,7 +184,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(false)
+	_blocking(pParams->getBlocking())
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -207,7 +207,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(false)
+	_blocking(pParams->getBlocking())
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -422,8 +422,6 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 		}
 	}
 
-	DEBUGPOINT("Here\n");
-
 	errno = 0;
 	ret = 0;
 	try {
@@ -431,12 +429,9 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 		ret = ss.receiveBytes(chptr, size );
 	}
 	catch (std::exception & e) {
-		DEBUGPOINT("%s %zd\n", e.what(), ret);
 	}
 	catch (...) {
-	DEBUGPOINT("Here\n");
 	}
-	DEBUGPOINT("Here\n");
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
@@ -494,9 +489,7 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 			void * buffer = malloc(TCP_BUFFER_SIZE);
 			memset(buffer,0,TCP_BUFFER_SIZE);
 			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
-	DEBUGPOINT("Here\n");
 			ret1 = receiveData(streamSocket, buffer, TCP_BUFFER_SIZE);
-	DEBUGPOINT("Here\n");
 			if (ret1 >0) {
 				tn->pushReqData(buffer, (size_t)ret1);
 				ret += ret1;
@@ -511,9 +504,7 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 	}
 
 handleDataAvlblOnAccSock_finally:
-	DEBUGPOINT("Here\n");
 	if (tn->reqDataAvlbl()) {
-	DEBUGPOINT("Here\n");
 		_pDispatcher->enqueue(tn);
 	}
 
@@ -524,7 +515,6 @@ handleDataAvlblOnAccSock_finally:
 		ev_io * socket_watcher_ptr = 0;
 		socket_watcher_ptr = tn->getSocketReadWatcher();
 		if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
-	DEBUGPOINT("Here\n");
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			tn->setState(EVAcceptedStreamSocket::NOT_WAITING);

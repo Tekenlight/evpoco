@@ -278,13 +278,15 @@ protected:
 		}
 		else
 		{
+			HTTPServerParams *p = new HTTPServerParams();
 			unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 9443);
 			//unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 443);
 			
+			p->setBlocking(config().getBool("EVHTTPSFormServer.blocking", false));
 			// set-up a server socket
 			SecureServerSocket svs(port);
 			// set-up a HTTPServer instance
-			EVHTTPServer srv(new EVFormRequestHandlerFactory, svs, new HTTPServerParams);
+			EVHTTPServer srv(new EVFormRequestHandlerFactory, svs, p);
 			// start the HTTPServer
 			srv.start();
 			// wait for CTRL-C or kill

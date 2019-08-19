@@ -91,6 +91,9 @@ public:
 	Poco::Thread::Priority getThreadPriority() const;
 		/// Returns the priority of TCP server threads
 		/// created by TCPServer. 
+	bool getBlocking() const;
+
+	void setBlocking(bool);
 
 protected:
 	virtual ~TCPServerParams();
@@ -101,6 +104,7 @@ private:
 	int _maxThreads;
 	int _maxQueued;
 	Poco::Thread::Priority _threadPriority;
+	bool _blocking;
 };
 
 
@@ -128,6 +132,11 @@ inline int TCPServerParams::getMaxQueued() const
 inline Poco::Thread::Priority TCPServerParams::getThreadPriority() const
 {
 	return _threadPriority;
+}
+
+inline bool TCPServerParams::getBlocking() const
+{
+	return _blocking;
 }
 
 
