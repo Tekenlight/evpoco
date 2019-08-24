@@ -404,33 +404,13 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 {
 	ssize_t ret = 0;
 	errno = 0;
-	char c = '\0';
-	ret = recv(ss.impl()->sockfd(), &c, 1 , MSG_PEEK);
-	if ((ret <= 0) || errno) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			return 0;
-		}
-		else {
-			const char * error_string = NULL;
-			if (!errno) {
-				error_string = "Peer closed connection";
-			}
-			else {
-				error_string = strerror(errno);
-			}
-			return -1;
-		}
-	}
 
-	errno = 0;
-	ret = 0;
 	try {
-		//ret = ss.receiveBytes(chptr, size , 0);
+		//DEBUGPOINT("BEFORE SOCKET = %d\n", ss.impl()->sockfd());
 		ret = ss.receiveBytes(chptr, size );
 	}
 	catch (std::exception & e) {
-	}
-	catch (...) {
+		//DEBUGPOINT("Exception %s ret = %zd\n", e.what(), ret);
 	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -439,6 +419,7 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 		else {
 			const char * error_string = NULL;
 			if (!errno) {
+				//DEBUGPOINT("ret = %zd\n", ret);
 				error_string = "Peer closed connection";
 			}
 			else {
@@ -532,6 +513,7 @@ handleDataAvlblOnAccSock_finally:
 		}
 	}
 	else if (ret < 0)  {
+		//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
 		_ssColl.erase(streamSocket.impl()->sockfd());
 		_ssLRUList.remove(tn);
 		{
@@ -543,6 +525,7 @@ handleDataAvlblOnAccSock_finally:
 			}
 		}
 		delete tn;
+		//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
 	}
 
 	return ret;

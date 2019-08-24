@@ -226,7 +226,7 @@ private:
 	static const std::string NUM_CONNECTIONS_CFG_NAME;
 	static const std::string SERVER_PREFIX_CFG_NAME;
 
-	static const int TCP_BUFFER_SIZE = 1024;
+	static const int TCP_BUFFER_SIZE = 4096;
 
 	EVTCPServer();
 	EVTCPServer(const EVTCPServer&);

@@ -12,7 +12,6 @@
 //
 
 
-#include "Poco/Net/SecureSocketImpl.h"
 #include "Poco/Net/SSLException.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/X509Certificate.h"
@@ -32,6 +31,7 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include "Poco/Net/SecureSocketImpl.h"
 
 using Poco::IOException;
 using Poco::TimeoutException;
@@ -56,16 +56,6 @@ SecureSocketImpl::SecureSocketImpl(Poco::AutoPtr<SocketImpl> pSocketImpl, Contex
 {
 	poco_check_ptr (_pSocket);
 	poco_check_ptr (_pContext);
-}
-
-void SecureSocketImpl::setBlocking(bool flag)
-{
-	_pSocket->setBlocking(flag);
-}
-
-bool SecureSocketImpl::getBlocking()
-{
-	return _pSocket->getBlocking();
 }
 
 
@@ -100,7 +90,7 @@ void SecureSocketImpl::acceptSSL()
 
 	BIO* pBIO = BIO_new(BIO_s_socket());
 	if (!pBIO) {
-		printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
+		//printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
 		throw SSLException("Cannot create BIO object");
 	}
 	BIO_set_fd(pBIO, static_cast<int>(_pSocket->sockfd()), BIO_NOCLOSE);
@@ -109,7 +99,7 @@ void SecureSocketImpl::acceptSSL()
 	if (!_pSSL)
 	{
 		BIO_free(pBIO);
-		printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
+		//printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
@@ -164,7 +154,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 
 	BIO* pBIO = BIO_new(BIO_s_socket());
 	if (!pBIO) {
-		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		//printf("%s:%d Reached here \n", __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL BIO object");
 	}
 	BIO_set_fd(pBIO, static_cast<int>(_pSocket->sockfd()), BIO_NOCLOSE);
@@ -173,7 +163,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 	if (!_pSSL)
 	{
 		BIO_free(pBIO);
-		printf("%s:%d Reached here \n", __FILE__, __LINE__);
+		//printf("%s:%d Reached here \n", __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
@@ -246,6 +236,7 @@ void SecureSocketImpl::shutdown()
 			// flag by calling SSL_shutdown() once and be
 			// done with it.
 			int rc = SSL_shutdown(_pSSL);
+			//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
 			if (rc < 0) handleError(rc);
 			if (_pSocket->getBlocking())
 			{
@@ -292,6 +283,7 @@ int SecureSocketImpl::sendBytes(const void* buffer, int length, int flags)
 	while (mustRetry(rc));
 	if (rc <= 0)
 	{
+		//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
 		rc = handleError(rc);
 		if (rc == 0) throw SSLConnectionUnexpectedlyClosedException();
 	}
@@ -307,20 +299,14 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 	int rc;
 	if (_needHandshake)
 	{
-		printf("[%p]:%s:%d when handshake is neeed \n", pthread_self(), __FILE__, __LINE__);
 		rc = completeHandshake();
-		printf("[%p]:%s:%d After handshake %d \n", pthread_self(), __FILE__, __LINE__, rc);
 		if (rc == 1) {
 			verifyPeerCertificate();
-		printf("[%p]:%s:%d Two way SSL\n", pthread_self(), __FILE__, __LINE__);
 		}
 		else {
-		printf("[%p]:%s:%d It will always come here\n", pthread_self(), __FILE__, __LINE__);
 			return rc;
 		}
-		printf("[%p]:%s:%d Will it ever come here\n", pthread_self(), __FILE__, __LINE__);
 	}
-		printf("[%p]:%s:%d when handshake is no more neeed \n", pthread_self(), __FILE__, __LINE__);
 	do
 	{
 		rc = SSL_read(_pSSL, buffer, length);
@@ -328,6 +314,7 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 	while (mustRetry(rc));
 	if (rc <= 0)
 	{
+		//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
 		return handleError(rc);
 	}
 	return rc;
@@ -355,6 +342,7 @@ int SecureSocketImpl::completeHandshake()
 	while (mustRetry(rc));
 	if (rc <= 0)
 	{
+		//printf("%p:%s:%d reached here mustretry = %d rc = %d\n", pthread_self(), __FILE__, __LINE__, (int)mustRetry(rc), rc);
 		return handleError(rc);
 	}
 	_needHandshake = false;
@@ -468,6 +456,32 @@ int SecureSocketImpl::handleError(int rc)
 
 	int sslError = SSL_get_error(_pSSL, rc);
 	int error = SocketImpl::lastError();
+	/*
+	{
+		//char filename[128] = {'\0'};
+		char *filename = NULL;
+		int lineno = 0;
+		unsigned long error_number = 0;
+		error_number = ERR_peek_error_line((const char **)(&filename), &lineno);
+		printf("[%p]:%s:%d Reached here ERR = %d error_number = %zu filename = %s  lineno = %d \n",
+				pthread_self(), __FILE__, __LINE__, ERR_GET_LIB(error_number), error_number, filename, lineno);
+	}
+
+	printf("[%p]:%s:%d Reached here SSLERROR = %d rc = %d  %d %s\n",
+			pthread_self(), __FILE__, __LINE__, sslError, rc,  errno, strerror(errno));
+	{
+		int flags, line;
+		char *data, *file;
+		unsigned long code;
+		code = ERR_get_error_line_data((const char**)(&file), &line, (const char **)(&data), &flags);
+		while (code) {
+			printf("error code: %lu in %s line %d.\n", code, file, line);
+			if (data && (flags & ERR_TXT_STRING))
+			printf("error data: %s\n", data);
+			code = ERR_get_error_line_data((const char**)(&file), &line, (const char **)(&data), &flags);
+		}
+	}
+	*/
 
 	switch (sslError)
 	{
@@ -516,8 +530,6 @@ int SecureSocketImpl::handleError(int rc)
 				char buffer[256];
 				ERR_error_string_n(lastError, buffer, sizeof(buffer));
 				std::string msg(buffer);
-				printf("[%p]:%s:%d Reached here SSLERROR = %d  %d %s\n",pthread_self(), __FILE__, __LINE__, sslError,  errno, strerror(errno));
-				//std::abort();
 				throw SSLException(msg);
 			}
 		}
@@ -581,6 +593,16 @@ bool SecureSocketImpl::sessionWasReused()
 		return SSL_session_reused(_pSSL) != 0;
 	else
 		return false;
+}
+
+void SecureSocketImpl::setBlocking(bool flag)
+{
+	_pSocket->setBlocking(flag);
+}
+
+bool SecureSocketImpl::getBlocking() const
+{
+	return _pSocket->getBlocking();
 }
 
 
