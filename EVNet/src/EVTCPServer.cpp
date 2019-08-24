@@ -509,6 +509,7 @@ handleDataAvlblOnAccSock_finally:
 		}
 		else {
 			/* It should not come here otherwise. */
+			//DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", tn->getState());
 			std::abort();
 		}
 	}
@@ -574,14 +575,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 
 	StreamSocket ss = tn->getStreamSocket();
 
-	if (tn->reqDataAvlbl()) {
-		/* There is residual data on socket.
-		 * This can be a cause for unnecessary thread context switching
-		 * opportunity for optimization.
-		 * */
-		handleDataAvlblOnAccSock(ss, false);
-	}
-	else {
+	{
 		tn->setSockFree();
 		/* If socket is not readable make it readable*/
 		if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
@@ -604,6 +598,14 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 			ev_io_init(socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), events);
 			ev_io_start (_loop, socket_watcher_ptr);
 		}
+	}
+
+	if (tn->reqDataAvlbl()) {
+		/* There is residual data on socket.
+		 * This can be a cause for unnecessary thread context switching
+		 * opportunity for optimization.
+		 * */
+		handleDataAvlblOnAccSock(ss, false);
 	}
 
 	return;
