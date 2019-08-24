@@ -370,6 +370,9 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 
 handleAccSocketWritable_finally:
 	if (ret >=0) {
+		/* If there is more data to be sent, wait for 
+		 * the socket to become writable again.
+		 * */
 		if (!tn->resDataAvlbl()) ret = 1;
 		else ret = 0;
 	}
@@ -397,6 +400,7 @@ handleAccSocketWritable_finally:
 			std::abort();
 		}
 	}
+
 	return ret;
 }
 
@@ -580,16 +584,14 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		/* If socket is not readable make it readable*/
 		if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
 			 tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
-			//int events = EV_READ;
 			int events = 0;
 			if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
-				//events |= EV_WRITE;
 				events = EVAcceptedStreamSocket::WAITING_FOR_READWRITE;
 				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READWRITE);
 			}
 			else {
-				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
 				events = EVAcceptedStreamSocket::WAITING_FOR_READ;
+				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
 			}
 
 			ev_io_stop(_loop, socket_watcher_ptr);
@@ -624,16 +626,14 @@ void EVTCPServer::sendDataOnAccSocket(EVAcceptedStreamSocket *tn)
 	/* If socket is not writable make it so. */
 	if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
 		 tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
-		//int events = EV_WRITE;
 		int events = 0;
 		if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
-			//events |= EV_READ;
-			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READWRITE);
 			events = EVAcceptedStreamSocket::WAITING_FOR_READWRITE;
+			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READWRITE);
 		}
 		else {
-			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 			events = EVAcceptedStreamSocket::WAITING_FOR_WRITE;
+			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 		}
 		cb_ptr->socketWritable = &EVTCPServer::handleAccSocketWritable;
 
@@ -641,7 +641,11 @@ void EVTCPServer::sendDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		ev_clear_pending(_loop, socket_watcher_ptr);
 		ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, tn->getSockfd(), events);
 		ev_io_start (_loop, socket_watcher_ptr);
+
 	}
+
+	StreamSocket ss = tn->getStreamSocket();
+	handleAccSocketWritable(ss, false);
 
 	return;
 }
