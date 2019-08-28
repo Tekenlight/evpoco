@@ -7,10 +7,9 @@
 //
 // Definition of the EVHTTPRequestHandlerFactory class.
 //
-// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
+// Copyright (c) 2019-2020, Tekenlight Solutions Pvt Ltd.
 // and Contributors.
 //
-// SPDX-License-Identifier:	BSL-1.0
 //
 
 
@@ -22,6 +21,7 @@
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/SharedPtr.h"
 #include "Poco/BasicEvent.h"
 
@@ -34,7 +34,7 @@ namespace Poco {
 namespace EVNet {
 
 class Net_API EVHTTPRequestHandlerFactory
-	/// A factory for HTTPRequestHandler objects.
+	/// A factory for EVHTTPRequestHandler objects.
 	/// Subclasses must override the createRequestHandler()
 	/// method.
 {
@@ -47,13 +47,13 @@ public:
 	virtual ~EVHTTPRequestHandlerFactory();
 		/// Destroys the EVHTTPRequestHandlerFactory.
 
-	virtual HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) = 0;
+	virtual EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) = 0;
 		/// Must be overridden by subclasses.
 		///
 		/// Creates a new request handler for the given HTTP request.
 		///
 		/// The method should inspect the given HTTPServerRequest object (e.g., method
-		/// and URI) and create an appropriate HTTPRequestHandler object to handle the
+		/// and URI) and create an appropriate EVHTTPRequestHandler object to handle the
 		/// request.
 		///
 		/// If the request contains a "Expect: 100-continue" header, it's possible

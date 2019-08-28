@@ -37,13 +37,12 @@ public:
 	typedef std::basic_ios<char, std::char_traits<char>>::openmode openmode;
 
 	EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openmode mode);
+	EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openmode mode, size_t cotent_body_len);
 	~EVHTTPChunkedStreamBuf();
 	void get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len);
 	void get_suffix(char* buffer, std::streamsize bytes, char *suffix, size_t suffix_len);
 	void close();
-
-protected:
-	int readFromDevice(char* buffer, std::streamsize length);
+	virtual size_t read_from_source(std::streamsize);
 
 private:
 	openmode        _mode;
@@ -59,6 +58,7 @@ class Net_API EVHTTPChunkedIOS: public virtual std::ios
 {
 public:
 	EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStreamBuf::openmode mode);
+	EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStreamBuf::openmode mode, size_t cum_body_len);
 	~EVHTTPChunkedIOS();
 	EVHTTPChunkedStreamBuf* rdbuf();
 
@@ -71,7 +71,7 @@ class Net_API EVHTTPChunkedInputStream: public EVHTTPChunkedIOS, public std::ist
 	/// This class is for internal use by Poco::Net::HTTPSession only.
 {
 public:
-	EVHTTPChunkedInputStream(chunked_memory_stream *cms);
+	EVHTTPChunkedInputStream(chunked_memory_stream *cms, size_t cumulative_body_len);
 	~EVHTTPChunkedInputStream();
 	
 	/*

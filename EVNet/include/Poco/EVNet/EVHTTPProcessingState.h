@@ -31,6 +31,8 @@
 #ifndef EVNet_EVHTTPProcessingState_INCLUDED
 #define EVNet_EVHTTPProcessingState_INCLUDED
 
+#define EVHTTPP_TRANSFER_ENCODING "transfer-encoding"
+
 namespace Poco {
 namespace EVNet {
 
@@ -106,11 +108,15 @@ public:
 	void messageBegin();
 	void headerComplete();
 	void messageComplete();
+	void chunkComplete();
+	void chunkHeaderComplete();
 	void bodyStarted(char * ptr);
 	void setReqMemStream(chunked_memory_stream *);
 	void setResMemStream(chunked_memory_stream *);
 	chunked_memory_stream* getReqMemStream();
 	chunked_memory_stream* getResMemStream();
+	bool trEncodingPresent();
+	void setTrEncodingPresent();
 
 
 private:
@@ -132,6 +138,7 @@ private:
 	chunked_memory_stream*		_res_memory_stream;
 	http_parser*				_parser;
 	char*						_bodyPosition;
+	int							_tr_encoding_present;
 };
 
 }

@@ -44,6 +44,7 @@ EVHTTPFixedLengthIOS::EVHTTPFixedLengthIOS(chunked_memory_stream *cms, EVHTTPFix
 	_buf(cms, length, mode)
 {
 	poco_ios_init(&_buf);
+	_buf.consume_all_of_max_len();
 }
 
 

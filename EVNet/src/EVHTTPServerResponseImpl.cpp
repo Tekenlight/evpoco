@@ -73,21 +73,19 @@ std::ostream& EVHTTPServerResponseImpl::send()
 	if ((_pRequest && _pRequest->getMethod() == HTTPRequest::HTTP_HEAD) ||
 		getStatus() < 200 ||
 		getStatus() == HTTPResponse::HTTP_NO_CONTENT ||
-		getStatus() == HTTPResponse::HTTP_NOT_MODIFIED)
-	{
+		getStatus() == HTTPResponse::HTTP_NOT_MODIFIED) {
 		Poco::CountingOutputStream cs;
 		write(cs);
 		_pStream = new EVHTTPFixedLengthOutputStream(_out_memory_stream, cs.chars());
 		write(*_pStream);
 	}
-	else if (getChunkedTransferEncoding())
-	{
+	else if (getChunkedTransferEncoding()) {
 		EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
 		write(hs);
+		_session.getServer()->dataReadyForSend(_session.socket());
 		_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
 	}
-	else if (hasContentLength())
-	{
+	else if (hasContentLength()) {
 		Poco::CountingOutputStream cs;
 		write(cs);
 #if defined(POCO_HAVE_INT64)	
@@ -97,12 +95,12 @@ std::ostream& EVHTTPServerResponseImpl::send()
 #endif
 		write(*_pStream);
 	}
-	else
-	{
+	else {
 		_pStream = new EVHTTPOutputStream(_out_memory_stream);
 		setKeepAlive(false);
 		write(*_pStream);
 	}
+
 	return *_pStream;
 }
 

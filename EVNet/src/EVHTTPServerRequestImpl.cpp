@@ -38,7 +38,8 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_session(session),
 	_pParams(pParams, true),
 	_contentLength(0),
-	_reqType(HTTP_INVALID_TYPE)
+	_reqType(HTTP_INVALID_TYPE),
+	_message_body_size(0)
 {
 	response.attachRequest(this);
 	// Now that we know socket is still connected, obtain addresses
@@ -53,7 +54,7 @@ void EVHTTPServerRequestImpl::formInputStream(chunked_memory_stream * mem_inp_st
 	_serverAddress = _session.serverAddress();
 
 	if (getChunkedTransferEncoding()) {
-		_pStream = new HTTPChunkedInputStream(_session);
+		_pStream = new EVHTTPChunkedInputStream(mem_inp_stream, this->getMessageBodySize());
 	}
 	else if (hasContentLength()) {
 #if defined(POCO_HAVE_INT64)
@@ -69,6 +70,7 @@ void EVHTTPServerRequestImpl::formInputStream(chunked_memory_stream * mem_inp_st
 	else {
 		_pStream = new EVHTTPInputStream(mem_inp_stream);
 	}
+
 }
 
 EVHTTPServerRequestImpl::~EVHTTPServerRequestImpl()

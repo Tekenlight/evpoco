@@ -685,12 +685,15 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 
 		switch (pcNf->getEvent()) {
 			case EVTCPServerNotification::PROCESSING_COMPLETE:
+				//DEBUGPOINT("PROCESSING_COMPLETE on socket %d\n", ss.impl()->sockfd());
 				monitorDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
+				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", ss.impl()->sockfd());
 				_ssColl.erase(pcNf->sockfd());
 				_ssLRUList.remove(tn);
 				{

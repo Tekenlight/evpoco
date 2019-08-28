@@ -56,7 +56,8 @@ EVHTTPProcessingState::EVHTTPProcessingState(EVServer * server):
 	_header_field_in_progress(0),
 	_parser(0),
 	_req_memory_stream(0),
-	_res_memory_stream(0)
+	_res_memory_stream(0),
+	_tr_encoding_present(0)
 {
 	_parser = (http_parser*)malloc(sizeof(http_parser));
 	memset(_parser,0,sizeof(http_parser));
@@ -113,6 +114,16 @@ int EVHTTPProcessingState::getHeaderFieldInProgress()
 	return _header_field_in_progress;
 }
 
+void EVHTTPProcessingState::setTrEncodingPresent()
+{
+	_tr_encoding_present = 1;
+}
+
+bool EVHTTPProcessingState::trEncodingPresent()
+{
+	return (_tr_encoding_present == 1);
+}
+
 void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state)
 {
 	_header_value_in_progress = state;
@@ -134,6 +145,9 @@ void EVHTTPProcessingState::appendToValue(const char *buf, size_t len, int state
 		default:
 			break;
 	}
+
+	if (!strcasecmp(_name.c_str(), EVHTTPP_TRANSFER_ENCODING))
+		setTrEncodingPresent();
 }
 
 void EVHTTPProcessingState::setMethod(const char *m)
@@ -170,9 +184,19 @@ void EVHTTPProcessingState::headerComplete()
 	_state = HEADER_READ_COMPLETE;
 }
 
+void EVHTTPProcessingState::chunkHeaderComplete()
+{
+	_state = CHUNK_HEADER_COMPLETE;
+}
+
 void EVHTTPProcessingState::messageComplete()
 {
 	_state = MESSAGE_COMPLETE;
+}
+
+void EVHTTPProcessingState::chunkComplete()
+{
+	_state = CHUNK_COMPLETE;
 }
 
 void EVHTTPProcessingState::messageBegin()
@@ -253,12 +277,21 @@ static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted
 static int chunk_header_cb (http_parser *p)
 {
 	//printf("chunk_header_cb\n");
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	//e->chunkHeaderComplete();
+	//http_parser_pause(p, 1);
 	return 0;
 }
 
 static int chunk_complete_cb (http_parser *p)
 {
 	//printf("chunk_complete_cb\n");
+	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+
+	//e->chunkComplete();
+	//http_parser_pause(p, 1);
+
 	return 0;
 }
 
@@ -532,7 +565,7 @@ int EVHTTPProcessingState::continueRead()
 	char * buffer = NULL;
 	size_t parsed = 0;
 	http_parser_settings settings = {
-		.on_message_begin = message_begin_cb
+		 .on_message_begin = message_begin_cb
 		,.on_header_field = header_field_cb
 		,.on_header_value = header_value_cb
 		,.on_url = request_url_cb
@@ -547,6 +580,7 @@ int EVHTTPProcessingState::continueRead()
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
+	len2 = _request->getMessageBodySize();
 	nodeptr = _req_memory_stream->get_next(0);
 	buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
 	len1 = _req_memory_stream->get_buffer_len(nodeptr);
@@ -591,20 +625,14 @@ int EVHTTPProcessingState::continueRead()
 			http_parser_pause(_parser, 0);
 			_state = POST_HEADER_READ_COMPLETE;
 			_request->setContentLength(_parser->header_content_length);
+
+			/* ERROR AS PER RFC 7230 3.3.3 point 3. */
+			if (trEncodingPresent() && !(_parser->flags & F_CHUNKED)) {
+				throw NetException("Bad Request:transfer-encoding present and message not chunked");
+				return -1;
+			}
 		}
 		else if (_state == MESSAGE_COMPLETE) {
-			/*
-			if (http_header_only_message(_parser)) {
-				//DEBUGPOINT("ERASING %zu\n", len2);
-				_req_memory_stream->erase(len2);
-				len2 = 0;
-			}
-			else {
-			*/
-			/* At this point len2 will indicate the total
-			 * length of the body + 1.
-			}
-			 * */
 
 			/* This is a hack to circumvent the issue caused by combination of
 			 * http_parser_execute when on_headers_complete event is registered and
@@ -619,7 +647,9 @@ int EVHTTPProcessingState::continueRead()
 			if (n && (c == 10)) {
 				//DEBUGPOINT("Erasing char %d\n",c);
 				_req_memory_stream->erase(1);
+				len2 -= 1;
 			}
+
 			break;
 		}
 		else {
@@ -628,6 +658,13 @@ int EVHTTPProcessingState::continueRead()
 			len1 = _req_memory_stream->get_buffer_len(nodeptr);
 		}
 	}
+
+	if (len2 > 0x10000000) {
+		throw NetException("Requests larger than 10M not supported");
+		return -1;
+	}
+
+	_request->setMessageBodySize(len2);
 
 	if (_state >= HEADER_READ_COMPLETE) {
 		if (http_header_only_message(_parser)) {
@@ -653,33 +690,36 @@ int EVHTTPProcessingState::continueRead()
 		}
 	}
 
-	//DEBUGPOINT("_state = [%d] _subState = [%d] len = [%zu]\n",_state, _subState, len2);
-	//DEBUGPOINT("Content length = [%llu]\n", _parser->header_content_length);
-
-	//if ((enum http_method)(_parser->method)) == HTTP_POST)
 	/*
-	if (_state == MESSAGE_COMPLETE) {
-		int i = 0, cl = _parser->header_content_length;
-		ev_buffered_stream buf(_req_memory_stream, 1024, 8192);
-		std::istream is(&buf);
-		int c = 0;
-		printf("\r\n");
-		while ((EOF != (c = is.get()) && (i < cl))) {
-			i++;
-			putchar(c);
+	if (((enum http_method)(_parser->method)) == HTTP_POST) {
+		if (_state == MESSAGE_COMPLETE) {
+			int i = 0, cl = _parser->header_content_length;
+			ev_buffered_stream buf(_req_memory_stream, 1024, 8192);
+			std::istream is(&buf);
+			int c = 0;
+			printf("\r\n");
+			while ((EOF != (c = is.get()) && (i < cl))) {
+				i++;
+				putchar(c);
+			}
+			puts("");
+			printf("i=%d c=%d\n", i, cl);
+			puts("done");
+			if (cl != i) puts("Probably, the header parsing did not consume the complete part");
 		}
-		puts("");
-		printf("i=%d c=%d\n", i, cl);
-		puts("done");
-		if (cl != i) puts("Probably, the header parsing did not consume the complete part");
+		exit(0);
 	}
 	*/
 
 	if (_state == MESSAGE_COMPLETE) {
+		size_t length = _request->getMessageBodySize();
+		size_t node_buffer_len = 0;
+		size_t xfr_size = 0;
 		_request->formInputStream(_req_memory_stream);
 		memset(_parser,0,sizeof(http_parser));
 		_parser->data = (void*)this;
 		http_parser_init(_parser,HTTP_REQUEST);
+
 	}
 
 	return _state;

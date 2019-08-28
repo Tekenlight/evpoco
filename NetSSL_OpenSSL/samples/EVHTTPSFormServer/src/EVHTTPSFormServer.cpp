@@ -12,6 +12,7 @@
 
 #include "Poco/EVNet/EVHTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTTPServerRequest.h"
@@ -36,6 +37,7 @@
 using Poco::Net::SecureServerSocket;
 using Poco::Net::X509Certificate;
 using Poco::Net::HTTPRequestHandler;
+using Poco::EVNet::EVHTTPRequestHandler;
 using Poco::EVNet::EVHTTPRequestHandlerFactory;
 using Poco::EVNet::EVHTTPServer;
 using Poco::Net::HTTPServerRequest;
@@ -108,7 +110,7 @@ private:
 };
 
 
-class EVFormRequestHandler: public HTTPRequestHandler
+class EVFormRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
 public:
@@ -116,7 +118,7 @@ public:
 	{
 	}
 	
-	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
 	{
 		Application& app = Application::instance();
 		app.logger().information("Request from " + request.clientAddress().toString());
@@ -185,6 +187,8 @@ public:
 			ostr << "</p>";
 		}
 		ostr << "</body>\n";
+
+		return Poco::EVNet::EVHTTPRequestHandler::PROCESSING_COMPLETE;
 	}
 };
 
@@ -196,7 +200,7 @@ public:
 	{
 	}
 
-	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
+	EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
 	{
 		return new EVFormRequestHandler;
 	}

@@ -12,6 +12,7 @@
 
 #include "Poco/EVNet/EVHTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTTPServerRequestImpl.h"
@@ -37,7 +38,7 @@
 
 using Poco::Net::SecureServerSocket;
 using Poco::Net::SecureStreamSocket;
-using Poco::Net::HTTPRequestHandler;
+using Poco::EVNet::EVHTTPRequestHandler;
 using Poco::EVNet::EVHTTPRequestHandlerFactory;
 using Poco::EVNet::EVHTTPServer;
 using Poco::Net::HTTPServerRequest;
@@ -62,7 +63,7 @@ using Poco::Net::InvalidCertificateHandler;
 using Poco::Net::AcceptCertificateHandler;
 
 
-class TimeRequestHandler: public HTTPRequestHandler
+class TimeRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
 public:
@@ -71,7 +72,7 @@ public:
 	{
 	}
 	
-	void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
 	{
 		//printf("[%p:%s:%d] Reached here\n",pthread_self(),__FILE__,__LINE__);
 		Application& app = Application::instance();
@@ -100,6 +101,8 @@ public:
 		ostr << "<body><p style=\"text-align: center; font-size: 48px;\">";
 		ostr << dt;
 		ostr << "</p></body></html>";
+
+		return PROCESSING_COMPLETE;
 	}
 	
 private:
@@ -115,7 +118,7 @@ public:
 	{
 	}
 
-	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
+	EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
 	{
 		if (request.getURI() == "/")
 			return new TimeRequestHandler(_format);

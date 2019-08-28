@@ -29,7 +29,7 @@
 #include "Poco/EVNet/EVHTTPStream.h"
 #include "Poco/Net/HTTPFixedLengthStream.h"
 #include "Poco/EVNet/EVHTTPFixedLengthStream.h"
-#include "Poco/Net/HTTPChunkedStream.h"
+#include "Poco/EVNet/EVHTTPChunkedStream.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/AutoPtr.h"
@@ -128,7 +128,9 @@ public:
 	unsigned long getContentLength();
 	void setReqType(HTTP_REQ_TYPE_ENUM);
 	HTTP_REQ_TYPE_ENUM getReqType();
-	
+	void setMessageBodySize(size_t len);
+	size_t getMessageBodySize();
+
 private:
 	EVHTTPServerResponseImpl&       _response;
 	EVHTTPServerSession&            _session;
@@ -139,6 +141,7 @@ private:
 	SocketAddress                   _serverAddress;
 	unsigned long					_contentLength;
 	HTTP_REQ_TYPE_ENUM				_reqType;
+	size_t							_message_body_size;
 };
 
 
@@ -205,6 +208,16 @@ inline void EVHTTPServerRequestImpl::setContentLength(unsigned long l)
 inline unsigned long EVHTTPServerRequestImpl::getContentLength()
 {
 	return _contentLength;
+}
+
+inline void EVHTTPServerRequestImpl::setMessageBodySize(size_t len)
+{
+	_message_body_size = len;
+}
+
+inline size_t EVHTTPServerRequestImpl::getMessageBodySize()
+{
+	return _message_body_size;
 }
 
 } } // namespace Poco::EVNet

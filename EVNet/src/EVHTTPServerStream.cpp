@@ -19,6 +19,7 @@
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/NumberFormatter.h"
@@ -160,10 +161,10 @@ void EVHTTPServerStream::evrun()
 				switch (request->getReqType()) {
 					case HTTP_HEADER_ONLY:
 					case HTTP_FIXED_LENGTH:
+					case HTTP_CHUNKED:
 						break;
 					case HTTP_MULTI_PART:
 					case HTTP_MESSAGE_TILL_EOF:
-					case HTTP_CHUNKED:
 					case HTTP_INVALID_TYPE:
 					default:
 						DEBUGPOINT("Here\n");
@@ -177,8 +178,6 @@ void EVHTTPServerStream::evrun()
 			}
 		}
 
-		//DEBUGPOINT("Parsed the message completely\n");
-
 		Poco::Timestamp now;
 		response->setDate(now);
 		response->setVersion(request->getVersion());
@@ -188,9 +187,9 @@ void EVHTTPServerStream::evrun()
 		try
 		{
 #ifndef POCO_ENABLE_CPP11
-			std::auto_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
+			std::auto_ptr<EVHTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
 #else
-			std::unique_ptr<HTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
+			std::unique_ptr<EVHTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
 #endif
 			if (pHandler.get())
 			{
