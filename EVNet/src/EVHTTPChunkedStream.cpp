@@ -147,6 +147,7 @@ EVHTTPChunkedIOS::EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStre
 EVHTTPChunkedIOS::EVHTTPChunkedIOS(chunked_memory_stream *cms, EVHTTPChunkedStreamBuf::openmode mode, size_t cum_body_len):
 	_buf(cms, mode, cum_body_len)
 {
+	//DEBUGPOINT("Cumulative body length = %zu\n", cum_body_len);
 	_buf.consume_all_of_max_len();
 	poco_ios_init(&_buf);
 }

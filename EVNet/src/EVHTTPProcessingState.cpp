@@ -559,6 +559,36 @@ int EVHTTPProcessingState::continueRead()
 }
 */
 
+void EVHTTPProcessingState::setReqProperties()
+{
+	if (http_header_only_message(_parser)) {
+		_request->setReqType(HTTP_HEADER_ONLY);
+	}
+	else if (_parser->flags & F_CHUNKED) {
+		_request->setReqType(HTTP_CHUNKED);
+	}
+	else if (_request->getContentLength()) {
+		std::string mediaType;
+		Poco::Net::NameValueCollection params;
+		Poco::Net::MessageHeader::splitParameters(_request->getContentType(), mediaType, params); 
+		Poco::trimInPlace(mediaType);
+		if (!strncmp("multipart", mediaType.c_str(), 9)) {
+			_request->setReqType(HTTP_MULTI_PART);
+		}
+		else {
+			_request->setReqType(HTTP_FIXED_LENGTH);
+		}
+	}
+	else {
+		/* RFC 7230, page 33. 3.3.3 point 6
+		 * If this is a request message and none of the above
+		 * are true, then the message body length is zero
+		 * (no message body is present).
+		 * */
+		_request->setReqType(HTTP_HEADER_ONLY);
+	}
+}
+
 int EVHTTPProcessingState::continueRead()
 {
 	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
@@ -581,20 +611,27 @@ int EVHTTPProcessingState::continueRead()
 	void * nodeptr = NULL;
 
 	len2 = _request->getMessageBodySize();
+	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 	nodeptr = _req_memory_stream->get_next(0);
 	buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
+	//DEBUGPOINT("\n%s",buffer);
 	len1 = _req_memory_stream->get_buffer_len(nodeptr);
+	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 	while (1) {
 		if (NULL == buffer) {
 			break;
 		}
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
+		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
-			DEBUGPOINT("Here:%s\n", http_errno_description((enum http_errno)_parser->http_errno));
+			//DEBUGPOINT("Buffer\n%s\n", buffer);
+			//DEBUGPOINT("Here:%s\n", http_errno_description((enum http_errno)_parser->http_errno));
 			throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 			return -1;
+			break;
 		}
 		if (_state < HEADER_READ_COMPLETE) {
+		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 			if (len2 < len1) { 
 				// Should not happen
 				//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
@@ -610,6 +647,7 @@ int EVHTTPProcessingState::continueRead()
 			len2 = 0;
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
+		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
@@ -626,30 +664,19 @@ int EVHTTPProcessingState::continueRead()
 			_state = POST_HEADER_READ_COMPLETE;
 			_request->setContentLength(_parser->header_content_length);
 
+			setReqProperties();
 			/* ERROR AS PER RFC 7230 3.3.3 point 3. */
 			if (trEncodingPresent() && !(_parser->flags & F_CHUNKED)) {
 				throw NetException("Bad Request:transfer-encoding present and message not chunked");
 				return -1;
 			}
+			if (HTTP_HEADER_ONLY == _request->getReqType()) {
+				_state = MESSAGE_COMPLETE;
+				break;
+			}
+			//DEBUGPOINT("\n%s",buffer);
 		}
 		else if (_state == MESSAGE_COMPLETE) {
-
-			/* This is a hack to circumvent the issue caused by combination of
-			 * http_parser_execute when on_headers_complete event is registered and
-			 * the strategy  of erasing the header.
-			 * The index in http_parser_execute stops at the last character of the header
-			 * segment, which is a newline (char 10) and we erase the buffer here till the
-			 * previous char.
-			 * In such a situation we should erase it by one more char.
-			 * */
-			int n = 0, c = 0;
-			n = _req_memory_stream->copy(0, &c, 1);
-			if (n && (c == 10)) {
-				//DEBUGPOINT("Erasing char %d\n",c);
-				_req_memory_stream->erase(1);
-				len2 -= 1;
-			}
-
 			break;
 		}
 		else {
@@ -664,41 +691,38 @@ int EVHTTPProcessingState::continueRead()
 		return -1;
 	}
 
-	_request->setMessageBodySize(len2);
-
-	if (_state >= HEADER_READ_COMPLETE) {
-		if (http_header_only_message(_parser)) {
-			_request->setReqType(HTTP_HEADER_ONLY);
-		}
-		else if (_parser->flags & F_CHUNKED) {
-			_request->setReqType(HTTP_CHUNKED);
-		}
-		else if (_request->getContentLength()) {
-			std::string mediaType;
-			Poco::Net::NameValueCollection params;
-			Poco::Net::MessageHeader::splitParameters(_request->getContentType(), mediaType, params); 
-			Poco::trimInPlace(mediaType);
-			if (!strncmp("multipart", mediaType.c_str(), 9)) {
-				_request->setReqType(HTTP_MULTI_PART);
-			}
-			else {
-				_request->setReqType(HTTP_FIXED_LENGTH);
-			}
-		}
-		else {
-			_request->setReqType(HTTP_MESSAGE_TILL_EOF);
+	if (_state == MESSAGE_COMPLETE) {
+		/* This is a hack to circumvent the issue caused by combination of
+		 * http_parser_execute when on_headers_complete event is registered and
+		 * the strategy  of erasing the header.
+		 * The index in http_parser_execute stops at the last character of the header
+		 * segment, which is a newline (char 10) and we erase the buffer here till the
+		 * previous char.
+		 * In such a situation we should erase it by one more char.
+		 * */
+		int n = 0, c = 0;
+		n = _req_memory_stream->copy(0, &c, 1);
+		if (n && (c == 10)) {
+			//DEBUGPOINT("Erasing char %d\n",c);
+			_req_memory_stream->erase(1);
+			len2 -= 1;
 		}
 	}
+	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
+
+	_request->setMessageBodySize(len2);
 
 	/*
 	if (((enum http_method)(_parser->method)) == HTTP_POST) {
+		DEBUGPOINT("Here\n");
 		if (_state == MESSAGE_COMPLETE) {
-			int i = 0, cl = _parser->header_content_length;
+			DEBUGPOINT("Here\n");
+			int i = 0, cl = len2;
 			ev_buffered_stream buf(_req_memory_stream, 1024, 8192);
 			std::istream is(&buf);
 			int c = 0;
 			printf("\r\n");
-			while ((EOF != (c = is.get()) && (i < cl))) {
+			while ((EOF != (c = is.get()) && ((cl == -1) || (i < cl)))) {
 				i++;
 				putchar(c);
 			}
@@ -706,19 +730,28 @@ int EVHTTPProcessingState::continueRead()
 			printf("i=%d c=%d\n", i, cl);
 			puts("done");
 			if (cl != i) puts("Probably, the header parsing did not consume the complete part");
+				DEBUGPOINT("Here\n");
+			//if (counter) exit(0);
+			throw NetException("Testing ");
 		}
-		exit(0);
 	}
 	*/
 
 	if (_state == MESSAGE_COMPLETE) {
-		size_t length = _request->getMessageBodySize();
-		size_t node_buffer_len = 0;
-		size_t xfr_size = 0;
-		_request->formInputStream(_req_memory_stream);
-		memset(_parser,0,sizeof(http_parser));
-		_parser->data = (void*)this;
-		http_parser_init(_parser,HTTP_REQUEST);
+
+		{
+			size_t length = _request->getMessageBodySize();
+			size_t node_buffer_len = 0;
+			size_t xfr_size = 0;
+			//DEBUGPOINT("Message body size = %zu\n",length);
+			_request->formInputStream(_req_memory_stream);
+			memset(_parser,0,sizeof(http_parser));
+			_parser->data = (void*)this;
+			http_parser_init(_parser,HTTP_REQUEST);
+		}
+		nodeptr = _req_memory_stream->get_next(0);
+		buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
+		//DEBUGPOINT("\n%s",buffer);
 
 	}
 

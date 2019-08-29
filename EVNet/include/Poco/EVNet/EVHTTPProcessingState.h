@@ -120,6 +120,7 @@ public:
 
 
 private:
+	void setReqProperties();
 
 	int							_state;
 	int							_subState;
