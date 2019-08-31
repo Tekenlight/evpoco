@@ -686,8 +686,15 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			//DEBUGPOINT("Did not find entry in _ssColl for %d\n", pcNf->sockfd());
-			std::abort();
+			DEBUGPOINT("Did not find entry in _ssColl for %d\n", pcNf->sockfd());
+
+			/* Multiple events can get queued for a socket from another thread.
+			 * In the meanwhile, it is possible that the socket gets into an error state
+			 * due to various conditions, one such is wrong data format and the protocol
+			 * handler fails. This condition will lead to socket getting closed.
+			 * Subsequent events after closing of the socket must be ignored.
+			 * */
+			continue;
 		}
 		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketReadWatcher();
 		StreamSocket ss = tn->getStreamSocket();
