@@ -106,6 +106,8 @@ public:
 
 	accepted_sock_state getState();
 	void setState(accepted_sock_state state);
+	inline void setSockInError();
+	inline bool sockInError();
 
 private:
 	poco_socket_t				_sockFd;
@@ -120,6 +122,7 @@ private:
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
 	accepted_sock_state			_state;
+	int							_socketInError;
 };
 
 inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()
@@ -130,6 +133,16 @@ inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getSt
 inline void EVAcceptedStreamSocket::setState(EVAcceptedStreamSocket::accepted_sock_state state)
 {
 	_state = state;
+}
+
+inline void EVAcceptedStreamSocket::setSockInError()
+{
+	_socketInError = 1;
+}
+
+inline bool EVAcceptedStreamSocket::sockInError()
+{
+	return (_socketInError>0);
 }
 
 } } // namespace EVNet and Poco end.

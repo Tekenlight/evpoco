@@ -133,8 +133,6 @@ void EVTCPServerDispatcher::run()
 					std::unique_ptr<EVNet::EVTCPServerConnection>
 							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
 #endif // POCO_ENABLE_CPP11
-					//printf("%s:%d:%p ref count of impl = %d\n",__FILE__,__LINE__,pthread_self(),
-							//pCNf->socket()->getStreamSocket().impl()->referenceCount());
 					poco_check_ptr(pConnection.get());
 					beginConnection();
 					if (!(pCNf->socket()->getProcState())) {
@@ -148,24 +146,25 @@ void EVTCPServerDispatcher::run()
 					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
 					}
-					_server->dataReadyForSend(pCNf->socket()->getStreamSocket());
-					_server->receivedDataConsumed(pCNf->socket()->getStreamSocket());
+					_server->dataReadyForSend(pCNf->sockfd());
+					_server->receivedDataConsumed(pCNf->sockfd());
 				}
-				catch (NoMessageException&)
-				{
-					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+				catch (NoMessageException&) {
+					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (MessageException&) {
-					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
-				catch (Poco::Exception&)
-				{
-					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+				catch (Poco::Exception&) {
+					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (...) {
-					_server->errorInReceivedData(pCNf->socket()->getStreamSocket(),pCNf->sockfd(),true);
+					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
-
 			}
 		}
 
@@ -216,8 +215,7 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 		 * It means that the server is overwhelmed.
 		 * Closing connection in that case.
 		 * */
-		_server->errorInReceivedData(evAccSocket->getStreamSocket(),
-												evAccSocket->getStreamSocket().impl()->sockfd(),true);
+		_server->errorInReceivedData(evAccSocket->getSockfd(),true);
 	}
 }
 

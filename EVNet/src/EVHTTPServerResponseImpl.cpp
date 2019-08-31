@@ -82,7 +82,7 @@ std::ostream& EVHTTPServerResponseImpl::send()
 	else if (getChunkedTransferEncoding()) {
 		EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
 		write(hs);
-		_session.getServer()->dataReadyForSend(_session.socket());
+		_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
 		_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
 	}
 	else if (hasContentLength()) {

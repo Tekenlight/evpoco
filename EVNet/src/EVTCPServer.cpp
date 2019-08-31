@@ -273,6 +273,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size)
 		ret = ss.sendBytes(chptr, size );
 	}
 	catch (...) {
+		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -285,6 +286,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size)
 			}
 			else {
 				error_string = strerror(errno);
+				//DEBUGPOINT("%s\n",error_string);
 			}
 			return -1;
 		}
@@ -377,7 +379,7 @@ handleAccSocketWritable_finally:
 		else ret = 0;
 	}
 
-	if (ret != 0) {
+	if (ret > 0) {
 		ev_io * socket_watcher_ptr = 0;
 		strms_ic_cb_ptr_type cb_ptr = 0;
 
@@ -399,6 +401,18 @@ handleAccSocketWritable_finally:
 			/* It should not come here otherwise. */
 			std::abort();
 		}
+	}
+	else if (ret <0) {
+		/* At this point we know that the socket has become unusable,
+		 * it is possible to dispose it off and complete housekeeping.
+		 * However there is a likelihood that another thread is still
+		 * processing this socket, hence the disposing off must not be
+		 * done over here.
+		 *
+		 * When the processing gets complete, and the socket is returned,
+		 * At that time the socket will get disposed.
+		 * */
+		tn->setSockInError();
 	}
 
 	return ret;
@@ -491,7 +505,15 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 handleDataAvlblOnAccSock_finally:
 	if (tn->reqDataAvlbl()) {
 		_pDispatcher->enqueue(tn);
+		/* If data is available, and a task has been enqueued.
+		 * It is not OK to cleanup the socket.
+		 * It is proper to process whatever data is still there
+		 * and then close the socket at a later time.
+		 * */
+		//DEBUGPOINT("Here %d\n", streamSocket.impl()->sockfd());
+		ret = 1;
 	}
+
 
 	/* ret will be 0 after recv even on a tickled socket
 	 * in case of SSL handshake.
@@ -513,7 +535,7 @@ handleDataAvlblOnAccSock_finally:
 		}
 		else {
 			/* It should not come here otherwise. */
-			//DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", tn->getState());
+			DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", tn->getState());
 			std::abort();
 		}
 	}
@@ -536,10 +558,10 @@ handleDataAvlblOnAccSock_finally:
 	return ret;
 }
 
-void EVTCPServer::dataReadyForSend(StreamSocket & ss)
+void EVTCPServer::dataReadyForSend(int fd)
 {
 	/* Enque the socket */
-	_queue.enqueueNotification(new EVTCPServerNotification(ss.impl()->sockfd(),
+	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::DATA_FOR_SEND_READY));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
@@ -547,11 +569,10 @@ void EVTCPServer::dataReadyForSend(StreamSocket & ss)
 	return;
 }
 
-void EVTCPServer::receivedDataConsumed(StreamSocket & ss)
+void EVTCPServer::receivedDataConsumed(int fd)
 {
 	/* Enque the socket */
-	//_queue.enqueueNotification(new EVTCPServerNotification(ss,ss.impl()->sockfd()));
-	_queue.enqueueNotification(new EVTCPServerNotification(ss.impl()->sockfd(),
+	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::PROCESSING_COMPLETE));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
@@ -559,15 +580,20 @@ void EVTCPServer::receivedDataConsumed(StreamSocket & ss)
 	return;
 }
 
-void EVTCPServer::errorInReceivedData(StreamSocket & ss, poco_socket_t fd, bool connInErr)
+void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 {
 	/* Enque the socket */
 	//_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,fd,true));
-	_queue.enqueueNotification(new EVTCPServerNotification(ss.impl()->sockfd(),
+	/* The StreamSocket Received in this function may not contain the desirable value.
+	 * It could have become -1.
+	 * */
+	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
+	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
+	//DEBUGPOINT("Here\n");
 	return;
 }
 
@@ -657,33 +683,22 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
-		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketReadWatcher();
-
 		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
 		if (!tn) {
-			/* If the Accepted socket is no more present, nothing can really be done. */
-			//delete pcNf;
-			continue;
+			/* This should never happen. */
+			//DEBUGPOINT("Did not find entry in _ssColl for %d\n", pcNf->sockfd());
+			std::abort();
 		}
+		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketReadWatcher();
 		StreamSocket ss = tn->getStreamSocket();
-		if ((fcntl (pcNf->sockfd(), F_GETFD) < 0)) {
-			_ssColl.erase(pcNf->sockfd());
-			_ssLRUList.remove(tn);
-			{
-				ev_io * socket_watcher_ptr = 0;
-				socket_watcher_ptr = tn->getSocketReadWatcher();
-				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-					ev_io_stop(_loop, socket_watcher_ptr);
-					ev_clear_pending(_loop, socket_watcher_ptr);
-				}
-			}
-			delete tn;
-			//delete pcNf;
-			pcNf = NULL;
-			continue;;
-		}
 
-		switch (pcNf->getEvent()) {
+		EVTCPServerNotification::what event = pcNf->getEvent();
+		/* If some error has been noticed on this socket, dispose it off cleanly
+		 * over here
+		 * */
+		if (tn->sockInError()) event = EVTCPServerNotification::ERROR_IN_PROCESSING;
+
+		switch (event) {
 			case EVTCPServerNotification::PROCESSING_COMPLETE:
 				//DEBUGPOINT("PROCESSING_COMPLETE on socket %d\n", ss.impl()->sockfd());
 				monitorDataOnAccSocket(tn);
@@ -693,7 +708,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", ss.impl()->sockfd());
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				_ssColl.erase(pcNf->sockfd());
 				_ssLRUList.remove(tn);
 				{

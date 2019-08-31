@@ -105,6 +105,7 @@ void EVHTTPServerStream::evrun()
 	EVHTTPServerSession * session = NULL;
 	if (_stopped) return ;
 
+
 	session = _reqProcState->getSession();
 	if (!session) {
 		session = new EVHTTPServerSession(socket(), _pParams);
@@ -212,7 +213,7 @@ void EVHTTPServerStream::evrun()
 			{
 				try
 				{
-						DEBUGPOINT("Here\n");
+					DEBUGPOINT("Here\n");
 					sendErrorResponse(*session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 				}
 				catch (...)
@@ -222,20 +223,20 @@ void EVHTTPServerStream::evrun()
 			throw e;
 		}
 		catch (...) {
-						DEBUGPOINT("Here\n");
+			DEBUGPOINT("Here\n");
 			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			throw;
 		}
 	}
 	catch (NoMessageException& e)
 	{
-						DEBUGPOINT("Here\n");
+		DEBUGPOINT("Here\n");
 		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
 	catch (MessageException& e)
 	{
-						DEBUGPOINT("Here\n");
+		DEBUGPOINT("Here\n");
 		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
@@ -243,18 +244,18 @@ void EVHTTPServerStream::evrun()
 	{
 		if (session->networkException())
 		{
-						DEBUGPOINT("Here\n");
+			DEBUGPOINT("Here\n");
 			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			session->networkException()->rethrow();
 		}
 		else { 
-						DEBUGPOINT("Here\n");
+			DEBUGPOINT("Here\n");
 			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 			throw e;
 		}
 	}
 	catch (...) {
-						DEBUGPOINT("Here\n");
+		DEBUGPOINT("Here\n");
 		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 		throw;
 	}
