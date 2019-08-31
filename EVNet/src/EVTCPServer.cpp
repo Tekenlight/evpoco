@@ -490,6 +490,7 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			ret1 = receiveData(streamSocket, buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
+				//DEBUGPOINT("Received %zd bytes\n", ret1);
 				tn->pushReqData(buffer, (size_t)ret1);
 				ret += ret1;
 			}

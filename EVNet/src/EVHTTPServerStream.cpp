@@ -152,8 +152,8 @@ void EVHTTPServerStream::evrun()
 			 * */
 			int ret = _reqProcState->continueRead();
 			if (ret < 0) {
-				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 				DEBUGPOINT("Here\n");
+				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
 				throw NetException("Badly formed HTTP Request");
 				return ;
 			}
@@ -175,6 +175,7 @@ void EVHTTPServerStream::evrun()
 			}
 
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
+				//DEBUGPOINT("Here %d\n",c);
 				return ;
 			}
 		}

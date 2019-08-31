@@ -140,6 +140,7 @@ private:
 	http_parser*				_parser;
 	char*						_bodyPosition;
 	int							_tr_encoding_present;
+	void*						_prev_node_ptr;
 };
 
 }
