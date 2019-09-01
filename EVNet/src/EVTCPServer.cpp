@@ -42,6 +42,7 @@ namespace EVNet {
 
 const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
 const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
+const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
 const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
 
 static void timeout_cb(EV_P_ ev_timer *w, int revents)
@@ -177,10 +178,12 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_numThreads(2),
 	_numConnections(500),
 	_blocking(pParams->getBlocking()),
-	_pConnectionFactory(pFactory)
+	_pConnectionFactory(pFactory),
+	_receiveTimeOut(5)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
+	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
@@ -202,10 +205,12 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_numThreads(2),
 	_numConnections(500),
 	_blocking(pParams->getBlocking()),
-	_pConnectionFactory(pFactory)
+	_pConnectionFactory(pFactory),
+	_receiveTimeOut(5)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
+	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
 	Poco::ThreadPool& pool = Poco::ThreadPool::defaultPool(_numThreads,_numThreads);
@@ -226,10 +231,12 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_numThreads(2),
 	_numConnections(500),
 	_blocking(pParams->getBlocking()),
-	_pConnectionFactory(pFactory)
+	_pConnectionFactory(pFactory),
+	_receiveTimeOut(5)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
+	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 
 	_pDispatcher = new EVTCPServerDispatcher(pFactory, threadPool, pParams, this);
@@ -744,7 +751,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				_ssColl.erase(pcNf->sockfd());
 				_ssLRUList.remove(tn);
 				{
@@ -871,7 +878,7 @@ void EVTCPServer::handlePeriodicWakup(const bool& ev_occured)
 			(tn->getProcState() && (tn->getProcState()->needMoreData()))) {
 			struct timeval tv;
 			gettimeofday(&tv,0);
-			if ((tv.tv_sec - tn->getTimeOfLastUse()) > 5) {
+			if ((tv.tv_sec - tn->getTimeOfLastUse()) > _receiveTimeOut) {
 				DEBUGPOINT("TIMER EVENT OCCURED for socket %d\n", tn->getSockfd());
 				ev_io_stop(_loop, tn->getSocketReadWatcher());
 				ev_clear_pending(_loop, tn->getSocketReadWatcher());

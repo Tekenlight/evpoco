@@ -223,6 +223,7 @@ private:
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> SSColMapType;
 
 	static const std::string NUM_THREADS_CFG_NAME;
+	static const std::string RECV_TIME_OUT_NAME;
 	static const std::string NUM_CONNECTIONS_CFG_NAME;
 	static const std::string SERVER_PREFIX_CFG_NAME;
 
@@ -281,6 +282,7 @@ private:
 	int								_numConnections;
 	bool							_blocking;
 	EVTCPServerConnectionFactory::Ptr _pConnectionFactory;
+	time_t							_receiveTimeOut;
 
 };
 
