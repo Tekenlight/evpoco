@@ -536,6 +536,9 @@ handleDataAvlblOnAccSock_finally:
 		if (!(tn->getProcState()) ||
 			(tn->getProcState()->newDataProcessed()) ||
 			(!(tn->getProcState()->newDataProcessed()) && (received_bytes > 0))) {
+			if (!(tn->getProcState())) {
+				tn->setProcState(_pConnectionFactory->createReaProcState(this));
+			}
 			_pDispatcher->enqueue(tn);
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -778,19 +781,16 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 	ev_io * socket_watcher_ptr = 0;
 	strms_ic_cb_ptr_type cb_ptr = 0;
 
-	while (_ssColl.size()  > _numConnections) {
-		EVAcceptedStreamSocket * ptr = _ssLRUList.getLast();
-		if (ptr->sockBusy()) break;
-		ptr = _ssLRUList.removeLast();
-		_ssColl.erase(ptr->getSockfd());
-
+	EVAcceptedStreamSocket * ptr = _ssLRUList.getLast();
+	while (ptr && (_ssColl.size()  >= _numConnections)) {
+		if (ptr->getProcState()) {
+			ptr = ptr->getPrevPtr();
+			continue;
+		}
 		ev_io_stop(_loop, ptr->getSocketReadWatcher());
 		ev_clear_pending(_loop, ptr->getSocketReadWatcher());
-
-		//ev_io_stop(_loop, ptr->getSocketWriteWatcher());
-		//ev_clear_pending(_loop, ptr->getSocketWriteWatcher());
-
-		delete ptr;
+		errorInReceivedData(ptr->getSockfd(),true);
+		ptr = ptr->getPrevPtr();
 	}
 
 	int fd = 0;
@@ -799,11 +799,10 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		 * Dont continue handling the connection.
 		 * TBD: This strategy needs to be examined properly. TBD
 		 * */
-		if (_ssColl.size()  > _numConnections) {
+		StreamSocket ss = _socket.acceptConnection();
+		if (_ssColl.size()  >= _numConnections) {
 			return;
 		}
-
-		StreamSocket ss = _socket.acceptConnection();
 
 		if (!_pConnectionFilter || _pConnectionFilter->accept(ss)) {
 			// enable nodelay per default: OSX really needs that
