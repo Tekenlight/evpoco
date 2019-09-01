@@ -22,7 +22,6 @@ namespace Poco{ namespace EVNet {
 EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_sockFd(streamSocket.impl()->sockfd()),
 	_socket_read_watcher(0),
-	_socket_write_watcher(0),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
@@ -35,7 +34,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
-	_timeOfLastUse = tv.tv_sec * 1000000 + tv.tv_usec;
+	_timeOfLastUse = tv.tv_sec;
 	_req_memory_stream = new chunked_memory_stream();
 	_res_memory_stream = new chunked_memory_stream();
 }
@@ -47,11 +46,6 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		if ((void*)(this->_socket_read_watcher->data))
 			free((void*)(this->_socket_read_watcher->data));
 		free(this->_socket_read_watcher);
-	}
-	if (this->_socket_write_watcher) {
-		if ((void*)(this->_socket_write_watcher->data))
-			free((void*)(this->_socket_write_watcher->data));
-		free(this->_socket_write_watcher);
 	}
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
@@ -66,16 +60,6 @@ void EVAcceptedStreamSocket::setSocketReadWatcher(ev_io *socket_watcher_ptr)
 ev_io * EVAcceptedStreamSocket::getSocketReadWatcher()
 {
 	return this->_socket_read_watcher;
-}
-
-void EVAcceptedStreamSocket::setSocketWriteWatcher(ev_io *socket_watcher_ptr)
-{
-	this->_socket_write_watcher = socket_watcher_ptr;
-}
-
-ev_io * EVAcceptedStreamSocket::getSocketWriteWatcher()
-{
-	return this->_socket_write_watcher;
 }
 
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
@@ -130,11 +114,11 @@ void  EVAcceptedStreamSocket::setTimeOfLastUse()
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
-	_timeOfLastUse = tv.tv_sec * 1000000 + tv.tv_usec;
+	_timeOfLastUse = tv.tv_sec ;
 	return ;
 }
 
-long long  EVAcceptedStreamSocket::getTimeOfLastUse()
+time_t EVAcceptedStreamSocket::getTimeOfLastUse()
 {
 	return _timeOfLastUse;
 }

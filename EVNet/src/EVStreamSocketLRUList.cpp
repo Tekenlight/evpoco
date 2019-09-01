@@ -77,7 +77,7 @@ void EVStreamSocketLRUList::debugPrint(const char* file, const int line, const v
 {
 	printf("[%s:%d:%p] {\n",file,line,tp);
 	for (auto ptr = firstPtr; ptr ; ptr=ptr->getNextPtr()) {
-		printf("\t[%s:%d:%p] [Socket = [%d] Last update time = [%lld]]\n",
+		printf("\t[%s:%d:%p] [Socket = [%d] Last update time = [%ld]]\n",
 				file,line,tp, ptr->getSockfd(),ptr->getTimeOfLastUse());
 	}
 	printf("[%s:%d:%p] }\n",file,line,tp);

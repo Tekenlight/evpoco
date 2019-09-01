@@ -43,15 +43,29 @@ public:
 	virtual void setReqMemStream(chunked_memory_stream *memory_stream) = 0;
 	virtual void setResMemStream(chunked_memory_stream *memory_stream) = 0;
 	EVServer* getServer();
+	void setNewDataNotProcessed();
+	void setNewDataProcessed();
+	bool newDataProcessed();
+	void noMoreDataNecessary();
+	void moreDataNecessary();
+	bool needMoreData();
 
 private:
-	EVServer* _server;
+	EVServer*	_server;
+	int			_no_new_data;
+	int			_need_more_data;
 
 };
 
-inline EVProcessingState::EVProcessingState(EVServer * server):_server(server) { }
+inline EVProcessingState::EVProcessingState(EVServer * server):_server(server), _no_new_data(0), _need_more_data(0) { }
 inline EVProcessingState::~EVProcessingState() { }
 inline EVServer* EVProcessingState::getServer() { return _server; }
+inline void EVProcessingState::setNewDataNotProcessed() { _no_new_data = 1; }
+inline void EVProcessingState::setNewDataProcessed() { _no_new_data = 0; }
+inline bool EVProcessingState::newDataProcessed() { return (_no_new_data == 0); }
+inline void EVProcessingState::noMoreDataNecessary() { _need_more_data = 0; }
+inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
+inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
 
 }
 } // End namespace Poco::EVNet

@@ -44,6 +44,22 @@ const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
 const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
 const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
 
+static void timeout_cb(EV_P_ ev_timer *w, int revents)
+{
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::EVTCPServer::handlePeriodicWakup(const bool&)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+	return;
+}
 
 // this callback is called when data is readable on a socket
 static void async_socket_cb(EV_P_ ev_io *w, int revents)
@@ -160,7 +176,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking())
+	_blocking(pParams->getBlocking()),
+	_pConnectionFactory(pFactory)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -184,7 +201,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking())
+	_blocking(pParams->getBlocking()),
+	_pConnectionFactory(pFactory)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -207,7 +225,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking())
+	_blocking(pParams->getBlocking()),
+	_pConnectionFactory(pFactory)
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
@@ -475,6 +494,7 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
+	size_t received_bytes = 0;
 	EVAcceptedStreamSocket *tn = _ssColl[streamSocket.impl()->sockfd()];
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
@@ -490,9 +510,10 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			ret1 = receiveData(streamSocket, buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
-				//DEBUGPOINT("Received %zd bytes\n", ret1);
+				//printf("%zd\n", ret1);
 				tn->pushReqData(buffer, (size_t)ret1);
 				ret += ret1;
+				received_bytes += ret1;
 			}
 			else {
 				free(buffer);
@@ -505,14 +526,21 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 
 handleDataAvlblOnAccSock_finally:
 	if (tn->reqDataAvlbl()) {
-		_pDispatcher->enqueue(tn);
-		/* If data is available, and a task has been enqueued.
-		 * It is not OK to cleanup the socket.
-		 * It is proper to process whatever data is still there
-		 * and then close the socket at a later time.
-		 * */
+		if (!(tn->getProcState()) ||
+			(tn->getProcState()->newDataProcessed()) ||
+			(!(tn->getProcState()->newDataProcessed()) && (received_bytes > 0))) {
+			_pDispatcher->enqueue(tn);
+			/* If data is available, and a task has been enqueued.
+			 * It is not OK to cleanup the socket.
+			 * It is proper to process whatever data is still there
+			 * and then close the socket at a later time.
+			 * */
+			ret = 1;
+		} 
+		else {
+			//DEBUGPOINT("Did not enqueue and ret = %zd\n", ret);
+		}
 		//DEBUGPOINT("Here %d\n", streamSocket.impl()->sockfd());
-		ret = 1;
 	}
 
 
@@ -716,7 +744,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				_ssColl.erase(pcNf->sockfd());
 				_ssLRUList.remove(tn);
 				{
@@ -804,6 +832,14 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 				ss.impl()->setBlocking(_blocking);
 				fcntl(fd, F_SETFL, O_NONBLOCK);
 			}
+			/*
+			{
+				struct timeval tv;
+				tv.tv_sec = 5;
+				tv.tv_usec = 0;
+				setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+			}
+			*/
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), EV_READ);
 			ev_io_start (_loop, socket_watcher_ptr);
 		}
@@ -817,8 +853,34 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 	catch (...) {
 		ErrorHandler::handle();
 	}
-	
+
 	errno=0;
+}
+
+void EVTCPServer::handlePeriodicWakup(const bool& ev_occured)
+{
+	EVAcceptedStreamSocket *tn = 0;
+
+	tn = _ssLRUList.getFirst();
+	while (tn) {
+		/* Handle all those sockets which are waiting for read while
+		 * processing of input data is in progress.
+		 * */
+		if ((EVAcceptedStreamSocket::WAITING_FOR_READWRITE == tn->getState() ||
+			EVAcceptedStreamSocket::WAITING_FOR_READ == tn->getState()) &&
+			(tn->getProcState() && (tn->getProcState()->needMoreData()))) {
+			struct timeval tv;
+			gettimeofday(&tv,0);
+			if ((tv.tv_sec - tn->getTimeOfLastUse()) > 5) {
+				DEBUGPOINT("TIMER EVENT OCCURED for socket %d\n", tn->getSockfd());
+				ev_io_stop(_loop, tn->getSocketReadWatcher());
+				ev_clear_pending(_loop, tn->getSocketReadWatcher());
+				errorInReceivedData(tn->getSockfd(),true);
+			}
+		}
+		tn= tn->getNextPtr();
+	}
+	return;
 }
 
 void EVTCPServer::run()
@@ -827,12 +889,15 @@ void EVTCPServer::run()
 	ev_async stop_watcher_1;
 	ev_async stop_watcher_2;
 	ev_async stop_watcher_3;
+	ev_timer timeout_watcher;
+	double timeout = 0.00001;
 
 	_loop = EV_DEFAULT;
 	memset(&(socket_watcher), 0, sizeof(ev_io));
 	memset(&(stop_watcher_1), 0, sizeof(ev_async));
 	memset(&(stop_watcher_2), 0, sizeof(ev_async));
 	memset(&(stop_watcher_3), 0, sizeof(ev_async));
+	memset(&(timeout_watcher), 0, sizeof(ev_timer));
 	this->stop_watcher_ptr1 = &(stop_watcher_1);
 	this->stop_watcher_ptr2 = &(stop_watcher_2);
 
@@ -864,10 +929,23 @@ void EVTCPServer::run()
 		ev_async_start (_loop, &(stop_watcher_2));
 	}
 
+	{
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::handlePeriodicWakup;
+
+		timeout_watcher.data = (void*)pc_cb_ptr;
+		timeout = 5.0;
+		ev_timer_init(&timeout_watcher, timeout_cb, timeout, timeout);
+		ev_timer_start(_loop, &timeout_watcher);
+	}
+
 	// now wait for events to arrive
 	ev_run (_loop, 0);
 
 	free(stop_watcher_2.data);
+	free(timeout_watcher.data);
 
 	return;
 }

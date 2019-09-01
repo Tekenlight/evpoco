@@ -32,12 +32,18 @@ public:
 	EVAcceptedStreamSocket* removeLast();
 	EVAcceptedStreamSocket* remove(EVAcceptedStreamSocket* elem);
 	EVAcceptedStreamSocket* getLast();
+	EVAcceptedStreamSocket* getFirst();
 	void debugPrint(const char* file, const int line, const void* tp);
 
 private:
 	EVAcceptedStreamSocket*	firstPtr;
 	EVAcceptedStreamSocket*	lastPtr;
 };
+
+inline EVAcceptedStreamSocket * EVStreamSocketLRUList::getFirst()
+{
+	return firstPtr;
+}
 
 inline EVAcceptedStreamSocket * EVStreamSocketLRUList::getLast()
 {

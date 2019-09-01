@@ -613,6 +613,7 @@ int EVHTTPProcessingState::continueRead()
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
 
+	moreDataNecessary();
 	len2 = _request->getMessageBodySize();
 	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 
@@ -628,6 +629,13 @@ int EVHTTPProcessingState::continueRead()
 	//DEBUGPOINT("\n%s",buffer);
 	len1 = _req_memory_stream->get_buffer_len(nodeptr);
 	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
+	if (buffer == NULL) {
+		setNewDataNotProcessed();
+		return _state;
+	}
+	else {
+		setNewDataProcessed();
+	}
 	while (1) {
 		if (NULL == buffer) {
 			break;
@@ -709,6 +717,7 @@ int EVHTTPProcessingState::continueRead()
 		}
 	}
 
+	//DEBUGPOINT("Processed %zu bytes\n", len2);
 	if (len2 > 0x10000000) {
 		DEBUGPOINT("Will not process messages larger than 10M\n");
 		throw NetException("Requests larger than 10M not supported");
@@ -731,10 +740,11 @@ int EVHTTPProcessingState::continueRead()
 			_req_memory_stream->erase(1);
 			len2 -= 1;
 		}
+		noMoreDataNecessary();
 	}
+	_request->setMessageBodySize(len2);
 	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 
-	_request->setMessageBodySize(len2);
 
 	/*
 	if (((enum http_method)(_parser->method)) == HTTP_POST) {

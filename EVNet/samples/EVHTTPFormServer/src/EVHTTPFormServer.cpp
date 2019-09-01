@@ -130,7 +130,7 @@ public:
 		form1 = new HTMLForm(request, request.stream(), partHandler);
 		} catch (std::exception& ex) {
 			DEBUGPOINT("CHA %s\n",ex.what());
-			abort();
+			throw(ex);
 		}
 
 		//HTMLForm form(request, request.stream(), partHandler);

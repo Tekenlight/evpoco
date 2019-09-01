@@ -63,7 +63,7 @@ public:
 	/// This returns the socket fd of the stream socket
 	/// The fd is needed to interface with libev.
 
-	long long getTimeOfLastUse();
+	time_t getTimeOfLastUse();
 	/// This returns the last time stamp when this stream socket was used for 
 	/// some request processing
 
@@ -101,8 +101,6 @@ public:
 
 	void setSocketReadWatcher(ev_io *socket_watcher_ptr);
 	ev_io * getSocketReadWatcher();
-	void setSocketWriteWatcher(ev_io *socket_watcher_ptr);
-	ev_io * getSocketWriteWatcher();
 
 	accepted_sock_state getState();
 	void setState(accepted_sock_state state);
@@ -112,9 +110,8 @@ public:
 private:
 	poco_socket_t				_sockFd;
 	ev_io*						_socket_read_watcher;
-	ev_io*						_socket_write_watcher;
 	StreamSocket				_streamSocket;
-	long long					_timeOfLastUse;
+	time_t						_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;
 	EVAcceptedStreamSocket*		_nextPtr;
 	bool						_sockBusy;
