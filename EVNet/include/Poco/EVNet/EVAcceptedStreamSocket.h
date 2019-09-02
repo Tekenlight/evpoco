@@ -99,8 +99,7 @@ public:
 	chunked_memory_stream * getResMemStream();
 	void deleteState();
 
-	void setSocketReadWatcher(ev_io *socket_watcher_ptr);
-	ev_io * getSocketReadWatcher();
+	void setSocketWatcher(ev_io *socket_watcher_ptr);
 
 	accepted_sock_state getState();
 	void setState(accepted_sock_state state);
@@ -109,7 +108,7 @@ public:
 
 private:
 	poco_socket_t				_sockFd;
-	ev_io*						_socket_read_watcher;
+	ev_io*						_socket_watcher;
 	StreamSocket				_streamSocket;
 	time_t						_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;

@@ -17,18 +17,6 @@ public:
 	virtual void dataReadyForSend(int fd) = 0;
 };
 
-/*
-typedef void (EVServer::*reqComplMthd)(Net::StreamSocket &);
-typedef void (EVServer::*dataReadyMthd)(Net::StreamSocket &);
-typedef void (EVServer::*reqExcpMthd)(Net::StreamSocket & streamSocket,poco_socket_t fd, bool);
-typedef struct {
-	EVServer *objPtr;
-	reqComplMthd reqComMthd;
-	reqExcpMthd reqExcMthd;
-	dataReadyMthd dataSendMthd;
-} reqComplEvntHandler , *reqComplEvntHandlerPtr;
-*/
-
 }
 }
 

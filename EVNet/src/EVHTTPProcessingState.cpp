@@ -594,7 +594,6 @@ void EVHTTPProcessingState::setReqProperties()
 
 int EVHTTPProcessingState::continueRead()
 {
-	//DEBUGPOINT("_state = [%d] _subState = [%d]\n",_state, _subState);
 	char * buffer = NULL;
 	size_t parsed = 0;
 	http_parser_settings settings = {
@@ -615,7 +614,6 @@ int EVHTTPProcessingState::continueRead()
 
 	moreDataNecessary();
 	len2 = _request->getMessageBodySize();
-	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 
 	/* In one pass a node will be either completely consumed
 	 * or the message will be complete.
@@ -626,9 +624,7 @@ int EVHTTPProcessingState::continueRead()
 		nodeptr = _req_memory_stream->get_next(_prev_node_ptr);
 
 	buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
-	//DEBUGPOINT("\n%s",buffer);
 	len1 = _req_memory_stream->get_buffer_len(nodeptr);
-	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 	if (buffer == NULL) {
 		setNewDataNotProcessed();
 		return _state;
@@ -640,20 +636,13 @@ int EVHTTPProcessingState::continueRead()
 		if (NULL == buffer) {
 			break;
 		}
-		//if (global_debugging_i && _state > HEADER_READ_COMPLETE) DEBUGPOINT("\n[%s]",buffer);
-		//DEBUGPOINT("\n[%s]",buffer);
-		//DEBUGPOINT("len1 = %zu\n",len1);
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
-		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
-			//DEBUGPOINT("Buffer\n%s\n", buffer);
-			//DEBUGPOINT("Here:%s\n", http_errno_description((enum http_errno)_parser->http_errno));
 			throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 			return -1;
 			break;
 		}
 		if (_state < HEADER_READ_COMPLETE) {
-		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 			if (len2 < len1) { 
 				// Should not happen
 				//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
@@ -662,8 +651,6 @@ int EVHTTPProcessingState::continueRead()
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
-			//DEBUGPOINT("Erasing %zu\n", len2);
-			//DEBUGPOINT("Erasing %zu %zu\n", len2, (unsigned long)buffer);
 			_req_memory_stream->erase(len2);
 			nodeptr = _req_memory_stream->get_next(0);
 			_prev_node_ptr = 0;
@@ -672,11 +659,9 @@ int EVHTTPProcessingState::continueRead()
 			len2 = 0;
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
-		//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
-			//DEBUGPOINT("Erasing %zu hcl bp = %lu %llu\n", len2, (unsigned long)buffer,  _parser->content_length);
 			_req_memory_stream->erase(len2);
 
 			/* Since the traversed portion is erased
@@ -698,12 +683,10 @@ int EVHTTPProcessingState::continueRead()
 				return -1;
 			}
 			if (HTTP_HEADER_ONLY == _request->getReqType()) {
-				//DEBUGPOINT("Here\n");
 				_state = MESSAGE_COMPLETE;
 				_prev_node_ptr = 0;
 				break;
 			}
-			//DEBUGPOINT("\n%s",buffer);
 		}
 		else if (_state == MESSAGE_COMPLETE) {
 			_prev_node_ptr = 0;
@@ -717,7 +700,6 @@ int EVHTTPProcessingState::continueRead()
 		}
 	}
 
-	//DEBUGPOINT("Processed %zu bytes\n", len2);
 	if (len2 > 0x10000000) {
 		DEBUGPOINT("Will not process messages larger than 10M\n");
 		throw NetException("Requests larger than 10M not supported");
@@ -736,48 +718,18 @@ int EVHTTPProcessingState::continueRead()
 		int n = 0, c = 0;
 		n = _req_memory_stream->copy(0, &c, 1);
 		if (n && (c == 10)) {
-			//DEBUGPOINT("Erasing char [%d]\n",c);
 			_req_memory_stream->erase(1);
 			len2 -= 1;
 		}
 		noMoreDataNecessary();
 	}
 	_request->setMessageBodySize(len2);
-	//DEBUGPOINT("Len2 = %zu Len1 = %zu\n", len2, len1);
-
-
-	/*
-	if (((enum http_method)(_parser->method)) == HTTP_POST) {
-		DEBUGPOINT("Here\n");
-		if (_state == MESSAGE_COMPLETE) {
-			DEBUGPOINT("Here\n");
-			int i = 0, cl = len2;
-			ev_buffered_stream buf(_req_memory_stream, 1024, 8192);
-			std::istream is(&buf);
-			int c = 0;
-			printf("\r\n");
-			while ((EOF != (c = is.get()) && ((cl == -1) || (i < cl)))) {
-				i++;
-				putchar(c);
-			}
-			puts("");
-			printf("i=%d c=%d\n", i, cl);
-			puts("done");
-			if (cl != i) puts("Probably, the header parsing did not consume the complete part");
-				DEBUGPOINT("Here\n");
-			//if (counter) exit(0);
-			throw NetException("Testing ");
-		}
-	}
-	*/
-
 	if (_state == MESSAGE_COMPLETE) {
 
 		{
 			size_t length = _request->getMessageBodySize();
 			size_t node_buffer_len = 0;
 			size_t xfr_size = 0;
-			//DEBUGPOINT("Message body size = %zu\n",length);
 			_request->formInputStream(_req_memory_stream);
 			memset(_parser,0,sizeof(http_parser));
 			_parser->data = (void*)this;
@@ -785,7 +737,6 @@ int EVHTTPProcessingState::continueRead()
 		}
 		nodeptr = _req_memory_stream->get_next(0);
 		buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
-		//DEBUGPOINT("\n%s\n",buffer);
 
 	}
 
@@ -800,7 +751,6 @@ void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
 void EVHTTPProcessingState::setResMemStream(chunked_memory_stream *memory_stream)
 {
 	_res_memory_stream = memory_stream;
-	//DEBUGPOINT("Setting _res_memory_stream = %p\n", _res_memory_stream);
 }
 
 void EVHTTPProcessingState::setReqMemStream(chunked_memory_stream *memory_stream)
@@ -810,7 +760,6 @@ void EVHTTPProcessingState::setReqMemStream(chunked_memory_stream *memory_stream
 
 chunked_memory_stream* EVHTTPProcessingState::getResMemStream()
 {
-	//DEBUGPOINT("Getting _res_memory_stream = %p\n", _res_memory_stream);
 	return _res_memory_stream;
 }
 

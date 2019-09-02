@@ -247,16 +247,16 @@ EVTCPServer::~EVTCPServer()
 	try {
 		stop();
 		_pDispatcher->release();
-		freeClear(_ssColl);
+		freeClear(_accssColl);
 	}
 	catch (...) {
 		poco_unexpected();
 	}
 }
 
-void EVTCPServer::freeClear( SSColMapType & amap )
+void EVTCPServer::freeClear( ASColMapType & amap )
 {
-    for ( SSColMapType::iterator it = amap.begin(); it != amap.end(); ++it ) {
+    for ( ASColMapType::iterator it = amap.begin(); it != amap.end(); ++it ) {
         delete it->second;
     }
     amap.clear();
@@ -346,7 +346,7 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
-	EVAcceptedStreamSocket *tn = _ssColl[streamSocket.impl()->sockfd()];
+	EVAcceptedStreamSocket *tn = _accssColl[streamSocket.impl()->sockfd()];
 	if (!tn) return -1;
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
@@ -409,7 +409,7 @@ handleAccSocketWritable_finally:
 		ev_io * socket_watcher_ptr = 0;
 		strms_ic_cb_ptr_type cb_ptr = 0;
 
-		socket_watcher_ptr = tn->getSocketReadWatcher();
+		socket_watcher_ptr = tn->getSocketWatcher();
 
 		if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
 			ev_io_stop(_loop, socket_watcher_ptr);
@@ -502,7 +502,7 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 {
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
-	EVAcceptedStreamSocket *tn = _ssColl[streamSocket.impl()->sockfd()];
+	EVAcceptedStreamSocket *tn = _accssColl[streamSocket.impl()->sockfd()];
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
 	tn->setSockBusy();
@@ -559,7 +559,7 @@ handleDataAvlblOnAccSock_finally:
 	 * */
 	if (ret > 0) {
 		ev_io * socket_watcher_ptr = 0;
-		socket_watcher_ptr = tn->getSocketReadWatcher();
+		socket_watcher_ptr = tn->getSocketWatcher();
 		if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
@@ -580,11 +580,11 @@ handleDataAvlblOnAccSock_finally:
 	}
 	else if (ret < 0)  {
 		//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
-		_ssColl.erase(streamSocket.impl()->sockfd());
+		_accssColl.erase(streamSocket.impl()->sockfd());
 		_ssLRUList.remove(tn);
 		{
 			ev_io * socket_watcher_ptr = 0;
-			socket_watcher_ptr = tn->getSocketReadWatcher();
+			socket_watcher_ptr = tn->getSocketWatcher();
 			if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
 				ev_io_stop(_loop, socket_watcher_ptr);
 				ev_clear_pending(_loop, socket_watcher_ptr);
@@ -640,7 +640,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 {
 	ev_io * socket_watcher_ptr = 0;
 
-	socket_watcher_ptr = tn->getSocketReadWatcher();
+	socket_watcher_ptr = tn->getSocketWatcher();
 
 	StreamSocket ss = tn->getStreamSocket();
 
@@ -683,7 +683,7 @@ void EVTCPServer::sendDataOnAccSocket(EVAcceptedStreamSocket *tn)
 	ev_io * socket_watcher_ptr = 0;
 	strms_ic_cb_ptr_type cb_ptr = 0;
 
-	socket_watcher_ptr = tn->getSocketReadWatcher();
+	socket_watcher_ptr = tn->getSocketWatcher();
 	if (!socket_watcher_ptr) std::abort();
 
 	cb_ptr = (strms_ic_cb_ptr_type)socket_watcher_ptr->data;
@@ -722,10 +722,10 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
-		EVAcceptedStreamSocket *tn = _ssColl[pcNf->sockfd()];
+		EVAcceptedStreamSocket *tn = _accssColl[pcNf->sockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			DEBUGPOINT("Did not find entry in _ssColl for %d\n", pcNf->sockfd());
+			DEBUGPOINT("Did not find entry in _accssColl for %d\n", pcNf->sockfd());
 
 			/* Multiple events can get queued for a socket from another thread.
 			 * In the meanwhile, it is possible that the socket gets into an error state
@@ -735,7 +735,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			 * */
 			continue;
 		}
-		socket_watcher_ptr = _ssColl[pcNf->sockfd()]->getSocketReadWatcher();
+		socket_watcher_ptr = _accssColl[pcNf->sockfd()]->getSocketWatcher();
 		StreamSocket ss = tn->getStreamSocket();
 
 		EVTCPServerNotification::what event = pcNf->getEvent();
@@ -755,11 +755,11 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
 				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
-				_ssColl.erase(pcNf->sockfd());
+				_accssColl.erase(pcNf->sockfd());
 				_ssLRUList.remove(tn);
 				{
 					ev_io * socket_watcher_ptr = 0;
-					socket_watcher_ptr = tn->getSocketReadWatcher();
+					socket_watcher_ptr = tn->getSocketWatcher();
 					if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
 						ev_io_stop(_loop, socket_watcher_ptr);
 						ev_clear_pending(_loop, socket_watcher_ptr);
@@ -782,13 +782,13 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 	strms_ic_cb_ptr_type cb_ptr = 0;
 
 	EVAcceptedStreamSocket * ptr = _ssLRUList.getLast();
-	while (ptr && (_ssColl.size()  >= _numConnections)) {
+	while (ptr && (_accssColl.size()  >= _numConnections)) {
 		if (ptr->getProcState()) {
 			ptr = ptr->getPrevPtr();
 			continue;
 		}
-		ev_io_stop(_loop, ptr->getSocketReadWatcher());
-		ev_clear_pending(_loop, ptr->getSocketReadWatcher());
+		ev_io_stop(_loop, ptr->getSocketWatcher());
+		ev_clear_pending(_loop, ptr->getSocketWatcher());
 		errorInReceivedData(ptr->getSockfd(),true);
 		ptr = ptr->getPrevPtr();
 	}
@@ -800,7 +800,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		 * TBD: This strategy needs to be examined properly. TBD
 		 * */
 		StreamSocket ss = _socket.acceptConnection();
-		if (_ssColl.size()  >= _numConnections) {
+		if (_accssColl.size()  >= _numConnections) {
 			return;
 		}
 
@@ -820,9 +820,9 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 			EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
-			acceptedSock->setSocketReadWatcher(socket_watcher_ptr);
+			acceptedSock->setSocketWatcher(socket_watcher_ptr);
 			fd = ss.impl()->sockfd();
-			_ssColl[ss.impl()->sockfd()] = acceptedSock;
+			_accssColl[ss.impl()->sockfd()] = acceptedSock;
 			acceptedSock->setTimeOfLastUse();
 			_ssLRUList.add(acceptedSock);
 
@@ -879,8 +879,8 @@ void EVTCPServer::handlePeriodicWakup(const bool& ev_occured)
 			gettimeofday(&tv,0);
 			if ((tv.tv_sec - tn->getTimeOfLastUse()) > _receiveTimeOut) {
 				DEBUGPOINT("TIMER EVENT OCCURED for socket %d\n", tn->getSockfd());
-				ev_io_stop(_loop, tn->getSocketReadWatcher());
-				ev_clear_pending(_loop, tn->getSocketReadWatcher());
+				ev_io_stop(_loop, tn->getSocketWatcher());
+				ev_clear_pending(_loop, tn->getSocketWatcher());
 				errorInReceivedData(tn->getSockfd(),true);
 			}
 		}

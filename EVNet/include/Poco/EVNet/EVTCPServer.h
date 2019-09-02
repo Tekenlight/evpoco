@@ -33,6 +33,7 @@
 #include "Poco/NotificationQueue.h"
 #include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/EVNet/EVAcceptedStreamSocket.h"
+#include "Poco/EVNet/EVConnectedStreamSocket.h"
 #include "Poco/EVNet/EVStreamSocketLRUList.h"
 #include "Poco/EVNet/EVServer.h"
 
@@ -220,7 +221,8 @@ protected:
 		/// Returns the underlying server socket file descriptor
 
 private:
-	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> SSColMapType;
+	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
+	typedef std::map<poco_socket_t,EVConnectedStreamSocket *> CSColMapType;
 
 	static const std::string NUM_THREADS_CFG_NAME;
 	static const std::string RECV_TIME_OUT_NAME;
@@ -252,7 +254,7 @@ private:
 		/// Function to add the StreamSocket back to listening mode
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
-	void freeClear( SSColMapType & );
+	void freeClear( ASColMapType & );
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
 	ssize_t receiveData(int fd, void * chptr, size_t size);
@@ -272,7 +274,7 @@ private:
 	ev_async*						stop_watcher_ptr2;;
 	ev_async*						stop_watcher_ptr3;;
 
-	SSColMapType					_ssColl;
+	ASColMapType					_accssColl;
 	struct ev_loop*					_loop;
 	NotificationQueue				_queue;
 	NotificationQueue				_write_event_queue;

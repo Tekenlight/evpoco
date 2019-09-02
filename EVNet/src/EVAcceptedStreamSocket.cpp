@@ -21,7 +21,7 @@ namespace Poco{ namespace EVNet {
 
 EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_sockFd(streamSocket.impl()->sockfd()),
-	_socket_read_watcher(0),
+	_socket_watcher(0),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
@@ -42,24 +42,24 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
-	if (this->_socket_read_watcher) {
-		if ((void*)(this->_socket_read_watcher->data))
-			free((void*)(this->_socket_read_watcher->data));
-		free(this->_socket_read_watcher);
+	if (this->_socket_watcher) {
+		if ((void*)(this->_socket_watcher->data))
+			free((void*)(this->_socket_watcher->data));
+		free(this->_socket_watcher);
 	}
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
 }
 
-void EVAcceptedStreamSocket::setSocketReadWatcher(ev_io *socket_watcher_ptr)
+void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
 {
-	this->_socket_read_watcher = socket_watcher_ptr;
+	this->_socket_watcher = socket_watcher_ptr;
 }
 
-ev_io * EVAcceptedStreamSocket::getSocketReadWatcher()
+ev_io * EVAcceptedStreamSocket::getSocketWatcher()
 {
-	return this->_socket_read_watcher;
+	return this->_socket_watcher;
 }
 
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
