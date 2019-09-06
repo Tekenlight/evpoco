@@ -439,6 +439,18 @@ handleAccSocketWritable_finally:
 		 * At that time the socket will get disposed.
 		 * */
 		tn->setSockInError();
+		if (!(tn->getProcState())) {
+			_accssColl.erase(tn->getSockfd());
+			_ssLRUList.remove(tn);
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketWatcher();
+				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
+					ev_io_stop(_loop, socket_watcher_ptr);
+					ev_clear_pending(_loop, socket_watcher_ptr);
+				}
+			}
+		}
 	}
 
 	return ret;
@@ -747,6 +759,8 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		switch (event) {
 			case EVTCPServerNotification::PROCESSING_COMPLETE:
 				//DEBUGPOINT("PROCESSING_COMPLETE on socket %d\n", ss.impl()->sockfd());
+				tn->deleteState();
+				dataReadyForSend(tn->getSockfd());
 				monitorDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:

@@ -24,8 +24,6 @@
 #include <unistd.h>
 #include <pthread.h>
 
-//int global_debugging_i = 0;
-
 using Poco::Net::TCPServerConnectionFactory;
 using Poco::Notification;
 using Poco::FastMutex;
@@ -127,8 +125,6 @@ void EVTCPServerDispatcher::run()
 			if (pCNf)
 			{
 				try {
-					//DEBUGPOINT("Here %d gdi = %d\n", pCNf->sockfd(), global_debugging_i);
-					//DEBUGPOINT("Here %d\n", pCNf->sockfd());
 #ifndef POCO_ENABLE_CPP11
 					std::auto_ptr<EVNet::EVTCPServerConnection>
 							pConnection(_pConnectionFactory->createConnection(pCNf->socket()->getStreamSocket()));
@@ -146,15 +142,12 @@ void EVTCPServerDispatcher::run()
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();
-					//global_debugging_i = 0;
+					/*
 					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
 						pCNf->socket()->deleteState();
 						_server->dataReadyForSend(pCNf->sockfd());
-						//global_debugging_i = 1;
-						//DEBUGPOINT("------------------------ MESSAGE PROCESSING COMPLETE --------------------------------\n");
 					}
-					//DEBUGPOINT("Here %d gdi = %d\n", pCNf->sockfd(), global_debugging_i);
-					//DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					*/
 					_server->receivedDataConsumed(pCNf->sockfd());
 				}
 				catch (NoMessageException&) {
