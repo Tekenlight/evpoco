@@ -51,7 +51,7 @@ public:
 		/// Creates an instance of HTTPServerConnection
 		/// using the given StreamSocket.
 	
-	EVProcessingState* createReaProcState(EVServer *);
+	EVProcessingState* createReqProcState(EVServer *);
 		/// Creates an instance of EVHTTPProcessingState
 
 private:

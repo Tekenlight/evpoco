@@ -88,7 +88,6 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents);
 // this callback is called when socket is writable
 static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
 {
-	bool ev_occurred = true;
 	strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
 	 * with its corresponding stop function.
@@ -103,7 +102,7 @@ static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
 	 * EVTCPServer::handleAccSocketWritable(const bool)
 	 */
 	ssize_t ret = 0;
-	ret = ((cb_ptr->objPtr)->*(cb_ptr->socketWritable))(*(cb_ptr->ssPtr) , ev_occurred);
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->socketWritable))(*(cb_ptr->ssPtr) , true);
 
 	return;
 }
@@ -111,8 +110,6 @@ static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
 // this callback is called when data is readable on a socket
 static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 {
-	bool ev_occurred = true;
-
 	if (revents & EV_WRITE) async_stream_socket_cb_2(loop, w, revents);
 
 	if (revents & EV_READ) {
@@ -129,7 +126,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 		/* The below line of code essentially calls
 		 * EVTCPServer::handleDataAvlblOnAccSock(const bool)
 		 */
-		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , ev_occurred);
+		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
 		//ev_io_stop(loop, w);
 		//ev_clear_pending(loop, w);
@@ -439,18 +436,6 @@ handleAccSocketWritable_finally:
 		 * At that time the socket will get disposed.
 		 * */
 		tn->setSockInError();
-		if (!(tn->getProcState())) {
-			_accssColl.erase(tn->getSockfd());
-			_ssLRUList.remove(tn);
-			{
-				ev_io * socket_watcher_ptr = 0;
-				socket_watcher_ptr = tn->getSocketWatcher();
-				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-					ev_io_stop(_loop, socket_watcher_ptr);
-					ev_clear_pending(_loop, socket_watcher_ptr);
-				}
-			}
-		}
 	}
 
 	return ret;
@@ -544,12 +529,12 @@ ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const
 	}
 
 handleDataAvlblOnAccSock_finally:
-	if (tn->reqDataAvlbl()) {
+	if ((ret >=0) && tn->reqDataAvlbl()) {
 		if (!(tn->getProcState()) ||
 			(tn->getProcState()->newDataProcessed()) ||
 			(!(tn->getProcState()->newDataProcessed()) && (received_bytes > 0))) {
 			if (!(tn->getProcState())) {
-				tn->setProcState(_pConnectionFactory->createReaProcState(this));
+				tn->setProcState(_pConnectionFactory->createReqProcState(this));
 			}
 			_pDispatcher->enqueue(tn);
 			/* If data is available, and a task has been enqueued.
@@ -624,7 +609,7 @@ void EVTCPServer::receivedDataConsumed(int fd)
 {
 	/* Enque the socket */
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
-													EVTCPServerNotification::PROCESSING_COMPLETE));
+													EVTCPServerNotification::REQDATA_CONSUMED));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
@@ -684,6 +669,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * This can be a cause for unnecessary thread context switching
 		 * opportunity for optimization.
 		 * */
+		//DEBUGPOINT("Here\n");
 		handleDataAvlblOnAccSock(ss, false);
 	}
 
@@ -754,13 +740,16 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		/* If some error has been noticed on this socket, dispose it off cleanly
 		 * over here
 		 * */
-		if (tn->sockInError()) event = EVTCPServerNotification::ERROR_IN_PROCESSING;
+		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError()))
+			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
 
 		switch (event) {
-			case EVTCPServerNotification::PROCESSING_COMPLETE:
-				//DEBUGPOINT("PROCESSING_COMPLETE on socket %d\n", ss.impl()->sockfd());
-				tn->deleteState();
-				dataReadyForSend(tn->getSockfd());
+			case EVTCPServerNotification::REQDATA_CONSUMED:
+				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
+				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
+					tn->deleteState();
+					sendDataOnAccSocket(tn);
+				}
 				monitorDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:

@@ -26,7 +26,7 @@ class EVTCPServerNotification: public Notification
 public:
 	typedef enum {
 		DATA_FOR_READ_READY
-		,PROCESSING_COMPLETE
+		,REQDATA_CONSUMED
 		,DATA_FOR_SEND_READY
 		,ERROR_IN_PROCESSING
 	} what;

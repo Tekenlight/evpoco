@@ -618,10 +618,12 @@ int EVHTTPProcessingState::continueRead()
 	/* In one pass a node will be either completely consumed
 	 * or the message will be complete.
 	 * */
+	//DEBUGPOINT("_prev_node_ptr = %p\n", _prev_node_ptr);
 	if (!_prev_node_ptr)
 		nodeptr = _req_memory_stream->get_next(0);
 	else
 		nodeptr = _req_memory_stream->get_next(_prev_node_ptr);
+	//DEBUGPOINT("nodeptr = %p\n", nodeptr);
 
 	buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
 	len1 = _req_memory_stream->get_buffer_len(nodeptr);
@@ -634,14 +636,18 @@ int EVHTTPProcessingState::continueRead()
 	}
 	while (1) {
 		if (NULL == buffer) {
+			//DEBUGPOINT("Coming out of loop _prev_node_ptr = %p\n", _prev_node_ptr);
 			break;
 		}
+		//DEBUGPOINT("\n%s\n",buffer);
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
+			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
 			throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 			return -1;
 			break;
 		}
+		//DEBUGPOINT("len2 = %zu\n", len2);
 		if (_state < HEADER_READ_COMPLETE) {
 			if (len2 < len1) { 
 				// Should not happen
@@ -722,6 +728,7 @@ int EVHTTPProcessingState::continueRead()
 			len2 -= 1;
 		}
 		noMoreDataNecessary();
+		//DEBUGPOINT("MESSAGE_COMPLETE\n");
 	}
 	_request->setMessageBodySize(len2);
 	if (_state == MESSAGE_COMPLETE) {

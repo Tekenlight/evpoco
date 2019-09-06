@@ -46,7 +46,7 @@ EVTCPServerConnection* EVHTTPServerStreamFactory::createConnection(StreamSocket&
 	return new EVHTTPServerStream(socket, _pParams, _pFactory, reqProcState);
 }
 
-EVProcessingState* EVHTTPServerStreamFactory::createReaProcState(EVServer * server)
+EVProcessingState* EVHTTPServerStreamFactory::createReqProcState(EVServer * server)
 {
 	return new EVHTTPProcessingState(server);
 }

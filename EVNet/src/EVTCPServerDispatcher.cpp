@@ -134,20 +134,11 @@ void EVTCPServerDispatcher::run()
 #endif // POCO_ENABLE_CPP11
 					poco_check_ptr(pConnection.get());
 					beginConnection();
-					if (!(pCNf->socket()->getProcState())) {
-						pCNf->socket()->setProcState(_pConnectionFactory->createReaProcState(_server));
-					}
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();
-					/*
-					if (PROCESS_COMPLETE <= (pCNf->socket()->getProcState()->getState())) {
-						pCNf->socket()->deleteState();
-						_server->dataReadyForSend(pCNf->sockfd());
-					}
-					*/
 					_server->receivedDataConsumed(pCNf->sockfd());
 				}
 				catch (NoMessageException&) {

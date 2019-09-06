@@ -55,7 +55,7 @@ public:
 		/// Creates an instance of a subclass of TCPServerConnection,
 		/// using the given StreamSocket.
 
-	virtual EVProcessingState* createReaProcState(EVServer *) = 0;
+	virtual EVProcessingState* createReqProcState(EVServer *) = 0;
 		/// Creates an instance of EVHTTPProcessingState
 protected:
 	EVTCPServerConnectionFactory();
