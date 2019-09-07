@@ -27,16 +27,16 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_prevPtr(0),
 	_nextPtr(0),
 	_sockBusy(false),
-	_req_memory_stream(0),
-	_res_memory_stream(0),
+	_send_memory_stream(0),
+	_rcv_memory_stream(0),
 	_state(BEFORE_CONNECT),
 	_socketInError(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec;
-	_req_memory_stream = new chunked_memory_stream();
-	_res_memory_stream = new chunked_memory_stream();
+	_send_memory_stream = new chunked_memory_stream();
+	_rcv_memory_stream = new chunked_memory_stream();
 }
 
 EVConnectedStreamSocket::~EVConnectedStreamSocket()
@@ -47,8 +47,8 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 			free((void*)(this->_socket_watcher->data));
 		free(this->_socket_watcher);
 	}
-	if (this->_req_memory_stream) delete this->_req_memory_stream;
-	if (this->_res_memory_stream) delete this->_res_memory_stream;
+	if (this->_send_memory_stream) delete this->_send_memory_stream;
+	if (this->_rcv_memory_stream) delete this->_rcv_memory_stream;
 }
 
 void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
@@ -122,36 +122,36 @@ time_t EVConnectedStreamSocket::getTimeOfLastUse()
 	return _timeOfLastUse;
 }
 
-size_t EVConnectedStreamSocket::pushResData(void * buffer, size_t size)
+size_t EVConnectedStreamSocket::pushRcvData(void * buffer, size_t size)
 {
-	return _req_memory_stream->push(buffer, size);
+	return _rcv_memory_stream->push(buffer, size);
 }
 
-size_t EVConnectedStreamSocket::pushReqData(void * buffer, size_t size)
+size_t EVConnectedStreamSocket::pushSendData(void * buffer, size_t size)
 {
-	return _req_memory_stream->push(buffer, size);
+	return _send_memory_stream->push(buffer, size);
 }
 
-bool EVConnectedStreamSocket::resDataAvlbl()
+bool EVConnectedStreamSocket::sendDataAvlbl()
 {
 	int c = 0;
-	return (_res_memory_stream->copy(0, &c, 1) > 0);
+	return (_send_memory_stream->copy(0, &c, 1) > 0);
 }
 
-bool EVConnectedStreamSocket::reqDataAvlbl()
+bool EVConnectedStreamSocket::rcvDataAvlbl()
 {
 	int c = 0;
-	return (_req_memory_stream->copy(0, &c, 1) > 0);
+	return (_rcv_memory_stream->copy(0, &c, 1) > 0);
 }
 
-chunked_memory_stream * EVConnectedStreamSocket::getResMemStream()
+chunked_memory_stream * EVConnectedStreamSocket::getRcvMemStream()
 {
-	return _res_memory_stream;
+	return _rcv_memory_stream;
 }
 
-chunked_memory_stream * EVConnectedStreamSocket::getReqMemStream()
+chunked_memory_stream * EVConnectedStreamSocket::getSendMemStream()
 {
-	return _req_memory_stream;
+	return _send_memory_stream;
 }
 
 } } // namespace EVNet and Poco end.

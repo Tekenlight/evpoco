@@ -430,16 +430,115 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 
 ssize_t EVTCPServer::handleConnSocketConnected(EVConnectedStreamSocket * cn, const bool& ev_occured)
 {
+	ev_io_stop(_loop, cn->getSocketWatcher());
+	ev_clear_pending(_loop, cn->getSocketWatcher());
+
 	// TBD Handle Dispatching the event of connected socket, here. TBD
+
 	return 1;
 }
 
 ssize_t EVTCPServer::handleConnSocketWritable(EVConnectedStreamSocket * cn, const bool& ev_occured)
 {
 	ssize_t ret = 0;
+	cn->setTimeOfLastUse();
 	if (cn->getState() == EVConnectedStreamSocket::BEFORE_CONNECT) {
 		cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 		return handleConnSocketConnected(cn, ev_occured);
+	}
+	if (!cn->sendDataAvlbl()) {
+		goto handleConnSocketWritable_finally;
+	}
+
+	cn->setSockBusy();
+
+	{
+		chunked_memory_stream * cms = 0;
+
+		ssize_t ret1 = 0;
+		int count = 0;
+
+		cms = cn->getSendMemStream();
+		void * nodeptr = 0;
+		void * buffer = 0;
+		size_t bytes = 0;
+		nodeptr = cms->get_next(0);
+		while (nodeptr) {
+			count ++;
+			buffer = cms->get_buffer(nodeptr);
+			bytes = cms->get_buffer_len(nodeptr);
+
+			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
+			ret1 = sendData(cn->getStreamSocket(), buffer, bytes);
+			if (ret1 > 0) {
+				cms->erase(ret1);
+				nodeptr = cms->get_next(0);
+				buffer = 0;
+				bytes = 0;
+				ret += ret1;
+				ret1 = 0;
+			}
+			else if (ret1 == 0) {
+				// Add to waiting for being write ready.
+				ret = 0;
+				break;
+			}
+			else {
+				ret = -1;
+				break;
+			}
+		}
+	}
+
+	cn->setSockFree();
+
+handleConnSocketWritable_finally:
+	if (ret >=0) {
+		/* If there is more data to be sent, wait for 
+		 * the socket to become writable again.
+		 * */
+		if (!cn->sendDataAvlbl()) ret = 1;
+		else ret = 0;
+	}
+
+	if (ret > 0) {
+		ev_io * socket_watcher_ptr = 0;
+		strms_ic_cb_ptr_type cb_ptr = 0;
+
+		socket_watcher_ptr = cn->getSocketWatcher();
+
+		if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_WRITE) {
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+			cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+		}
+		else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_3, cn->getStreamSocket().impl()->sockfd(), EV_READ);
+			ev_io_start (_loop, socket_watcher_ptr);
+			cn->setState(EVConnectedStreamSocket::WAITING_FOR_READ);
+		}
+		else {
+			/* It should not come here otherwise. */
+			std::abort();
+		}
+
+		// TBD Handle dispatching of EVENT here. TBD
+	}
+	else if (ret <0) {
+		/* At this point we know that the socket has become unusable,
+		 * it is possible to dispose it off and complete housekeeping.
+		 * However there is a likelihood that another thread is still
+		 * processing this socket, hence the disposing off must not be
+		 * done over here.
+		 *
+		 * When the processing gets complete, and the socket is returned,
+		 * At that time the socket will get disposed.
+		 * */
+		cn->setSockInError();
+
+		// TBD Handle dispatching of EVENT here. TBD
 	}
 
 	return ret;
@@ -523,7 +622,7 @@ handleAccSocketWritable_finally:
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, streamSocket.impl()->sockfd(), EV_READ);
 			ev_io_start (_loop, socket_watcher_ptr);
-			tn->setState(EVAcceptedStreamSocket::EVAcceptedStreamSocket::WAITING_FOR_READ);
+			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
 		}
 		else {
 			/* It should not come here otherwise. */
@@ -603,6 +702,70 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 ssize_t EVTCPServer::handleConnSocketReadable(EVConnectedStreamSocket *cn, const bool& ev_occured)
 {
 	ssize_t ret = 0;
+	size_t received_bytes = 0;
+	cn->setTimeOfLastUse();
+	cn->setSockBusy();
+
+	{
+		ssize_t ret1 = 0;
+		int count = 0;
+		do {
+			count ++;
+			void * buffer = malloc(TCP_BUFFER_SIZE);
+			memset(buffer,0,TCP_BUFFER_SIZE);
+			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
+			ret1 = receiveData(cn->getStreamSocket(), buffer, TCP_BUFFER_SIZE);
+			if (ret1 >0) {
+				//printf("%zd\n", ret1);
+				cn->pushRcvData(buffer, (size_t)ret1);
+				ret += ret1;
+				received_bytes += ret1;
+			}
+			else {
+				free(buffer);
+				if (ret1 < 0) {
+					ret = -1;
+				}
+			}
+		} while(!_blocking && ret1>0);
+	}
+
+handleConnSocketReadable_finally:
+	if ((ret >=0) && cn->rcvDataAvlbl()) {
+		// TBD Handle dispatching of events here. TBD
+	}
+
+
+	/* ret will be 0 after recv even on a tickled socket
+	 * in case of SSL handshake.
+	 * */
+	if (ret > 0) {
+		ev_io * socket_watcher_ptr = 0;
+		socket_watcher_ptr = cn->getSocketWatcher();
+		if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+			cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+		}
+		else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_4, cn->getSockfd(), EV_WRITE);
+			ev_io_start (_loop, socket_watcher_ptr);
+			cn->setState(EVConnectedStreamSocket::WAITING_FOR_WRITE);
+		}
+		else {
+			/* It should not come here otherwise. */
+			DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", cn->getState());
+			std::abort();
+		}
+
+		// TBD. Dispatch event occured here. TBD ???
+	}
+	else if (ret < 0)  {
+		// TBD. Dispatch error occured event here. TBD
+	}
+
 	return ret;
 }
 
@@ -678,7 +841,7 @@ handleDataAvlblOnAccSock_finally:
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, streamSocket.impl()->sockfd(), EV_WRITE);
 			ev_io_start (_loop, socket_watcher_ptr);
-			tn->setState(EVAcceptedStreamSocket::EVAcceptedStreamSocket::WAITING_FOR_WRITE);
+			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 		}
 		else {
 			/* It should not come here otherwise. */

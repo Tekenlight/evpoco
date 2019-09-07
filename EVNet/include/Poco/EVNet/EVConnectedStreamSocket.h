@@ -78,17 +78,17 @@ public:
 	void setSockBusy();
 	// Sets the _sockBusy glag to true.
 
-	size_t pushReqData(void * buffer, size_t size);
+	size_t pushSendData(void * buffer, size_t size);
 	// This will be done by the caller, i.e. an instance
 	// of EVHTTPHandler class
 
-	size_t pushResData(void * buffer, size_t size);
+	size_t pushRcvData(void * buffer, size_t size);
 	// Transfers the bytes read from socket to the stream.
 	// This will be done by Socket IO monitoring thread, whenever
 	// data is received from the upstream server.
 
-	bool reqDataAvlbl();
-	bool resDataAvlbl();
+	bool sendDataAvlbl();
+	bool rcvDataAvlbl();
 	
 	bool sockBusy();
 
@@ -96,8 +96,8 @@ public:
 	void setPrevPtr(EVConnectedStreamSocket * ptr);
 	EVConnectedStreamSocket * getNextPtr();
 	EVConnectedStreamSocket * getPrevPtr();
-	chunked_memory_stream * getReqMemStream();
-	chunked_memory_stream * getResMemStream();
+	chunked_memory_stream * getSendMemStream();
+	chunked_memory_stream * getRcvMemStream();
 	void deleteState();
 
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
@@ -116,8 +116,8 @@ private:
 	EVConnectedStreamSocket*	_prevPtr;
 	EVConnectedStreamSocket*	_nextPtr;
 	bool						_sockBusy;
-	chunked_memory_stream*		_req_memory_stream;
-	chunked_memory_stream*		_res_memory_stream;
+	chunked_memory_stream*		_send_memory_stream;
+	chunked_memory_stream*		_rcv_memory_stream;
 	connected_sock_state		_state;
 	int							_socketInError;
 };
