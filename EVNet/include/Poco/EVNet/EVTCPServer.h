@@ -206,7 +206,7 @@ public:
 	TCPServerConnectionFilter::Ptr getConnectionFilter() const;
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
-	virtual int makeTcpConnection(poco_socket_t fd, Net::SocketAddress & addr);
+	virtual int makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
 
 protected:
 	void run();
@@ -256,6 +256,8 @@ private:
 		/// Function to add the StreamSocket back to listening mode
 	void somethingHappenedInAnotherThread(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
+	void handleServiceRequest(const bool& ev_occured);
+		// Function to request a service from TCP Server
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void freeClear( ASColMapType & );
@@ -281,7 +283,7 @@ private:
 	ASColMapType					_accssColl;
 	struct ev_loop*					_loop;
 	NotificationQueue				_queue;
-	NotificationQueue				_write_event_queue;
+	NotificationQueue				_service_request_queue;
 
 	EVStreamSocketLRUList			_ssLRUList;
 	int								_numThreads;

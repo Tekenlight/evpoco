@@ -50,6 +50,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
+	DEBUGPOINT("Here\n");
 }
 
 void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)

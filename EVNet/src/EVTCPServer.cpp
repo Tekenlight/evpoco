@@ -1064,7 +1064,8 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
-int EVTCPServer::makeTcpConnection(poco_socket_t acc_fd, Net::SocketAddress & addr)
+//int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::SocketAddress & addr, bool secure)
+int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	int ret = 0;
 	ev_io * socket_watcher_ptr = 0;
@@ -1077,12 +1078,13 @@ int EVTCPServer::makeTcpConnection(poco_socket_t acc_fd, Net::SocketAddress & ad
 	 * */
 	if (!(tn->getProcState())) return -1;
 
-	StreamSocket css;
+
 	try {
 		css.connectNB(addr);
 	} catch (Exception &e) {
 		ret = -1;
 	}
+	if (ret < 0) return ret;
 
 	socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
 	memset(socket_watcher_ptr,0,sizeof(ev_io));
@@ -1103,6 +1105,67 @@ int EVTCPServer::makeTcpConnection(poco_socket_t acc_fd, Net::SocketAddress & ad
 	socket_watcher_ptr->data = (void*)cb_ptr;
 
 	return ret;
+}
+
+void EVTCPServer::handleServiceRequest(const bool& ev_occured)
+{
+	ev_io * socket_watcher_ptr = 0;
+	AutoPtr<Notification> pNf = 0;
+	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
+		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
+
+		EVAcceptedStreamSocket *tn = _accssColl[pcNf->sockfd()];
+		if (!tn) {
+			/* This should never happen. */
+			DEBUGPOINT("Did not find entry in _accssColl for %d\n", pcNf->sockfd());
+
+			/* Multiple events can get queued for a socket from another thread.
+			 * In the meanwhile, it is possible that the socket gets into an error state
+			 * due to various conditions, one such is wrong data format and the protocol
+			 * handler fails. This condition will lead to socket getting closed.
+			 * Subsequent events after closing of the socket must be ignored.
+			 * */
+			continue;
+		}
+		socket_watcher_ptr = _accssColl[pcNf->sockfd()]->getSocketWatcher();
+		StreamSocket ss = tn->getStreamSocket();
+
+		EVTCPServerNotification::what event = pcNf->getEvent();
+		/* If some error has been noticed on this socket, dispose it off cleanly
+		 * over here
+		 * */
+		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError()))
+			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
+
+		switch (event) {
+			case EVTCPServerNotification::REQDATA_CONSUMED:
+				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
+				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
+					tn->deleteState();
+				}
+				sendDataOnAccSocket(tn);
+				monitorDataOnAccSocket(tn);
+				/* If processing state is present, another thread can still be processing
+				 * the request, hence cannot complete housekeeping.
+				 * */
+				if (!tn->getProcState() && tn->sockInError())
+					clearAcceptedSocket(pcNf->sockfd());
+				break;
+			case EVTCPServerNotification::DATA_FOR_SEND_READY:
+				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
+				sendDataOnAccSocket(tn);
+				break;
+			case EVTCPServerNotification::ERROR_IN_PROCESSING:
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				clearAcceptedSocket(pcNf->sockfd());
+				break;
+			default:
+				break;
+		}
+		pcNf = NULL;
+	}
+
+	return;
 }
 
 } } // namespace Poco::EVNet
