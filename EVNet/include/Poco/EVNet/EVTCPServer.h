@@ -221,6 +221,8 @@ protected:
 		/// Returns the underlying server socket file descriptor
 
 private:
+	void clearAcceptedSocket(poco_socket_t);
+
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 	typedef std::map<poco_socket_t,EVConnectedStreamSocket *> CSColMapType;
 

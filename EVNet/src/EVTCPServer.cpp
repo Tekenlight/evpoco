@@ -259,6 +259,21 @@ void EVTCPServer::freeClear( ASColMapType & amap )
     amap.clear();
 }
 
+void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
+{
+	EVAcceptedStreamSocket *tn = _accssColl[fd];
+	_accssColl.erase(fd);
+	_ssLRUList.remove(tn);
+	{
+		ev_io * socket_watcher_ptr = 0;
+		socket_watcher_ptr = tn->getSocketWatcher();
+		if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_clear_pending(_loop, socket_watcher_ptr);
+		}
+	}
+	delete tn;
+}
 
 const TCPServerParams& EVTCPServer::params() const
 {
@@ -576,19 +591,18 @@ handleDataAvlblOnAccSock_finally:
 		}
 	}
 	else if (ret < 0)  {
-		//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
-		_accssColl.erase(streamSocket.impl()->sockfd());
-		_ssLRUList.remove(tn);
-		{
-			ev_io * socket_watcher_ptr = 0;
-			socket_watcher_ptr = tn->getSocketWatcher();
-			if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-				ev_io_stop(_loop, socket_watcher_ptr);
-				ev_clear_pending(_loop, socket_watcher_ptr);
-			}
+		if (ev_occured) {
+			//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
+			clearAcceptedSocket(streamSocket.impl()->sockfd());
+			//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
 		}
-		delete tn;
-		//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
+		else {
+			// If handleDataAvlblOnAccSock is called not from event loop (ev_occured = true)
+			// Cleaning up of socket will lead to context being lost completely.
+			// It sould be marked as being in error and the housekeeping to be done at
+			// an approporiate time.
+			tn->setSockInError();
+		}
 	}
 
 	return ret;
@@ -636,9 +650,11 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 {
 	ev_io * socket_watcher_ptr = 0;
-
+	if (tn->sockInError()) {
+		DEBUGPOINT("RETURNING\n");
+		return;
+	}
 	socket_watcher_ptr = tn->getSocketWatcher();
-
 	StreamSocket ss = tn->getStreamSocket();
 
 	{
@@ -748,9 +764,14 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
 					tn->deleteState();
-					sendDataOnAccSocket(tn);
 				}
+				sendDataOnAccSocket(tn);
 				monitorDataOnAccSocket(tn);
+				/* If processing state is present, another thread can still be processing
+				 * the request, hence cannot complete housekeeping.
+				 * */
+				if (!tn->getProcState() && tn->sockInError())
+					clearAcceptedSocket(pcNf->sockfd());
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
 				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
@@ -758,17 +779,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
 				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
-				_accssColl.erase(pcNf->sockfd());
-				_ssLRUList.remove(tn);
-				{
-					ev_io * socket_watcher_ptr = 0;
-					socket_watcher_ptr = tn->getSocketWatcher();
-					if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-						ev_io_stop(_loop, socket_watcher_ptr);
-						ev_clear_pending(_loop, socket_watcher_ptr);
-					}
-				}
-				delete tn;
+				clearAcceptedSocket(pcNf->sockfd());
 				break;
 			default:
 				break;
