@@ -124,7 +124,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 
 		cb_ptr = (strms_ic_cb_ptr_type)w->data;
 		/* The below line of code essentially calls
-		 * EVTCPServer::handleDataAvlblOnAccSock(const bool)
+		 * EVTCPServer::handleAccSocketReadable(const bool)
 		 */
 		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
@@ -355,6 +355,12 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
+ssize_t EVTCPServer::handleConnSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
+{
+	ssize_t ret = 0;
+	return ret;
+}
+
 ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
@@ -510,7 +516,13 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketReadable(StreamSocket & streamSocket, const bool& ev_occured)
+{
+	ssize_t ret = 0;
+	return ret;
+}
+
+ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
@@ -597,7 +609,7 @@ handleDataAvlblOnAccSock_finally:
 			//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
 		}
 		else {
-			// If handleDataAvlblOnAccSock is called not from event loop (ev_occured = true)
+			// If handleAccSocketReadable is called not from event loop (ev_occured = true)
 			// Cleaning up of socket will lead to context being lost completely.
 			// It sould be marked as being in error and the housekeeping to be done at
 			// an approporiate time.
@@ -686,7 +698,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * opportunity for optimization.
 		 * */
 		//DEBUGPOINT("Here\n");
-		handleDataAvlblOnAccSock(ss, false);
+		handleAccSocketReadable(ss, false);
 	}
 
 	return;
@@ -841,7 +853,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			_ssLRUList.add(acceptedSock);
 
 			cb_ptr->objPtr = this;
-			cb_ptr->dataAvailable = &EVTCPServer::handleDataAvlblOnAccSock;
+			cb_ptr->dataAvailable = &EVTCPServer::handleAccSocketReadable;
 			cb_ptr->ssPtr =acceptedSock->getStreamSocketPtr();
 			socket_watcher_ptr->data = (void*)cb_ptr;
 
@@ -1052,5 +1064,45 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
+int EVTCPServer::makeTcpConnection(poco_socket_t acc_fd, Net::SocketAddress & addr)
+{
+	int ret = 0;
+	ev_io * socket_watcher_ptr = 0;
+	strms_ic_cb_ptr_type cb_ptr = 0;
+
+	EVAcceptedStreamSocket *tn = _accssColl[acc_fd];
+
+	/* There is no need to make new connections if there is
+	 * no request being processed.
+	 * */
+	if (!(tn->getProcState())) return -1;
+
+	StreamSocket css;
+	try {
+		css.connectNB(addr);
+	} catch (Exception &e) {
+		ret = -1;
+	}
+
+	socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
+	memset(socket_watcher_ptr,0,sizeof(ev_io));
+
+	EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(tn->getSockfd(), css);
+	connectedSock->setSocketWatcher(socket_watcher_ptr);
+
+	tn->getProcState()->setEVConnSock(connectedSock);
+	connectedSock->setTimeOfLastUse();
+
+	cb_ptr = (strms_ic_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
+	memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
+
+	cb_ptr->objPtr = this;
+	cb_ptr->dataAvailable = &EVTCPServer::handleConnSocketReadable;
+	cb_ptr->socketWritable = &EVTCPServer::handleConnSocketWritable;
+	cb_ptr->ssPtr = connectedSock->getStreamSocketPtr();
+	socket_watcher_ptr->data = (void*)cb_ptr;
+
+	return ret;
+}
 
 } } // namespace Poco::EVNet

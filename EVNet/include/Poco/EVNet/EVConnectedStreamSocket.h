@@ -17,7 +17,6 @@
 #include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
-#include "Poco/EVNet/EVProcessingState.h"
 
 using Poco::Net::StreamSocket;
 
@@ -42,12 +41,13 @@ class Net_API EVConnectedStreamSocket
 {
 public:
 	typedef enum {
-		NOT_WAITING = 0
+		BEFORE_CONNECT = -1
+		,NOT_WAITING = 0
 		,WAITING_FOR_READ = EV_READ
 		,WAITING_FOR_WRITE = EV_WRITE
 		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
-	} accepted_sock_state;
-	EVConnectedStreamSocket(StreamSocket & streamSocket);
+	} connected_sock_state;
+	EVConnectedStreamSocket(int acc_fd, StreamSocket & streamSocket);
 	~EVConnectedStreamSocket();
 
 	StreamSocket & getStreamSocket();
@@ -92,10 +92,6 @@ public:
 	
 	bool sockBusy();
 
-	void setProcState(EVProcessingState* procState);
-
-	EVProcessingState* getProcState();
-
 	void setNextPtr(EVConnectedStreamSocket * ptr);
 	void setPrevPtr(EVConnectedStreamSocket * ptr);
 	EVConnectedStreamSocket * getNextPtr();
@@ -108,30 +104,30 @@ public:
 
 	void setSockInError();
 	bool sockInError();
-	EVConnectedStreamSocket::accepted_sock_state getState();
-	void setState(EVConnectedStreamSocket::accepted_sock_state state);
+	EVConnectedStreamSocket::connected_sock_state getState();
+	void setState(EVConnectedStreamSocket::connected_sock_state state);
 
 private:
-	poco_socket_t				_sockFd;
+	poco_socket_t				_sock_fd;
+	poco_socket_t				_acc_sock_fd;
 	ev_io*						_socket_watcher;
 	StreamSocket				_streamSocket;
 	time_t						_timeOfLastUse;
 	EVConnectedStreamSocket*	_prevPtr;
 	EVConnectedStreamSocket*	_nextPtr;
 	bool						_sockBusy;
-	EVProcessingState*			_reqProcState;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
-	accepted_sock_state			_state;
+	connected_sock_state		_state;
 	int							_socketInError;
 };
 
-inline EVConnectedStreamSocket::accepted_sock_state EVConnectedStreamSocket::getState()
+inline EVConnectedStreamSocket::connected_sock_state EVConnectedStreamSocket::getState()
 {
 	return _state;
 }
 
-inline void EVConnectedStreamSocket::setState(EVConnectedStreamSocket::accepted_sock_state state)
+inline void EVConnectedStreamSocket::setState(EVConnectedStreamSocket::connected_sock_state state)
 {
 	_state = state;
 }

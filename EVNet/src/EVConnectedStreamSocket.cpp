@@ -1,5 +1,5 @@
 //
-// ECConnectedStreamSocket.cpp
+// EVConnectedStreamSocket.cpp
 //
 // Library: EVNet
 // Package: EVTCPServer
@@ -14,13 +14,14 @@
 #include <ev.h>
 #include <sys/time.h>
 #include "Poco/EVNet/EVNet.h"
-#include "Poco/EVNet/ECConnectedStreamSocket.h"
+#include "Poco/EVNet/EVConnectedStreamSocket.h"
 
 using Poco::Net::StreamSocket;
 namespace Poco{ namespace EVNet {
 
-ECConnectedStreamSocket::ECConnectedStreamSocket(StreamSocket & streamSocket):
-	_sockFd(streamSocket.impl()->sockfd()),
+EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & streamSocket):
+	_sock_fd(streamSocket.impl()->sockfd()),
+	_acc_sock_fd(acc_fd),
 	_socket_watcher(0),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
@@ -28,7 +29,7 @@ ECConnectedStreamSocket::ECConnectedStreamSocket(StreamSocket & streamSocket):
 	_sockBusy(false),
 	_req_memory_stream(0),
 	_res_memory_stream(0),
-	_state(NOT_WAITING),
+	_state(BEFORE_CONNECT),
 	_socketInError(0)
 {
 	struct timeval tv;
@@ -38,7 +39,7 @@ ECConnectedStreamSocket::ECConnectedStreamSocket(StreamSocket & streamSocket):
 	_res_memory_stream = new chunked_memory_stream();
 }
 
-ECConnectedStreamSocket::~ECConnectedStreamSocket()
+EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
 	if (this->_socket_watcher) {
@@ -50,65 +51,65 @@ ECConnectedStreamSocket::~ECConnectedStreamSocket()
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
 }
 
-void ECConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
+void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
 {
 	this->_socket_watcher = socket_watcher_ptr;
 }
 
-ev_io * ECConnectedStreamSocket::getSocketWatcher()
+ev_io * EVConnectedStreamSocket::getSocketWatcher()
 {
 	return this->_socket_watcher;
 }
 
-StreamSocket &  ECConnectedStreamSocket::getStreamSocket()
+StreamSocket &  EVConnectedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);
 }
 
-void ECConnectedStreamSocket::setSockBusy()
+void EVConnectedStreamSocket::setSockBusy()
 {
 	_sockBusy = true;
 	return;
 }
 
-void ECConnectedStreamSocket::setSockFree()
+void EVConnectedStreamSocket::setSockFree()
 {
 	_sockBusy = false;
 	return;
 }
 
-bool ECConnectedStreamSocket::sockBusy()
+bool EVConnectedStreamSocket::sockBusy()
 {
 	return _sockBusy;
 }
 
-StreamSocket *  ECConnectedStreamSocket::getStreamSocketPtr()
+StreamSocket *  EVConnectedStreamSocket::getStreamSocketPtr()
 {
 	return &(this->_streamSocket);
 }
 
-poco_socket_t ECConnectedStreamSocket::getSockfd()
+poco_socket_t EVConnectedStreamSocket::getSockfd()
 {
-	return _sockFd;
+	return _sock_fd;
 }
-ECConnectedStreamSocket *  ECConnectedStreamSocket::getNextPtr()
+EVConnectedStreamSocket *  EVConnectedStreamSocket::getNextPtr()
 {
 	return _nextPtr;
 }
-ECConnectedStreamSocket *  ECConnectedStreamSocket::getPrevPtr()
+EVConnectedStreamSocket *  EVConnectedStreamSocket::getPrevPtr()
 {
 	return _prevPtr;
 }
-void ECConnectedStreamSocket::setNextPtr(ECConnectedStreamSocket * ptr)
+void EVConnectedStreamSocket::setNextPtr(EVConnectedStreamSocket * ptr)
 {
 	_nextPtr = ptr;
 }
-void ECConnectedStreamSocket::setPrevPtr(ECConnectedStreamSocket * ptr)
+void EVConnectedStreamSocket::setPrevPtr(EVConnectedStreamSocket * ptr)
 {
 	_prevPtr = ptr;
 }
 
-void  ECConnectedStreamSocket::setTimeOfLastUse()
+void  EVConnectedStreamSocket::setTimeOfLastUse()
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
@@ -116,39 +117,39 @@ void  ECConnectedStreamSocket::setTimeOfLastUse()
 	return ;
 }
 
-time_t ECConnectedStreamSocket::getTimeOfLastUse()
+time_t EVConnectedStreamSocket::getTimeOfLastUse()
 {
 	return _timeOfLastUse;
 }
 
-size_t ECConnectedStreamSocket::pushResData(void * buffer, size_t size)
+size_t EVConnectedStreamSocket::pushResData(void * buffer, size_t size)
 {
 	return _req_memory_stream->push(buffer, size);
 }
 
-size_t ECConnectedStreamSocket::pushReqData(void * buffer, size_t size)
+size_t EVConnectedStreamSocket::pushReqData(void * buffer, size_t size)
 {
 	return _req_memory_stream->push(buffer, size);
 }
 
-bool ECConnectedStreamSocket::resDataAvlbl()
+bool EVConnectedStreamSocket::resDataAvlbl()
 {
 	int c = 0;
 	return (_res_memory_stream->copy(0, &c, 1) > 0);
 }
 
-bool ECConnectedStreamSocket::reqDataAvlbl()
+bool EVConnectedStreamSocket::reqDataAvlbl()
 {
 	int c = 0;
 	return (_req_memory_stream->copy(0, &c, 1) > 0);
 }
 
-chunked_memory_stream * ECConnectedStreamSocket::getResMemStream()
+chunked_memory_stream * EVConnectedStreamSocket::getResMemStream()
 {
 	return _res_memory_stream;
 }
 
-chunked_memory_stream * ECConnectedStreamSocket::getReqMemStream()
+chunked_memory_stream * EVConnectedStreamSocket::getReqMemStream()
 {
 	return _req_memory_stream;
 }

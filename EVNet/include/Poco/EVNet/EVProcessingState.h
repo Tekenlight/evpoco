@@ -20,7 +20,9 @@
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVServer.h"
+#include "Poco/EVNet/EVConnectedStreamSocket.h"
 
+#include <map>
 #ifndef EVNet_EVProcessingState_INCLUDED
 #define EVNet_EVProcessingState_INCLUDED
 
@@ -36,6 +38,7 @@ class Net_API EVProcessingState
 	// a derivation of this base class and the state is destroyed at the end of processing of the request.
 {
 public:
+	typedef std::map<poco_socket_t,EVConnectedStreamSocket *> CSColMapType;
 
 	EVProcessingState(EVServer * server);
 	virtual int getState() = 0;
@@ -49,12 +52,14 @@ public:
 	void noMoreDataNecessary();
 	void moreDataNecessary();
 	bool needMoreData();
+	EVConnectedStreamSocket * getEVConnSock(int fd);
+	void setEVConnSock(EVConnectedStreamSocket * cs);
 
 private:
-	EVServer*	_server;
-	int			_no_new_data;
-	int			_need_more_data;
-
+	EVServer*		_server;
+	int				_no_new_data;
+	int				_need_more_data;
+	CSColMapType	_cssMap;
 };
 
 inline EVProcessingState::EVProcessingState(EVServer * server):_server(server), _no_new_data(0), _need_more_data(0) { }
@@ -66,6 +71,8 @@ inline bool EVProcessingState::newDataProcessed() { return (_no_new_data == 0); 
 inline void EVProcessingState::noMoreDataNecessary() { _need_more_data = 0; }
 inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
 inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
+inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd) { return _cssMap[fd]; }
+inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs) { _cssMap[cs->getSockfd()] = cs; }
 
 }
 } // End namespace Poco::EVNet

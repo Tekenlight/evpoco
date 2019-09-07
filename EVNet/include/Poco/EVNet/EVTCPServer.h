@@ -206,6 +206,7 @@ public:
 	TCPServerConnectionFilter::Ptr getConnectionFilter() const;
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
+	virtual int makeTcpConnection(poco_socket_t fd, Net::SocketAddress & addr);
 
 protected:
 	void run();
@@ -222,9 +223,10 @@ protected:
 
 private:
 	void clearAcceptedSocket(poco_socket_t);
+	ssize_t handleConnSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
+	ssize_t handleConnSocketWritable(StreamSocket & streamSocket, const bool& ev_occured);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
-	typedef std::map<poco_socket_t,EVConnectedStreamSocket *> CSColMapType;
 
 	static const std::string NUM_THREADS_CFG_NAME;
 	static const std::string RECV_TIME_OUT_NAME;
@@ -242,7 +244,7 @@ private:
 	ssize_t handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket becoming writable.
 		/// Returns the number of bytes remaining to be written.
-	ssize_t handleDataAvlblOnAccSock(StreamSocket & streamSocket, const bool& ev_occured);
+	ssize_t handleAccSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
 	virtual void dataReadyForSend(int fd);
 		/// Function to handle the event of data being ready to be sent on a socket.
