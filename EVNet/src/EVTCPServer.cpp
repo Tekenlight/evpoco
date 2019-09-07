@@ -27,6 +27,7 @@
 #include "Poco/Exception.h"
 #include "Poco/ErrorHandler.h"
 #include "Poco/EVNet/EVTCPServerNotification.h"
+#include "Poco/EVNet/EVTCPServiceRequest.h"
 
 #include <chunked_memory_stream.h>
 
@@ -135,6 +136,56 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 	return;
 }
 
+// this callback is called when connected socket is writable
+static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
+{
+	strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_ic_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnSocketWritable(const bool)
+	 */
+	ssize_t ret = 0;
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))((cb_ptr->cn) , true);
+
+	return;
+}
+
+// this callback is called when data is readable on a connected socket
+static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
+{
+	if (revents & EV_WRITE) async_stream_socket_cb_4(loop, w, revents);
+
+	if (revents & EV_READ) {
+		strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
+		/* for one-shot events, one must manually stop the watcher
+		 * with its corresponding stop function.
+		 * ev_io_stop (loop, w);
+		 */
+		if (!ev_is_active(w)) {
+			return ;
+		}
+
+		cb_ptr = (strms_ic_cb_ptr_type)w->data;
+		/* The below line of code essentially calls
+		 * EVTCPServer::handleConnSocketReadable(const bool)
+		 */
+		((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))((cb_ptr->cn) , true);
+		// Suspending interest in events of this fd until one request is processed
+		//ev_io_stop(loop, w);
+		//ev_clear_pending(loop, w);
+	}
+
+	return;
+}
+
 /* This callback is to break all watchers and stop the loop. */
 static void async_stop_cb_1 (struct ev_loop *loop, ev_async *w, int revents)
 {
@@ -156,6 +207,28 @@ static void async_stop_cb_2 (struct ev_loop *loop, ev_async *w, int revents)
 	cb_ptr = (strms_pc_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
 	 * EVTCPServer::somethingHappenedInAnotherThread(const bool)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+
+	return;
+}
+
+/* This callback is for processing of service requests submitted by other threads.
+ * The service requests are for connecting a socket to a server,
+ * sending request data to server or receiving request data from server */
+/* HANDLESERVICEREQUEST submitted by abother thread. */
+static void async_stop_cb_3 (struct ev_loop *loop, ev_async *w, int revents)
+{
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleServiceRequest(const bool)
 	 */
 	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
 
@@ -355,9 +428,20 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleConnSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketConnected(EVConnectedStreamSocket * cn, const bool& ev_occured)
+{
+	// TBD Handle Dispatching the event of connected socket, here. TBD
+	return 1;
+}
+
+ssize_t EVTCPServer::handleConnSocketWritable(EVConnectedStreamSocket * cn, const bool& ev_occured)
 {
 	ssize_t ret = 0;
+	if (cn->getState() == EVConnectedStreamSocket::BEFORE_CONNECT) {
+		cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+		return handleConnSocketConnected(cn, ev_occured);
+	}
+
 	return ret;
 }
 
@@ -516,7 +600,7 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleConnSocketReadable(StreamSocket & streamSocket, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketReadable(EVConnectedStreamSocket *cn, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	return ret;
@@ -932,6 +1016,7 @@ void EVTCPServer::run()
 	memset(&(timeout_watcher), 0, sizeof(ev_timer));
 	this->stop_watcher_ptr1 = &(stop_watcher_1);
 	this->stop_watcher_ptr2 = &(stop_watcher_2);
+	this->stop_watcher_ptr3 = &(stop_watcher_3);
 
 	this->_cbStruct.objPtr = this;
 	this->_cbStruct.connArrived = &EVTCPServer::handleConnReq;
@@ -962,6 +1047,20 @@ void EVTCPServer::run()
 	}
 
 	{
+		/* When servicing of connected sockets is required, either to make new connection
+		 * or to send data or to receive data.
+		 * */
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::handleServiceRequest;
+
+		stop_watcher_3.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_3), async_stop_cb_3);
+		ev_async_start (_loop, &(stop_watcher_3));
+	}
+
+	{
 		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
 		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
 		pc_cb_ptr->objPtr = this;
@@ -977,6 +1076,7 @@ void EVTCPServer::run()
 	ev_run (_loop, 0);
 
 	free(stop_watcher_2.data);
+	free(stop_watcher_3.data);
 	free(timeout_watcher.data);
 
 	return;
@@ -1064,7 +1164,6 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
-//int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::SocketAddress & addr, bool secure)
 int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	int ret = 0;
@@ -1073,23 +1172,19 @@ int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css
 
 	EVAcceptedStreamSocket *tn = _accssColl[acc_fd];
 
-	/* There is no need to make new connections if there is
-	 * no request being processed.
-	 * */
-	if (!(tn->getProcState())) return -1;
-
-
 	try {
 		css.connectNB(addr);
 	} catch (Exception &e) {
 		ret = -1;
 	}
+
+	// TBD TO CLEANUP SEND ERROR MESSAGE HERE TBD
 	if (ret < 0) return ret;
 
 	socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
 	memset(socket_watcher_ptr,0,sizeof(ev_io));
 
-	EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(tn->getSockfd(), css);
+	EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(acc_fd, css);
 	connectedSock->setSocketWatcher(socket_watcher_ptr);
 
 	tn->getProcState()->setEVConnSock(connectedSock);
@@ -1099,25 +1194,27 @@ int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css
 	memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 	cb_ptr->objPtr = this;
-	cb_ptr->dataAvailable = &EVTCPServer::handleConnSocketReadable;
-	cb_ptr->socketWritable = &EVTCPServer::handleConnSocketWritable;
-	cb_ptr->ssPtr = connectedSock->getStreamSocketPtr();
+	cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
+	cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
+	cb_ptr->cn = connectedSock;
 	socket_watcher_ptr->data = (void*)cb_ptr;
+
+	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, css.impl()->sockfd(), EV_READ|EV_WRITE);
+	ev_io_start (_loop, socket_watcher_ptr);
 
 	return ret;
 }
 
 void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 {
-	ev_io * socket_watcher_ptr = 0;
 	AutoPtr<Notification> pNf = 0;
-	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
-		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
+	for  (pNf = _service_request_queue.dequeueNotification(); pNf ; pNf = _service_request_queue.dequeueNotification()) {
+		EVTCPServiceRequest * srNF = dynamic_cast<EVTCPServiceRequest*>(pNf.get());
 
-		EVAcceptedStreamSocket *tn = _accssColl[pcNf->sockfd()];
+		EVAcceptedStreamSocket *tn = _accssColl[srNF->accSockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			DEBUGPOINT("Did not find entry in _accssColl for %d\n", pcNf->sockfd());
+			DEBUGPOINT("Did not find entry in _accssColl for %d\n", srNF->sockfd());
 
 			/* Multiple events can get queued for a socket from another thread.
 			 * In the meanwhile, it is possible that the socket gets into an error state
@@ -1127,44 +1224,34 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			 * */
 			continue;
 		}
-		socket_watcher_ptr = _accssColl[pcNf->sockfd()]->getSocketWatcher();
-		StreamSocket ss = tn->getStreamSocket();
 
-		EVTCPServerNotification::what event = pcNf->getEvent();
+		EVTCPServiceRequest::what event = srNF->getEvent();
 		/* If some error has been noticed on this socket, dispose it off cleanly
 		 * over here
 		 * */
-		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError()))
-			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
 
 		switch (event) {
-			case EVTCPServerNotification::REQDATA_CONSUMED:
-				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
-				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
-					tn->deleteState();
-				}
-				sendDataOnAccSocket(tn);
-				monitorDataOnAccSocket(tn);
-				/* If processing state is present, another thread can still be processing
-				 * the request, hence cannot complete housekeeping.
-				 * */
-				if (!tn->getProcState() && tn->sockInError())
-					clearAcceptedSocket(pcNf->sockfd());
-				break;
-			case EVTCPServerNotification::DATA_FOR_SEND_READY:
-				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
-				sendDataOnAccSocket(tn);
-				break;
-			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
-				clearAcceptedSocket(pcNf->sockfd());
+			case EVTCPServiceRequest::CONNECTION_REQUEST:
+				makeTCPConnection(srNF->accSockfd(), srNF->getStreamSocket(), srNF->getAddr());
 				break;
 			default:
 				break;
 		}
-		pcNf = NULL;
+
+		srNF = NULL;
 	}
 
+	return;
+}
+
+void EVTCPServer::submitRequestForConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
+{
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(EVTCPServiceRequest::CONNECTION_REQUEST,
+																							acc_fd, css, addr));
+
+	/* And then wake up the loop calls async_stop_cb_2 */
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	return;
 }
 

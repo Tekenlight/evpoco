@@ -206,7 +206,9 @@ public:
 	TCPServerConnectionFilter::Ptr getConnectionFilter() const;
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
-	virtual int makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
+
+	virtual void submitRequestForConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
+		/// To be called whenever another thread wants to make a new connection.
 
 protected:
 	void run();
@@ -223,8 +225,10 @@ protected:
 
 private:
 	void clearAcceptedSocket(poco_socket_t);
-	ssize_t handleConnSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
-	ssize_t handleConnSocketWritable(StreamSocket & streamSocket, const bool& ev_occured);
+	ssize_t handleConnSocketReadable(EVConnectedStreamSocket *cn, const bool& ev_occured);
+	ssize_t handleConnSocketWritable(EVConnectedStreamSocket *cn, const bool& ev_occured);
+	ssize_t handleConnSocketConnected(EVConnectedStreamSocket * cn, const bool& ev_occured);
+	int makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 
@@ -301,11 +305,15 @@ typedef struct {
 } strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
 
 typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
+typedef ssize_t (EVTCPServer::*cfdReadyMethod)(EVConnectedStreamSocket *, const bool& );
 typedef struct {
 	EVTCPServer *objPtr;
 	fdReadyMethod dataAvailable;
 	fdReadyMethod socketWritable;
+	cfdReadyMethod connSocketReadable;
+	cfdReadyMethod connSocketWritable;
 	StreamSocket *ssPtr;
+	EVConnectedStreamSocket *cn;
 } strms_io_cb_struct_type , *strms_ic_cb_ptr_type;
 
 //

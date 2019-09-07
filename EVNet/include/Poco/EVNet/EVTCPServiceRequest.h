@@ -25,29 +25,31 @@ class EVTCPServiceRequest: public Notification
 {
 public:
 	typedef enum {
-		DATA_FOR_READ_READY
-		,REQDATA_CONSUMED
-		,DATA_FOR_SEND_READY
-		,ERROR_IN_PROCESSING
+		CONNECTION_REQUEST
+		,DATA_SEND_REQUEST
+		,DATA_RECEIVE_REQUEST
+		,CLEANUP_REQUEST
 	} what;
-	//EVTCPServiceRequest(StreamSocket& socket);
-	EVTCPServiceRequest(poco_socket_t sockfd, what event);
-	//EVTCPServiceRequest(poco_socket_t fd,  bool closeConnInd);
+	EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
+	EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
 	
 	~EVTCPServiceRequest();
 
-	//StreamSocket& socket();
 	poco_socket_t sockfd();
+
+	poco_socket_t accSockfd();
 
 	what getEvent();
 
-	//bool connInError();
+	StreamSocket& getStreamSocket();
+
+	Net::SocketAddress& getAddr();
 
 private:
-	//StreamSocket&			_socket;
-	poco_socket_t			_sockfd;
-	//bool					_closeerrorconn;
 	what					_event;
+	poco_socket_t			_acc_fd;
+	Net::StreamSocket&		_ss;
+	Net::SocketAddress		_addr;
 };
 
 inline EVTCPServiceRequest::what EVTCPServiceRequest::getEvent()
