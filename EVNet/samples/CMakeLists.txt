@@ -1,2 +1,3 @@
 add_subdirectory(EVHTTPFormServer)
+add_subdirectory(EVHTTPOrchServer)
 

@@ -760,7 +760,7 @@ handleConnSocketReadable_finally:
 			std::abort();
 		}
 
-		// TBD. Dispatch event occured here. TBD ???
+		// TBD. Dispatch event occured here ???. TBD
 	}
 	else if (ret < 0)  {
 		// TBD. Dispatch error occured event here. TBD
@@ -1385,6 +1385,9 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			 * handler fails. This condition will lead to socket getting closed.
 			 * Subsequent events after closing of the socket must be ignored.
 			 * */
+
+			// TBD Handle sending of error event here. TBD
+
 			continue;
 		}
 
@@ -1415,6 +1418,7 @@ void EVTCPServer::submitRequestForConnection(poco_socket_t acc_fd, Net::StreamSo
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr3);
+	/* This will result in invocation of handleServiceRequest */
 	return;
 }
 
