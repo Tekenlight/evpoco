@@ -22,6 +22,7 @@
 #include "Poco/EVNet/EVProcessingState.h"
 #include "Poco/EVNet/EVHTTPServerRequestImpl.h"
 #include "Poco/EVNet/EVHTTPServerResponseImpl.h"
+#include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVServer.h"
 #include <string>
 
@@ -56,17 +57,6 @@ public:
 	EVHTTPServerSession * getSession();
 	virtual int getState();
 	void setState(int state);
-	std::string getCurName();
-	void setCurName(std::string);
-	std::string getcurValue();
-	void setCurValue(std::string);
-	int readByte(int * ch);
-
-	int readStatusLine();
-		/// Continue reading of status line of the HTTP Reques header.
-		/// This function is not reentrant, has to be called repeatedly
-		/// multiple times in order to complete reading of status line.
-
 	int continueRead();
 		/// Continues reading of the request status line and header
 		/// In case of async processing, a socket might be out of data
@@ -74,14 +64,6 @@ public:
 		/// reading is continued, when data again becomes available on the
 		/// socket
 	
-	int continueReadReqHeader();
-		/// This function is called repeatedly from continueRead
-		/// As long as the request header is not completely read.
-	
-	int continueReadStatusLine();
-		/// This function is called repeatedly from continueRead
-		/// As long as the HTTP status line is not completely read.
-
 	enum Limits
 	{
 		MAX_METHOD_LENGTH  = 32,
@@ -96,7 +78,7 @@ public:
 		MAX_VALUE_LENGTH = 8192,
 		DFL_FIELD_LIMIT  = 100
 	};
-	
+
 	void appendToUri(const char * , size_t);
 	void appendToName(const char * , size_t, int);
 	void appendToValue(const char * , size_t, int);
@@ -104,7 +86,6 @@ public:
 	void setVersion(const char * );
 	void clearName();
 	void clearValue();
-	int getHeaderFieldInProgress();
 	void messageBegin();
 	void headerComplete();
 	void messageComplete();
@@ -117,6 +98,8 @@ public:
 	chunked_memory_stream* getResMemStream();
 	bool trEncodingPresent();
 	void setTrEncodingPresent();
+	EVHTTPRequestHandler * getRequestHandler();
+	void setRequestHandler(EVHTTPRequestHandler *);
 
 
 private:
@@ -129,6 +112,7 @@ private:
 	EVHTTPServerRequestImpl*	_request;
 	EVHTTPServerResponseImpl*	_response;
 	EVHTTPServerSession*		_session;
+	EVHTTPRequestHandler*		_pHandler;
 	std::string					_name;
 	std::string					_value;
 	std::string					_method;

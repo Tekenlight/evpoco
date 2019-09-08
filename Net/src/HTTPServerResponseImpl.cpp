@@ -63,6 +63,10 @@ void HTTPServerResponseImpl::sendContinue()
 	hs << getVersion() << " 100 Continue\r\n\r\n";
 }
 
+std::ostream* HTTPServerResponseImpl::getOStream()
+{
+	return _pStream;
+}
 
 std::ostream& HTTPServerResponseImpl::send()
 {

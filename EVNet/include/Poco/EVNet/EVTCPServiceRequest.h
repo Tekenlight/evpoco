@@ -30,8 +30,8 @@ public:
 		,DATA_RECEIVE_REQUEST
 		,CLEANUP_REQUEST
 	} what;
-	EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
-	EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
+	EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
+	EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
 	
 	~EVTCPServiceRequest();
 
@@ -45,11 +45,14 @@ public:
 
 	Net::SocketAddress& getAddr();
 
+	int getSrNum();
+
 private:
-	what					_event;
-	poco_socket_t			_acc_fd;
-	Net::StreamSocket&		_ss;
-	Net::SocketAddress		_addr;
+	int						_sr_num; // Unique Service request number, for identificaton
+	what					_event; // One of connect, send data or recieve data
+	poco_socket_t			_acc_fd; // fd of the accepted(listen) socket
+	Net::StreamSocket&		_ss; // Connected StreamSocket
+	Net::SocketAddress		_addr; // Optional address needed only in the connect request
 };
 
 inline EVTCPServiceRequest::what EVTCPServiceRequest::getEvent()

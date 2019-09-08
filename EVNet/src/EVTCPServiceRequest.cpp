@@ -17,14 +17,17 @@ using Poco::Net::StreamSocket;
 
 namespace Poco{ namespace EVNet {
 
-EVTCPServiceRequest::EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss):
+EVTCPServiceRequest::EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss):
+	_sr_num(sr_num),
 	_acc_fd(acc_fd),
 	_event(event),
 	_ss(ss)
 {
 }
 
-EVTCPServiceRequest::EVTCPServiceRequest(what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr):
+EVTCPServiceRequest::EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd,
+											Net::StreamSocket& ss, Net::SocketAddress& addr):
+	_sr_num(sr_num),
 	_acc_fd(acc_fd),
 	_event(event),
 	_ss(ss),
@@ -55,6 +58,11 @@ StreamSocket& EVTCPServiceRequest::getStreamSocket()
 Net::SocketAddress& EVTCPServiceRequest::getAddr()
 {
 	return _addr;
+}
+
+int EVTCPServiceRequest::getSrNum()
+{
+	return _sr_num;
 }
 
 } } // namespace EVNet and Poco end.

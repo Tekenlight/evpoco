@@ -93,8 +93,8 @@ namespace Poco {
 			,CHUNK_HEADER_COMPLETE
 			,CHUNK_COMPLETE
 			,MESSAGE_COMPLETE
+			,REQUEST_PROCESSING
 			,PROCESS_COMPLETE
-			,SERVER_STOPPED
 		};
 
 		enum reqProcSubState {

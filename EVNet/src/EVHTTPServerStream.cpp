@@ -180,38 +180,44 @@ void EVHTTPServerStream::evrun()
 			}
 		}
 
-		Poco::Timestamp now;
-		response->setDate(now);
-		response->setVersion(request->getVersion());
-		response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
-		if (!server.empty())
-			response->set("Server", server);
 		try
 		{
-#ifndef POCO_ENABLE_CPP11
-			std::auto_ptr<EVHTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
-#else
-			std::unique_ptr<EVHTTPRequestHandler> pHandler(_pFactory->createRequestHandler(*request));
-#endif
-			if (pHandler.get())
-			{
+			EVHTTPRequestHandler * pHandler = _reqProcState->getRequestHandler();
+			if (!pHandler) {
+				pHandler = _pFactory->createRequestHandler(*request);
+				_reqProcState->setRequestHandler(pHandler);
+
+				Poco::Timestamp now;
+				response->setDate(now);
+				response->setVersion(request->getVersion());
+				response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
+				if (!server.empty())
+					response->set("Server", server);
+
 				if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK)
 					response->sendContinue();
-			
-				pHandler->handleRequest(*request, *response);
-				/* Setting of state below is provisional.
-				 * When the full blown event driven driven request handler is done,
-				 * the below will have to be done within the request handler.
-				 * */
-				_reqProcState->setState(PROCESS_COMPLETE);
+			}
+
+			if (pHandler) {
+				int ret = EVHTTPRequestHandler::PROCESSING;
+				ret = pHandler->handleRequest(*request, *response);
+				switch (ret) {
+					case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+					case EVHTTPRequestHandler::PROCESSING_ERROR:
+						_reqProcState->setState(PROCESS_COMPLETE);
+						break;
+					default:
+						_reqProcState->setState(REQUEST_PROCESSING);
+						break;
+				}
 				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());
+
 			}
 			else sendErrorResponse(*session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 		}
 		catch (Poco::Exception& e)
 		{
-			if (!response->sent())
-			{
+			if (!response->sent()) {
 				try
 				{
 					DEBUGPOINT("Here\n");

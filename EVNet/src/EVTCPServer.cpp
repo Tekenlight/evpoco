@@ -153,7 +153,7 @@ static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 	 * EVTCPServer::handleConnSocketWritable(const bool)
 	 */
 	ssize_t ret = 0;
-	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))((cb_ptr->cn) , true);
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
 
 	return;
 }
@@ -177,7 +177,7 @@ static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 		/* The below line of code essentially calls
 		 * EVTCPServer::handleConnSocketReadable(const bool)
 		 */
-		((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))((cb_ptr->cn) , true);
+		((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))(cb_ptr , true);
 		// Suspending interest in events of this fd until one request is processed
 		//ev_io_stop(loop, w);
 		//ev_clear_pending(loop, w);
@@ -428,8 +428,9 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleConnSocketConnected(EVConnectedStreamSocket * cn, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
+	EVConnectedStreamSocket * cn = cb_ptr->cn;
 	ev_io_stop(_loop, cn->getSocketWatcher());
 	ev_clear_pending(_loop, cn->getSocketWatcher());
 
@@ -438,13 +439,14 @@ ssize_t EVTCPServer::handleConnSocketConnected(EVConnectedStreamSocket * cn, con
 	return 1;
 }
 
-ssize_t EVTCPServer::handleConnSocketWritable(EVConnectedStreamSocket * cn, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
 	ssize_t ret = 0;
+	EVConnectedStreamSocket * cn = cb_ptr->cn;
 	cn->setTimeOfLastUse();
 	if (cn->getState() == EVConnectedStreamSocket::BEFORE_CONNECT) {
 		cn->setState(EVConnectedStreamSocket::NOT_WAITING);
-		return handleConnSocketConnected(cn, ev_occured);
+		return handleConnSocketConnected(cb_ptr, ev_occured);
 	}
 	if (!cn->sendDataAvlbl()) {
 		goto handleConnSocketWritable_finally;
@@ -699,10 +701,11 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::handleConnSocketReadable(EVConnectedStreamSocket *cn, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketReadable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
+	EVConnectedStreamSocket *cn = cb_ptr->cn;
 	cn->setTimeOfLastUse();
 	cn->setSockBusy();
 
@@ -1327,7 +1330,7 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
-int EVTCPServer::makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
+int EVTCPServer::makeTCPConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	int ret = 0;
 	ev_io * socket_watcher_ptr = 0;
@@ -1398,7 +1401,7 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
-				makeTCPConnection(srNF->accSockfd(), srNF->getStreamSocket(), srNF->getAddr());
+				makeTCPConnection(srNF->getSrNum(), srNF->accSockfd(), srNF->getStreamSocket(), srNF->getAddr());
 				break;
 			default:
 				break;
@@ -1410,10 +1413,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	return;
 }
 
-void EVTCPServer::submitRequestForConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
+void EVTCPServer::submitRequestForConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	/* Enque the socket */
-	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(EVTCPServiceRequest::CONNECTION_REQUEST,
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::CONNECTION_REQUEST,
 																							acc_fd, css, addr));
 
 	/* And then wake up the loop calls async_stop_cb_2 */

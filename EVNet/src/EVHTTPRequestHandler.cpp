@@ -18,7 +18,7 @@ namespace EVNet {
 
 
 EVHTTPRequestHandler::EVHTTPRequestHandler():
-	_state(EVHTTPRequestHandler::INITIAL)
+	_state(INITIAL)
 {
 }
 
@@ -27,12 +27,12 @@ EVHTTPRequestHandler::~EVHTTPRequestHandler()
 {
 }
 
-EVHTTPRequestHandler::req_proc_state EVHTTPRequestHandler::getState()
+int EVHTTPRequestHandler::getState()
 {
 	return _state;
 }
 
-void EVHTTPRequestHandler::setState(EVHTTPRequestHandler::req_proc_state state)
+void EVHTTPRequestHandler::setState(int state)
 {
 	_state = state;
 }

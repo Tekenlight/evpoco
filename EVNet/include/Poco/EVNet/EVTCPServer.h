@@ -64,6 +64,30 @@ typedef struct {
 	connArrivedMethod connArrived;
 } srvrs_io_cb_struct_type , *srvrs_ic_cb_ptr_type;
 
+typedef void (EVTCPServer::*sockReAcquireMethod)(const bool&);
+typedef struct {
+	EVTCPServer *objPtr;
+	sockReAcquireMethod method;
+} strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
+
+struct _strms_io_struct_type;
+typedef struct _strms_io_struct_type strms_io_cb_struct_type;
+typedef struct _strms_io_struct_type * strms_ic_cb_ptr_type;
+
+typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
+typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_ic_cb_ptr_type, const bool& );
+
+struct _strms_io_struct_type {
+	int sr_num; // Service request number
+	EVTCPServer *objPtr;
+	fdReadyMethod dataAvailable;
+	fdReadyMethod socketWritable;
+	cfdReadyMethod connSocketReadable;
+	cfdReadyMethod connSocketWritable;
+	StreamSocket *ssPtr;
+	EVConnectedStreamSocket *cn;
+};
+
 class Net_API EVTCPServer: public Poco::Runnable, public EVServer
 	/// This class implements a multithreaded TCP server.
 	///
@@ -207,7 +231,8 @@ public:
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
 
-	virtual void submitRequestForConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
+	virtual void submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
+								Net::StreamSocket & css, Net::SocketAddress& addr);
 		/// To be called whenever another thread wants to make a new connection.
 
 protected:
@@ -225,10 +250,10 @@ protected:
 
 private:
 	void clearAcceptedSocket(poco_socket_t);
-	ssize_t handleConnSocketReadable(EVConnectedStreamSocket *cn, const bool& ev_occured);
-	ssize_t handleConnSocketWritable(EVConnectedStreamSocket *cn, const bool& ev_occured);
-	ssize_t handleConnSocketConnected(EVConnectedStreamSocket * cn, const bool& ev_occured);
-	int makeTCPConnection(poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
+	ssize_t handleConnSocketReadable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
+	int makeTCPConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 
@@ -297,24 +322,6 @@ private:
 	time_t							_receiveTimeOut;
 
 };
-
-typedef void (EVTCPServer::*sockReAcquireMethod)(const bool&);
-typedef struct {
-	EVTCPServer *objPtr;
-	sockReAcquireMethod method;
-} strms_pc_cb_struct_type , *strms_pc_cb_ptr_type;
-
-typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
-typedef ssize_t (EVTCPServer::*cfdReadyMethod)(EVConnectedStreamSocket *, const bool& );
-typedef struct {
-	EVTCPServer *objPtr;
-	fdReadyMethod dataAvailable;
-	fdReadyMethod socketWritable;
-	cfdReadyMethod connSocketReadable;
-	cfdReadyMethod connSocketWritable;
-	StreamSocket *ssPtr;
-	EVConnectedStreamSocket *cn;
-} strms_io_cb_struct_type , *strms_ic_cb_ptr_type;
 
 //
 // inlines

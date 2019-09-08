@@ -51,7 +51,6 @@ EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 	delete _pStream;
 }
 
-
 void EVHTTPServerResponseImpl::sendContinue()
 {
 	EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
@@ -61,6 +60,11 @@ void EVHTTPServerResponseImpl::sendContinue()
 void EVHTTPServerResponseImpl::setMemoryStream(chunked_memory_stream* cms)
 {
 	if (!_out_memory_stream) _out_memory_stream = cms;
+}
+
+std::ostream * EVHTTPServerResponseImpl::getOStream()
+{
+	return _pStream;
 }
 
 std::ostream& EVHTTPServerResponseImpl::send()

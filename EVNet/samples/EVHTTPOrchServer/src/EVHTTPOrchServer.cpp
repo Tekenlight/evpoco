@@ -114,31 +114,56 @@ private:
 class EVFormRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
-public:
-	EVFormRequestHandler() 
-	{
-	}
-	
-	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
-	{
-		Application& app = Application::instance();
-		app.logger().information("Request from " + request.clientAddress().toString());
+private:
+	static const int PART_ONE = 1;
+	static const int PART_TWO = 2;
+	static const int FINAL = 3;
 
-		EVMyPartHandler partHandler;
-		HTMLForm *form1 = NULL;
+	EVMyPartHandler partHandler;
+	HTMLForm *form1 = NULL;
+	std::ostream* ostr_ptr = NULL;
+	HTTPServerRequest* req = NULL;
+	HTTPServerResponse* rsp = NULL;
+	int return_value = PROCESSING;
+
+	void init(HTTPServerRequest& request, HTTPServerResponse& response)
+	{
+		req = &request;
+		rsp =&response;
+
+		Application::instance().logger().information("Request from " + req->clientAddress().toString());
 		try {
-		form1 = new HTMLForm(request, request.stream(), partHandler);
+			form1 = new HTMLForm(*req, req->stream(), partHandler);
 		} catch (std::exception& ex) {
 			DEBUGPOINT("CHA %s\n",ex.what());
 			throw(ex);
 		}
 
-		//HTMLForm form(request, request.stream(), partHandler);
-		HTMLForm& form = *form1;
-		response.setChunkedTransferEncoding(true);
-		response.setContentType("text/html");
+		rsp->setChunkedTransferEncoding(true);
+		rsp->setContentType("text/html");
 
-		std::ostream& ostr = response.send();
+		rsp->send();
+
+		ostr_ptr = rsp->getOStream();
+
+		return_value = PROCESSING;
+		setState(PART_ONE);
+	}
+
+	void part_one()
+	{
+		return_value = PROCESSING;
+		setState(PART_TWO);
+	}
+
+	void part_two()
+	{
+		HTTPServerRequest& request = *req;
+		HTTPServerResponse& response = *rsp;
+
+		HTMLForm& form = *form1;
+
+		std::ostream& ostr = *ostr_ptr;
 
 		ostr <<
 			"<html>\n"
@@ -198,7 +223,45 @@ public:
 		ostr << "</body>\n";
 		ostr.flush();
 
+		return_value = PROCESSING_COMPLETE;
+		setState(FINAL);
+	}
+
+	void cleanup()
+	{
 		delete form1;
+	}
+
+public:
+	EVFormRequestHandler() 
+	{
+	}
+
+	~EVFormRequestHandler() 
+	{
+		cleanup();
+	}
+
+	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	{
+		switch (getState()) {
+			case INITIAL:
+				init(request, response);
+			case PART_ONE:
+				part_one();
+			case PART_TWO:
+				part_two();
+				break;
+			default:
+				std::abort();
+		}
+		return return_value;
+	}
+
+	int old_handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	{
+
+
 		return PROCESSING_COMPLETE;
 	}
 };
@@ -294,7 +357,7 @@ protected:
 		else
 		{
 			HTTPServerParams *p = new HTTPServerParams();
-			unsigned short port = (unsigned short) config().getInt("EVHTTPOrchServer.port", 9980);
+			unsigned short port = (unsigned short) config().getInt("EVHTTPOrchServer.port", 9981);
 
 			p->setBlocking(config().getBool("EVHTTPOrchServer.blocking", false));
 			

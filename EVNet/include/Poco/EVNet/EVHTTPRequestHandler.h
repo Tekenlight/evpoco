@@ -40,17 +40,12 @@ class Net_API EVHTTPRequestHandler
 	/// each new HTTP request that is received by the HTTPServer.
 {
 public:
-	typedef enum {
-		 INITIAL
-		,IN_PROGRESS
-		,WAITING_FOR_DATA
-		,COMPLETE
-	} req_proc_state;
+	static const int INITIAL = 0;
 
 	/* Return values of handleRequest method. */
 	static const int PROCESSING_ERROR = -1;
+	static const int PROCESSING = 0;
 	static const int PROCESSING_COMPLETE = 1;
-	static const int NEED_MORE_DATA = 0;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -63,13 +58,13 @@ public:
 		///
 		/// Handles the given request.
 
-	req_proc_state getState();
-	void setState(req_proc_state);
+	int getState();
+	void setState(int);
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
 	EVHTTPRequestHandler& operator = (const EVHTTPRequestHandler&);
 
-	req_proc_state	_state;
+	int	_state;
 };
 
 

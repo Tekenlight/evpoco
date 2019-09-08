@@ -35,45 +35,12 @@ EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(EVHTTPServerSession& session, chunk
 
 EVHTTPHeaderStreamBuf::~EVHTTPHeaderStreamBuf()
 {
-	//DEBUGPOINT("Here %p\n", _session.getServer());
 	_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
-	//DEBUGPOINT("Here\n");
 }
 
 void EVHTTPHeaderStreamBuf::get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len)
 {
 }
-
-/*
-int EVHTTPHeaderStreamBuf::readFromDevice(char* buffer, std::streamsize length)
-{
-	// read line-by-line; an empty line denotes the end of the headers.
-	static const int eof = std::char_traits<char>::eof();
-
-	if (_end) return 0;
-
-	int n = 0;
-	int ch = _session.get();
-	while (ch != eof && ch != '\n' && n < length - 1)
-	{
-		*buffer++ = (char) ch; ++n;
-		ch = _session.get();
-	}
-	if (ch != eof)
-	{
-		*buffer++ = (char) ch; ++n;
-		if (n == 2) _end = true;
-	}
-	return n;
-}
-
-
-int EVHTTPHeaderStreamBuf::writeToDevice(const char* buffer, std::streamsize length)
-{
-	return _session.write(buffer, length);
-}
-*/
-
 
 //
 // EVHTTPHeaderIOS

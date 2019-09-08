@@ -151,6 +151,7 @@ public:
 
 	void setMemoryStream(chunked_memory_stream* cms);
 
+	virtual std::ostream * getOStream();
 protected:
 	
 private:
