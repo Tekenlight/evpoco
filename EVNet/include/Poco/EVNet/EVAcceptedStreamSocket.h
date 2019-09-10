@@ -107,6 +107,7 @@ public:
 	void setState(accepted_sock_state state);
 	inline void setSockInError();
 	inline bool sockInError();
+	ev_queue_type getUpstreamIoEventQueue();
 
 private:
 	poco_socket_t				_sockFd;
@@ -121,7 +122,6 @@ private:
 	chunked_memory_stream*		_res_memory_stream;
 	accepted_sock_state			_state;
 	int							_socketInError;
-	ev_queue_type				_request_io_event_queue;
 	ev_queue_type				_upstream_io_event_queue;
 };
 
