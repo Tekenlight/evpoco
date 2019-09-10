@@ -15,9 +15,11 @@
 #include <ev.h>
 #include <sys/time.h>
 #include <chunked_memory_stream.h>
+#include <ev_queue.h>
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/EVNet/EVProcessingState.h"
+#include "Poco/EVNet/EVConnectedStreamSocket.h"
 
 using Poco::Net::StreamSocket;
 
@@ -119,6 +121,8 @@ private:
 	chunked_memory_stream*		_res_memory_stream;
 	accepted_sock_state			_state;
 	int							_socketInError;
+	ev_queue_type				_request_io_event_queue;
+	ev_queue_type				_upstream_io_event_queue;
 };
 
 inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()

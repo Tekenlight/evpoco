@@ -1330,7 +1330,7 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
-int EVTCPServer::makeTCPConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
+int EVTCPServer::makeTCPConnection(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	int ret = 0;
 	ev_io * socket_watcher_ptr = 0;
@@ -1360,12 +1360,13 @@ int EVTCPServer::makeTCPConnection(int sr_num, poco_socket_t acc_fd, Net::Stream
 	memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 	cb_ptr->objPtr = this;
+	cb_ptr->cb_evid_num = cb_evid_num;
 	cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
 	cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
 	cb_ptr->cn = connectedSock;
 	socket_watcher_ptr->data = (void*)cb_ptr;
 
-	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, css.impl()->sockfd(), EV_READ|EV_WRITE);
+	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, css.impl()->sockfd(), EV_WRITE);
 	ev_io_start (_loop, socket_watcher_ptr);
 
 	return ret;
@@ -1401,7 +1402,7 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
-				makeTCPConnection(srNF->getSrNum(), srNF->accSockfd(), srNF->getStreamSocket(), srNF->getAddr());
+				makeTCPConnection(srNF->getCBEVIDNum(), srNF->accSockfd(), srNF->getStreamSocket(), srNF->getAddr());
 				break;
 			default:
 				break;
@@ -1413,10 +1414,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	return;
 }
 
-void EVTCPServer::submitRequestForConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
+void EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr)
 {
 	/* Enque the socket */
-	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::CONNECTION_REQUEST,
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(cb_evid_num, EVTCPServiceRequest::CONNECTION_REQUEST,
 																							acc_fd, css, addr));
 
 	/* And then wake up the loop calls async_stop_cb_2 */

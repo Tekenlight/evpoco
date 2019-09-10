@@ -30,7 +30,9 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_req_memory_stream(0),
 	_res_memory_stream(0),
 	_state(NOT_WAITING),
-	_socketInError(0)
+	_socketInError(0),
+	_request_io_event_queue(create_ev_queue()),
+	_upstream_io_event_queue(create_ev_queue())
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
@@ -50,6 +52,8 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
+	if (this->_request_io_event_queue) destroy_ev_queue(_request_io_event_queue);
+	if (this->_upstream_io_event_queue) destroy_ev_queue(_upstream_io_event_queue);
 }
 
 void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)

@@ -78,7 +78,7 @@ typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
 typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_ic_cb_ptr_type, const bool& );
 
 struct _strms_io_struct_type {
-	int sr_num; // Service request number
+	int cb_evid_num; // Event id to be invoked in the worker, when this SR completes.
 	EVTCPServer *objPtr;
 	fdReadyMethod dataAvailable;
 	fdReadyMethod socketWritable;
