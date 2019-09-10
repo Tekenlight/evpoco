@@ -1,11 +1,11 @@
 //
-// EVHTTPServerStream.h
+// EVHTTPRequestProcessor.h
 //
 // Library: EVNet
 // Package: EVHTTPServer
-// Module:  EVHTTPServerStream
+// Module:  EVHTTPRequestProcessor
 //
-// Definition of the EVHTTPServerStream class.
+// Definition of the EVHTTPRequestProcessor class.
 //
 // Copyright (c) 2018-2019, Tekenlight Solutions Pvt Ltd.
 // and Contributors.
@@ -14,8 +14,8 @@
 //
 
 
-#ifndef EVNet_EVHTTPServerStream_INCLUDED
-#define EVNet_EVHTTPServerStream_INCLUDED
+#ifndef EVNet_EVHTTPRequestProcessor_INCLUDED
+#define EVNet_EVHTTPRequestProcessor_INCLUDED
 
 #include <chunked_memory_stream.h>
 
@@ -44,19 +44,19 @@ namespace EVNet {
 
 
 
-class Net_API EVHTTPServerStream: public EVTCPServerConnection
+class Net_API EVHTTPRequestProcessor: public EVTCPServerConnection
 	/// This subclass of EVTCPServerConnection handles HTTP
 	/// connections.
 {
 public:
-	EVHTTPServerStream(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory);
-		/// Creates the EVHTTPServerStream.
+	EVHTTPRequestProcessor(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory);
+		/// Creates the EVHTTPRequestProcessor.
 
-	EVHTTPServerStream(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory, EVProcessingState * ReqProcState);
-		/// Creates the EVHTTPServerStream. For continuation of request processing on data being available on socket.
+	EVHTTPRequestProcessor(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory, EVProcessingState * ReqProcState);
+		/// Creates the EVHTTPRequestProcessor. For continuation of request processing on data being available on socket.
 
-	virtual ~EVHTTPServerStream();
-		/// Destroys the EVHTTPServerStream.
+	virtual ~EVHTTPRequestProcessor();
+		/// Destroys the EVHTTPRequestProcessor.
 		
 	void run();
 		/// Handles all HTTP requests coming in.

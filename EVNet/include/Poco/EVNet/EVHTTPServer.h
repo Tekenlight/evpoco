@@ -22,11 +22,11 @@
 #include "Poco/EVNet/EVTCPServer.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
-#include "Poco/EVNet/EVHTTPServerStreamFactory.h"
+#include "Poco/EVNet/EVHTTPRequestProcessorFactory.h"
 
 using Poco::Net::HTTPServerParams;
 using Poco::Net::ServerSocket;
-using Poco::EVNet::EVHTTPServerStreamFactory;
+using Poco::EVNet::EVHTTPRequestProcessorFactory;
 
 
 namespace Poco {

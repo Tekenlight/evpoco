@@ -1,11 +1,11 @@
 //
-// EVHTTPServerStreamFactory.h
+// EVHTTPRequestProcessorFactory.h
 //
 // Library: EVNet
 // Package: EVHTTPServer
-// Module:  EVHTTPServerStreamFactory
+// Module:  EVHTTPRequestProcessorFactory
 //
-// Definition of the EVHTTPServerStreamFactory class.
+// Definition of the EVHTTPRequestProcessorFactory class.
 //
 // Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
 // and Contributors.
@@ -14,8 +14,8 @@
 //
 
 
-#ifndef EVNet_EVHTTPServerStreamFactory_INCLUDED
-#define EVNet_EVHTTPServerStreamFactory_INCLUDED
+#ifndef EVNet_EVHTTPRequestProcessorFactory_INCLUDED
+#define EVNet_EVHTTPRequestProcessorFactory_INCLUDED
 
 
 #include "Poco/Net/Net.h"
@@ -32,16 +32,16 @@ namespace Poco {
 namespace EVNet {
 
 
-class Net_API EVHTTPServerStreamFactory: public EVTCPServerConnectionFactory
+class Net_API EVHTTPRequestProcessorFactory: public EVTCPServerConnectionFactory
 	/// This implementation of a EVTCPServerConnectionFactory
 	/// is used by HTTPServer to create HTTPServerConnection objects.
 {
 public:
-	EVHTTPServerStreamFactory(HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory);
-		/// Creates the EVHTTPServerStreamFactory.
+	EVHTTPRequestProcessorFactory(HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory);
+		/// Creates the EVHTTPRequestProcessorFactory.
 
-	~EVHTTPServerStreamFactory();
-		/// Destroys the EVHTTPServerStreamFactory.
+	~EVHTTPRequestProcessorFactory();
+		/// Destroys the EVHTTPRequestProcessorFactory.
 
 	EVTCPServerConnection* createConnection(StreamSocket& socket);
 		/// Creates an instance of HTTPServerConnection
@@ -63,4 +63,4 @@ private:
 } } // namespace Poco::EVNet
 
 
-#endif // EVNet_EVHTTPServerStreamFactory_INCLUDED
+#endif // EVNet_EVHTTPRequestProcessorFactory_INCLUDED
