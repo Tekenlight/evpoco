@@ -17,6 +17,7 @@
 
 
 #include <chunked_memory_stream.h>
+#include <ev_queue.h>
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVServer.h"
@@ -54,15 +55,19 @@ public:
 	bool needMoreData();
 	EVConnectedStreamSocket * getEVConnSock(int fd);
 	void setEVConnSock(EVConnectedStreamSocket * cs);
+	ev_queue_type getUpstreamEventQ();
+	void setUpstreamEventQ(ev_queue_type);
 
 private:
 	EVServer*		_server;
 	int				_no_new_data;
 	int				_need_more_data;
 	CSColMapType	_cssMap;
+	ev_queue_type	_upstream_io_event_queue;
 };
 
-inline EVProcessingState::EVProcessingState(EVServer * server):_server(server), _no_new_data(0), _need_more_data(0) { }
+inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
+												_no_new_data(0), _need_more_data(0), _upstream_io_event_queue(0) { }
 inline EVProcessingState::~EVProcessingState() { }
 inline EVServer* EVProcessingState::getServer() { return _server; }
 inline void EVProcessingState::setNewDataNotProcessed() { _no_new_data = 1; }
@@ -73,6 +78,8 @@ inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
 inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
 inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd) { return _cssMap[fd]; }
 inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs) { _cssMap[cs->getSockfd()] = cs; }
+inline ev_queue_type EVProcessingState::getUpstreamEventQ() { return _upstream_io_event_queue; }
+inline void EVProcessingState::setUpstreamEventQ(ev_queue_type  q) { _upstream_io_event_queue = q; }
 
 }
 } // End namespace Poco::EVNet

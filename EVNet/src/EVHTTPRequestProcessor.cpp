@@ -210,6 +210,13 @@ void EVHTTPRequestProcessor::evrun()
 						_reqProcState->setState(REQUEST_PROCESSING);
 						break;
 				}
+				if (_reqProcState->getUpstreamEventQ() &&
+						!queue_empty(_reqProcState->getUpstreamEventQ())) {
+					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
+					while (elem) {
+						/* Process upstream events here. */
+					}
+				}
 				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());
 
 			}

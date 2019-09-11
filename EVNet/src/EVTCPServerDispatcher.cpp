@@ -134,8 +134,12 @@ void EVTCPServerDispatcher::run()
 #endif // POCO_ENABLE_CPP11
 					poco_check_ptr(pConnection.get());
 					beginConnection();
+					/* pCNf is TCPConnectionNotification and
+					 * pCNf->socket() is EVAcceptedStreamSocket.
+					 * */
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
+					pCNf->socket()->getProcState()->setUpstreamEventQ(pCNf->socket()->getUpstreamIoEventQueue());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					endConnection();
