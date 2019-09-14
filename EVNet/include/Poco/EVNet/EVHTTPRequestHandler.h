@@ -20,6 +20,8 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/EVNet/EVNet.h"
+#include "Poco/EVNet/EVUpstreamEventNotification.h"
+#include "Poco/EVNet/EVServer.h"
 
 
 namespace Poco {
@@ -60,12 +62,87 @@ public:
 
 	int getState();
 	void setState(int);
+	EVUpstreamEventNotification * getUNotification();
+	void setUNotification(EVUpstreamEventNotification *);
+	int getEvent();
+	EVServer* getServer();
+	void setServer(EVServer * server);
+	poco_socket_t getAccSockfd();
+	void setAccSockfd(poco_socket_t fd);
+	Net::HTTPServerRequest* getRequest();
+	void setRequest(Net::HTTPServerRequest* req);
+	Net::HTTPServerResponse* getResponse();
+	void setResponse(Net::HTTPServerResponse* res);
+
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
 	EVHTTPRequestHandler& operator = (const EVHTTPRequestHandler&);
 
-	int	_state;
+	int								_state;
+	EVUpstreamEventNotification*	_usN;
+	EVServer*						_server;
+	poco_socket_t					_acc_fd;
+	Net::HTTPServerRequest*				_req = NULL;
+	Net::HTTPServerResponse*				_rsp = NULL;
 };
+
+inline EVUpstreamEventNotification * EVHTTPRequestHandler::getUNotification()
+{
+	return _usN;
+}
+
+inline void EVHTTPRequestHandler::setUNotification(EVUpstreamEventNotification * usN)
+{
+	_usN = usN;
+}
+
+inline int EVHTTPRequestHandler::getEvent()
+{
+	int event = getState();
+	if (!_usN || INITIAL == event) return INITIAL;
+
+	return _usN->getCBEVIDNum();
+}
+
+inline EVServer* EVHTTPRequestHandler::getServer()
+{
+	return _server;
+}
+
+inline void EVHTTPRequestHandler::setServer(EVServer * server)
+{
+	_server = server;
+}
+
+inline poco_socket_t EVHTTPRequestHandler::getAccSockfd()
+{
+	return _acc_fd;
+}
+
+inline void EVHTTPRequestHandler::setAccSockfd(poco_socket_t fd)
+{
+	_acc_fd = fd;
+}
+
+inline Net::HTTPServerRequest* EVHTTPRequestHandler::getRequest()
+{
+	return _req;
+}
+
+inline void EVHTTPRequestHandler::setRequest(Net::HTTPServerRequest* req)
+{
+	_req = req;
+}
+
+inline Net::HTTPServerResponse* EVHTTPRequestHandler::getResponse()
+{
+	return _rsp;
+}
+
+inline void EVHTTPRequestHandler::setResponse(Net::HTTPServerResponse* rsp)
+{
+	_rsp = rsp;
+}
 
 
 } } // namespace Poco::EVNet

@@ -106,6 +106,7 @@ public:
 	bool sockInError();
 	EVConnectedStreamSocket::connected_sock_state getState();
 	void setState(EVConnectedStreamSocket::connected_sock_state state);
+	poco_socket_t getAccSockfd();
 
 private:
 	poco_socket_t				_sock_fd;
@@ -121,6 +122,11 @@ private:
 	connected_sock_state		_state;
 	int							_socketInError;
 };
+
+inline poco_socket_t EVConnectedStreamSocket::getAccSockfd()
+{
+	return _acc_sock_fd;
+}
 
 inline EVConnectedStreamSocket::connected_sock_state EVConnectedStreamSocket::getState()
 {

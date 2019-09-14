@@ -10,6 +10,7 @@
 //
 
 
+#include "Poco/Net/StreamSocket.h"
 #include "Poco/EVNet/EVHTTPServer.h"
 #include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
@@ -122,44 +123,39 @@ private:
 	EVMyPartHandler partHandler;
 	HTMLForm *form1 = NULL;
 	std::ostream* ostr_ptr = NULL;
-	HTTPServerRequest* req = NULL;
-	HTTPServerResponse* rsp = NULL;
-	int return_value = PROCESSING;
+	StreamSocket ss;
 
-	void init(HTTPServerRequest& request, HTTPServerResponse& response)
+	void init()
 	{
-		req = &request;
-		rsp =&response;
-
-		Application::instance().logger().information("Request from " + req->clientAddress().toString());
+		Application::instance().logger().information("Request from " + getRequest()->clientAddress().toString());
 		try {
-			form1 = new HTMLForm(*req, req->stream(), partHandler);
+			form1 = new HTMLForm(*(getRequest()), getRequest()->stream(), partHandler);
 		} catch (std::exception& ex) {
 			DEBUGPOINT("CHA %s\n",ex.what());
 			throw(ex);
 		}
 
-		rsp->setChunkedTransferEncoding(true);
-		rsp->setContentType("text/html");
+		getResponse()->setChunkedTransferEncoding(true);
+		getResponse()->setContentType("text/html");
 
-		rsp->send();
+		getResponse()->send();
 
-		ostr_ptr = rsp->getOStream();
+		ostr_ptr = getResponse()->getOStream();
 
-		return_value = PROCESSING;
-		setState(PART_ONE);
 	}
 
 	void part_one()
 	{
-		return_value = PROCESSING;
-		setState(PART_TWO);
+		Poco::EVNet::EVServer * server = getServer();
+		DEBUGPOINT("css fd = %d\n", ss.impl()->sockfd());
+		SocketAddress address("127.0.0.1", 9980);
+		server->submitRequestForConnection(PART_TWO, getAccSockfd(), ss, address);
 	}
 
 	void part_two()
 	{
-		HTTPServerRequest& request = *req;
-		HTTPServerResponse& response = *rsp;
+		HTTPServerRequest& request = *(getRequest());
+		HTTPServerResponse& response = *(getResponse());
 
 		HTMLForm& form = *form1;
 
@@ -223,8 +219,6 @@ private:
 		ostr << "</body>\n";
 		ostr.flush();
 
-		return_value = PROCESSING_COMPLETE;
-		setState(FINAL);
 	}
 
 	void cleanup()
@@ -244,13 +238,18 @@ public:
 
 	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
 	{
-		switch (getState()) {
+		int return_value = PROCESSING;
+		switch (getEvent()) {
 			case INITIAL:
-				init(request, response);
+				init();
+				return_value = PROCESSING;
 			case PART_ONE:
 				part_one();
+				return_value = PROCESSING;
+				break;
 			case PART_TWO:
 				part_two();
+				return_value = PROCESSING_COMPLETE;
 				break;
 			default:
 				std::abort();

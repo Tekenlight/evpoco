@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <libgen.h>
 
 #ifdef __APPLE__
 
@@ -65,8 +66,9 @@
 
 
 #define DEBUGPOINT(...) { \
+	char fpath[256]; \
 	fflush(stdout); \
-    printf("[%p][%s:%d] Reached:",(void*)pthread_self(),__FILE__,__LINE__); \
+    basename_r(__FILE__,fpath); printf("[%p][%s:%d] Reached:",(void*)pthread_self(), fpath, __LINE__); \
     printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
 }
 

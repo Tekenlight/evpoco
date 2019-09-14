@@ -21,6 +21,7 @@
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
+#include "Poco/EVNet/EVUpstreamEventNotification.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/NumberFormatter.h"
 #include "Poco/Timestamp.h"
@@ -182,10 +183,21 @@ void EVHTTPRequestProcessor::evrun()
 
 		try
 		{
+			/* The use case being solved here is:
+			 * The server reads complete HTTP request and then starts processing the request
+			 * EVHTTPProcessingState is one per request.
+			 * The request is processed once if there are further data requirements from
+			 * upstream sockets those events will trigger handling of requests againa and
+			 * again until complete processing of request.
+			 * */
 			EVHTTPRequestHandler * pHandler = _reqProcState->getRequestHandler();
 			if (!pHandler) {
 				pHandler = _pFactory->createRequestHandler(*request);
 				_reqProcState->setRequestHandler(pHandler);
+				pHandler->setServer(_reqProcState->getServer());
+				pHandler->setAccSockfd(socket().impl()->sockfd());
+				pHandler->setRequest(request);
+				pHandler->setResponse(response);
 
 				Poco::Timestamp now;
 				response->setDate(now);
@@ -196,31 +208,53 @@ void EVHTTPRequestProcessor::evrun()
 
 				if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK)
 					response->sendContinue();
-			}
-
-			if (pHandler) {
-				int ret = EVHTTPRequestHandler::PROCESSING;
-				ret = pHandler->handleRequest(*request, *response);
-				switch (ret) {
-					case EVHTTPRequestHandler::PROCESSING_COMPLETE:
-					case EVHTTPRequestHandler::PROCESSING_ERROR:
-						_reqProcState->setState(PROCESS_COMPLETE);
-						break;
-					default:
-						_reqProcState->setState(REQUEST_PROCESSING);
-						break;
+				if (pHandler) {
+					int ret = EVHTTPRequestHandler::PROCESSING;
+					ret = pHandler->handleRequest(*request, *response);
+					switch (ret) {
+						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+						case EVHTTPRequestHandler::PROCESSING_ERROR:
+							_reqProcState->setState(PROCESS_COMPLETE);
+							break;
+						default:
+							_reqProcState->setState(REQUEST_PROCESSING);
+							break;
+					}
 				}
+				else sendErrorResponse(*session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+			}
+			else {
 				if (_reqProcState->getUpstreamEventQ() &&
 						!queue_empty(_reqProcState->getUpstreamEventQ())) {
 					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
 					while (elem) {
 						/* Process upstream events here. */
+						std::auto_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						try {
+							pHandler->setState(usN->getCBEVIDNum());
+							pHandler->setUNotification(usN.get());
+							{
+								int ret = EVHTTPRequestHandler::PROCESSING;
+								ret = pHandler->handleRequest(*request, *response);
+								switch (ret) {
+									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+									case EVHTTPRequestHandler::PROCESSING_ERROR:
+										_reqProcState->setState(PROCESS_COMPLETE);
+										break;
+									default:
+										_reqProcState->setState(REQUEST_PROCESSING);
+										break;
+								}
+							}
+						}
+						catch (Exception e) {
+							throw e;
+						}
+						elem = dequeue(_reqProcState->getUpstreamEventQ());
 					}
 				}
 				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());
-
 			}
-			else sendErrorResponse(*session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 		}
 		catch (Poco::Exception& e)
 		{

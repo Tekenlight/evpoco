@@ -15,20 +15,32 @@
 
 namespace Poco{ namespace EVNet {
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, ssize_t bytes, int _errno):
+EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no):
 	_sockfd(sockfd),
 	_event(event),
-	_bytes(bytes)
+	_cb_evid_num(cb_evid_num),
+	_bytes(bytes),
+	_errno(err_no)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, size_t bytes, int _errno):
+EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no):
 	_sockfd(sockfd),
 	_event(event),
-	_bytes(bytes)
+	_cb_evid_num(cb_evid_num),
+	_bytes(bytes),
+	_errno(err_no)
 {
 }
 
+EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no):
+	_sockfd(sockfd),
+	_event(event),
+	_cb_evid_num(cb_evid_num),
+	_bytes(bytes),
+	_errno(err_no)
+{
+}
 
 EVUpstreamEventNotification::~EVUpstreamEventNotification()
 {

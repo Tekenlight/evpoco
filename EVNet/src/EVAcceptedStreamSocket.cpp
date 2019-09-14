@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVAcceptedStreamSocket.h"
+#include "Poco/EVNet/EVUpstreamEventNotification.h"
 
 using Poco::Net::StreamSocket;
 namespace Poco{ namespace EVNet {
@@ -51,7 +52,14 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 	if (this->_reqProcState) delete this->_reqProcState;
 	if (this->_req_memory_stream) delete this->_req_memory_stream;
 	if (this->_res_memory_stream) delete this->_res_memory_stream;
-	if (this->_upstream_io_event_queue) destroy_ev_queue(_upstream_io_event_queue);
+	if (this->_upstream_io_event_queue) {
+		EVUpstreamEventNotification * usN = NULL;
+		usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
+		while (usN) {
+			delete usN;
+			usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
+		}
+	}
 }
 
 void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)

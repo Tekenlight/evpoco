@@ -11,6 +11,7 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
+#include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVTCPServiceRequest.h"
 
 using Poco::Net::StreamSocket;

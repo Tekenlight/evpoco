@@ -51,7 +51,7 @@ private:
 	int						_cb_evid_num; // Unique Service request number, for identificaton
 	what					_event; // One of connect, send data or recieve data
 	poco_socket_t			_acc_fd; // fd of the accepted(listen) socket
-	Net::StreamSocket&		_ss; // Connected StreamSocket
+	Net::StreamSocket		_ss; // Connected StreamSocket
 	Net::SocketAddress		_addr; // Optional address needed only in the connect request
 };
 

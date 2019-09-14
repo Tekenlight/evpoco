@@ -19,7 +19,6 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/EVNet/EVProcessingState.h"
-#include "Poco/EVNet/EVConnectedStreamSocket.h"
 
 using Poco::Net::StreamSocket;
 

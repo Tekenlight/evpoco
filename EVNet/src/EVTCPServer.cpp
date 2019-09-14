@@ -1,5 +1,4 @@
 //
-//
 // EVTCPServer.cpp
 //
 // Library: EVNet
@@ -23,12 +22,14 @@
 #include "Poco/EVNet/EVTCPServerDispatcher.h"
 #include "Poco/Net/TCPServerConnection.h"
 #include "Poco/EVNet/EVTCPServerConnectionFactory.h"
+#include "Poco/EVNet/EVUpstreamEventNotification.h"
 #include "Poco/Timespan.h"
 #include "Poco/Exception.h"
 #include "Poco/ErrorHandler.h"
 #include "Poco/EVNet/EVTCPServerNotification.h"
 #include "Poco/EVNet/EVTCPServiceRequest.h"
 
+#include <ev_queue.h>
 #include <chunked_memory_stream.h>
 
 using Poco::ErrorHandler;
@@ -435,6 +436,18 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	ev_clear_pending(_loop, cn->getSocketWatcher());
 
 	// TBD Handle Dispatching the event of connected socket, here. TBD
+	EVUpstreamEventNotification * usN = 0;
+	EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
+	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+	usN = new EVUpstreamEventNotification((cn->getStreamSocket().impl()->sockfd()), 
+											EVUpstreamEventNotification::SOCKET_CONNECTED,
+											cb_ptr->cb_evid_num,
+											1);
+	enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+	if (!(tn->sockBusy())) {
+		tn->setSockBusy();
+		_pDispatcher->enqueue(tn);
+	}
 
 	return 1;
 }
@@ -451,8 +464,6 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 	if (!cn->sendDataAvlbl()) {
 		goto handleConnSocketWritable_finally;
 	}
-
-	cn->setSockBusy();
 
 	{
 		chunked_memory_stream * cms = 0;
@@ -491,8 +502,6 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 			}
 		}
 	}
-
-	cn->setSockFree();
 
 handleConnSocketWritable_finally:
 	if (ret >=0) {
@@ -557,8 +566,6 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 		goto handleAccSocketWritable_finally;
 	}
 
-	tn->setSockBusy();
-
 	{
 		chunked_memory_stream * cms = 0;
 
@@ -596,8 +603,6 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 			}
 		}
 	}
-
-	tn->setSockFree();
 
 handleAccSocketWritable_finally:
 	if (ret >=0) {
@@ -707,7 +712,6 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_ic_cb_ptr_type cb_ptr, const
 	size_t received_bytes = 0;
 	EVConnectedStreamSocket *cn = cb_ptr->cn;
 	cn->setTimeOfLastUse();
-	cn->setSockBusy();
 
 	{
 		ssize_t ret1 = 0;
@@ -737,7 +741,6 @@ handleConnSocketReadable_finally:
 	if ((ret >=0) && cn->rcvDataAvlbl()) {
 		// TBD Handle dispatching of events here. TBD
 	}
-
 
 	/* ret will be 0 after recv even on a tickled socket
 	 * in case of SSL handshake.
@@ -779,7 +782,6 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & streamSocket, const 
 	EVAcceptedStreamSocket *tn = _accssColl[streamSocket.impl()->sockfd()];
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
-	tn->setSockBusy();
 
 	{
 		ssize_t ret1 = 0;
@@ -813,6 +815,7 @@ handleDataAvlblOnAccSock_finally:
 			if (!(tn->getProcState())) {
 				tn->setProcState(_pConnectionFactory->createReqProcState(this));
 			}
+			tn->setSockBusy();
 			_pDispatcher->enqueue(tn);
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -920,7 +923,6 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 	StreamSocket ss = tn->getStreamSocket();
 
 	{
-		tn->setSockFree();
 		/* If socket is not readable make it readable*/
 		if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
 			 tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
@@ -1024,6 +1026,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		switch (event) {
 			case EVTCPServerNotification::REQDATA_CONSUMED:
 				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
+				tn->setSockFree();
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
 					tn->deleteState();
 				}
@@ -1345,7 +1348,18 @@ int EVTCPServer::makeTCPConnection(int cb_evid_num, poco_socket_t acc_fd, Net::S
 	}
 
 	// TBD TO CLEANUP SEND ERROR MESSAGE HERE TBD
-	if (ret < 0) return ret;
+	if (ret < 0) {
+		EVUpstreamEventNotification * usN = 0;
+		usN = new EVUpstreamEventNotification((css.impl()->sockfd()), 
+												EVUpstreamEventNotification::ERROR,
+												cb_evid_num, ret, errno);
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		if (!(tn->sockBusy())) {
+			tn->setSockBusy();
+			_pDispatcher->enqueue(tn);
+		}
+		return ret;
+	}
 
 	socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
 	memset(socket_watcher_ptr,0,sizeof(ev_io));
@@ -1366,7 +1380,7 @@ int EVTCPServer::makeTCPConnection(int cb_evid_num, poco_socket_t acc_fd, Net::S
 	cb_ptr->cn = connectedSock;
 	socket_watcher_ptr->data = (void*)cb_ptr;
 
-	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, css.impl()->sockfd(), EV_WRITE);
+	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, css.impl()->sockfd(), EV_READ|EV_WRITE);
 	ev_io_start (_loop, socket_watcher_ptr);
 
 	return ret;
