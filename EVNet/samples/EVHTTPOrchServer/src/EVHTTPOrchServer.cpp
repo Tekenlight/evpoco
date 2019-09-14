@@ -147,7 +147,6 @@ private:
 	void part_one()
 	{
 		Poco::EVNet::EVServer * server = getServer();
-		DEBUGPOINT("css fd = %d\n", ss.impl()->sockfd());
 		SocketAddress address("127.0.0.1", 9980);
 		server->submitRequestForConnection(PART_TWO, getAccSockfd(), ss, address);
 	}

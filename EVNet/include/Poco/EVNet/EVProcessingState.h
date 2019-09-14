@@ -70,7 +70,6 @@ inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
 												_no_new_data(0), _need_more_data(0), _upstream_io_event_queue(0) { }
 inline EVProcessingState::~EVProcessingState()
 {
-	DEBUGPOINT("Clearing up connected sockets\n");
     for ( CSColMapType::iterator it = _cssMap.begin(); it != _cssMap.end(); ++it ) {
         delete it->second;
     }
