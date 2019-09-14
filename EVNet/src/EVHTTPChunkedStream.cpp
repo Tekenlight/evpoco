@@ -168,11 +168,6 @@ EVHTTPChunkedStreamBuf* EVHTTPChunkedIOS::rdbuf()
 	return &_buf;
 }
 
-/*
-Poco::MemoryPool EVHTTPChunkedInputStream::_pool(sizeof(EVHTTPChunkedInputStream));
-Poco::MemoryPool EVHTTPChunkedOutputStream::_pool(sizeof(EVHTTPChunkedOutputStream));
-*/
-
 EVHTTPChunkedInputStream::EVHTTPChunkedInputStream(chunked_memory_stream *cms, size_t cum_body_len):
 	EVHTTPChunkedIOS(cms, std::ios::in, cum_body_len),
 	std::istream(&_buf)
@@ -183,26 +178,6 @@ EVHTTPChunkedInputStream::~EVHTTPChunkedInputStream()
 {
 }
 
-/*
-void* EVHTTPChunkedInputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
-
-void EVHTTPChunkedInputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-*/
-
-	
 EVHTTPChunkedOutputStream::EVHTTPChunkedOutputStream(chunked_memory_stream *cms):
 	EVHTTPChunkedIOS(cms, std::ios::out),
 	std::ostream(&_buf)
@@ -212,25 +187,6 @@ EVHTTPChunkedOutputStream::EVHTTPChunkedOutputStream(chunked_memory_stream *cms)
 EVHTTPChunkedOutputStream::~EVHTTPChunkedOutputStream()
 {
 }
-
-/*
-void* EVHTTPChunkedOutputStream::operator new(std::size_t size)
-{
-	return _pool.get();
-}
-
-void EVHTTPChunkedOutputStream::operator delete(void* ptr)
-{
-	try
-	{
-		_pool.release(ptr);
-	}
-	catch (...)
-	{
-		poco_unexpected();
-	}
-}
-*/
 
 	
 } } // namespace Poco::Net
