@@ -118,7 +118,6 @@ private:
 	std::string					_method;
 	std::string					_uri;
 	std::string					_version;
-	int							_fields;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
 	http_parser*				_parser;

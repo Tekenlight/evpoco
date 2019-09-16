@@ -54,7 +54,6 @@ EVHTTPProcessingState::EVHTTPProcessingState(EVServer * server):
 	_session(0),
 	_state(HEADER_NOT_READ),
 	_subState(READ_START),
-	_fields(0),
 	_header_field_in_progress(0),
 	_parser(0),
 	_req_memory_stream(0),
