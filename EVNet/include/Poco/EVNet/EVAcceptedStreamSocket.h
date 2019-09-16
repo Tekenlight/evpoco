@@ -107,6 +107,9 @@ public:
 	inline void setSockInError();
 	inline bool sockInError();
 	ev_queue_type getUpstreamIoEventQueue();
+	void decrNumCSEvents();
+	void incrNumCSEvents();
+	bool pendingCSEvents();
 
 private:
 	poco_socket_t				_sockFd;
@@ -115,13 +118,17 @@ private:
 	time_t						_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;
 	EVAcceptedStreamSocket*		_nextPtr;
-	bool						_sockBusy;
 	EVProcessingState*			_reqProcState;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
-	accepted_sock_state			_state;
-	int							_socketInError;
 	ev_queue_type				_upstream_io_event_queue;
+
+	/* Status indicators */
+	accepted_sock_state			_state; /* Tells whether the socket is wating for OS event or not */
+	int							_socketInError; /* Tells if an error is observed while processing request
+												   on this socket. */
+	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
+	int							_active_cs_events; /* Tells how many SR requests are pending on this sock */
 };
 
 inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()
@@ -142,6 +149,21 @@ inline void EVAcceptedStreamSocket::setSockInError()
 inline bool EVAcceptedStreamSocket::sockInError()
 {
 	return (_socketInError>0);
+}
+
+inline void EVAcceptedStreamSocket::decrNumCSEvents()
+{
+	_active_cs_events--;
+}
+
+inline void EVAcceptedStreamSocket::incrNumCSEvents()
+{
+	_active_cs_events++;
+}
+inline bool EVAcceptedStreamSocket::pendingCSEvents()
+{
+	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
+	return (_active_cs_events>0);
 }
 
 } } // namespace EVNet and Poco end.

@@ -47,7 +47,12 @@ public:
 
 	int getCBEVIDNum();
 
+	void setSRNum(long sr_num);
+
+	long getSRNum();
+
 private:
+	long					_sr_num;
 	int						_cb_evid_num; // Unique Service request number, for identificaton
 	what					_event; // One of connect, send data or recieve data
 	poco_socket_t			_acc_fd; // fd of the accepted(listen) socket
@@ -58,6 +63,16 @@ private:
 inline EVTCPServiceRequest::what EVTCPServiceRequest::getEvent()
 {
 	return _event;
+}
+
+inline void EVTCPServiceRequest::setSRNum(long sr_num)
+{
+	_sr_num = sr_num;
+}
+
+inline long EVTCPServiceRequest::getSRNum()
+{
+	return _sr_num;
 }
 
 } } // namespace EVNet and Poco end.

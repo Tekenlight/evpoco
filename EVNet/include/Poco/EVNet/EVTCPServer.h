@@ -36,6 +36,7 @@
 #include "Poco/EVNet/EVConnectedStreamSocket.h"
 #include "Poco/EVNet/EVStreamSocketLRUList.h"
 #include "Poco/EVNet/EVServer.h"
+#include "Poco/EVNet/EVTCPServiceRequest.h"
 
 namespace Poco { namespace Net {
 	class StreamSocket;
@@ -232,7 +233,7 @@ public:
 		/// or null pointer if no filter has been set.
 
 	virtual void submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
-								Net::StreamSocket & css, Net::SocketAddress& addr);
+								Net::SocketAddress& addr, Net::StreamSocket & css);
 		/// To be called whenever another thread wants to make a new connection.
 
 protected:
@@ -253,9 +254,10 @@ private:
 	ssize_t handleConnSocketReadable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
-	int makeTCPConnection(int sr_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr);
+	int makeTCPConnection(EVTCPServiceRequest *);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
+	typedef std::map<poco_socket_t,EVTCPServiceRequest *> SRColMapType;
 
 	static const std::string NUM_THREADS_CFG_NAME;
 	static const std::string RECV_TIME_OUT_NAME;
@@ -289,7 +291,9 @@ private:
 		// Function to request a service from TCP Server
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
-	void freeClear( ASColMapType & );
+	void errorWhileReceiving(poco_socket_t fd, bool connInErr);
+		/// Function to handle the event of error in receiving data from downstream socket.
+	void freeClear();
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
 	ssize_t receiveData(int fd, void * chptr, size_t size);
@@ -297,35 +301,45 @@ private:
 	ssize_t sendData(int fd, void * chptr, size_t size);
 	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 	void handlePeriodicWakup(const bool& ev_occured);
+	long getNextSRSrlNum();
 
-	ServerSocket					_socket;
-	EVTCPServerDispatcher*			_pDispatcher;
-	TCPServerConnectionFilter::Ptr	_pConnectionFilter;
-	Poco::Thread					_thread;
-	bool							_stopped;
+	ServerSocket						_socket;
+	EVTCPServerDispatcher*				_pDispatcher;
+	TCPServerConnectionFilter::Ptr		_pConnectionFilter;
+	Poco::Thread						_thread;
+	bool								_stopped;
 
-	srvrs_io_cb_struct_type			_cbStruct;
-	ev_async*						stop_watcher_ptr1;
-	ev_async*						stop_watcher_ptr2;;
-	ev_async*						stop_watcher_ptr3;;
+	srvrs_io_cb_struct_type				_cbStruct;
+	struct ev_loop*						_loop;
+	ev_async*							stop_watcher_ptr1;
+	ev_async*							stop_watcher_ptr2;;
+	ev_async*							stop_watcher_ptr3;;
 
-	ASColMapType					_accssColl;
-	struct ev_loop*					_loop;
-	NotificationQueue				_queue;
-	NotificationQueue				_service_request_queue;
+	ASColMapType						_accssColl;
+	SRColMapType						_srColl;
 
-	EVStreamSocketLRUList			_ssLRUList;
-	int								_numThreads;
-	int								_numConnections;
-	bool							_blocking;
-	EVTCPServerConnectionFactory::Ptr _pConnectionFactory;
-	time_t							_receiveTimeOut;
+	NotificationQueue					_queue;
+	NotificationQueue					_service_request_queue;
+
+	EVStreamSocketLRUList				_ssLRUList;
+	int									_numThreads;
+	int									_numConnections;
+	bool								_blocking;
+	EVTCPServerConnectionFactory::Ptr	_pConnectionFactory;
+	time_t								_receiveTimeOut;
+
+	long								_sr_srl_num;
 
 };
 
 //
 // inlines
 //
+inline long EVTCPServer::getNextSRSrlNum()
+{
+	_sr_srl_num++;
+	return _sr_srl_num;
+}
 
 inline const ServerSocket& EVTCPServer::socket() const
 {

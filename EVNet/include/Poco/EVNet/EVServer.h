@@ -15,7 +15,7 @@ public:
 	virtual void receivedDataConsumed(int fd) = 0;
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr) = 0;
 	virtual void dataReadyForSend(int fd) = 0;
-	virtual void submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket & css, Net::SocketAddress& addr) = 0;
+	virtual void submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::SocketAddress& addr, Net::StreamSocket & css) = 0;
 };
 
 }

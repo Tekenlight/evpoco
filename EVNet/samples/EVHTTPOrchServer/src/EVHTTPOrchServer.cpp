@@ -148,13 +148,16 @@ private:
 	{
 		Poco::EVNet::EVServer * server = getServer();
 		SocketAddress address("127.0.0.1", 9980);
-		server->submitRequestForConnection(PART_TWO, getAccSockfd(), ss, address);
+		server->submitRequestForConnection(PART_TWO, getAccSockfd(), address, ss);
 	}
 
 	void part_two()
 	{
 		HTTPServerRequest& request = *(getRequest());
 		HTTPServerResponse& response = *(getResponse());
+
+		Poco::EVNet::EVUpstreamEventNotification *usN = getUNotification();
+		//DEBUGPOINT("Socket = %d Refcount = %d\n", usN->sockfd(), ss.impl()->referenceCount());
 
 		HTMLForm& form = *form1;
 
@@ -222,7 +225,8 @@ private:
 
 	void cleanup()
 	{
-		delete form1;
+		if (form1) delete form1;
+		//if (ostr_ptr) delete ostr_ptr;
 	}
 
 public:
@@ -230,7 +234,7 @@ public:
 	{
 	}
 
-	~EVFormRequestHandler() 
+	virtual ~EVFormRequestHandler() 
 	{
 		cleanup();
 	}

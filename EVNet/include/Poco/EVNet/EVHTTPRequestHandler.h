@@ -82,8 +82,8 @@ private:
 	EVUpstreamEventNotification*	_usN;
 	EVServer*						_server;
 	poco_socket_t					_acc_fd;
-	Net::HTTPServerRequest*				_req = NULL;
-	Net::HTTPServerResponse*				_rsp = NULL;
+	Net::HTTPServerRequest*			_req = NULL;
+	Net::HTTPServerResponse*		_rsp = NULL;
 };
 
 inline EVUpstreamEventNotification * EVHTTPRequestHandler::getUNotification()

@@ -41,7 +41,6 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 
 EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
-	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
 	if (this->_socket_watcher) {
 		if ((void*)(this->_socket_watcher->data))
 			free((void*)(this->_socket_watcher->data));
