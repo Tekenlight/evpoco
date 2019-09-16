@@ -293,6 +293,8 @@ private:
 		/// Function to handle the event of completion of one request with exceptions.
 	void errorWhileReceiving(poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of error in receiving data from downstream socket.
+	void errorWhileSending(poco_socket_t fd, bool connInErr);
+		/// Function to handle the event of error in sending data to downstream socket.
 	void freeClear();
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();

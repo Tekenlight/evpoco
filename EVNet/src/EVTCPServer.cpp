@@ -662,6 +662,22 @@ handleAccSocketWritable_finally:
 		 * At that time the socket will get disposed.
 		 * */
 		tn->setSockInError();
+		/*
+		if (ev_occured) {
+			//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
+			//clearAcceptedSocket(streamSocket.impl()->sockfd());
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketWatcher();
+				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
+					ev_io_stop(_loop, socket_watcher_ptr);
+					ev_clear_pending(_loop, socket_watcher_ptr);
+				}
+			}
+			errorWhileSending(streamSocket.impl()->sockfd(), true);
+			//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
+		}
+		*/
 	}
 
 	return ret;
@@ -920,6 +936,23 @@ void EVTCPServer::receivedDataConsumed(int fd)
 	return;
 }
 
+void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
+{
+	/* Enque the socket */
+	//_queue.enqueueNotification(new EVTCPServerNotification(streamSocket,fd,true));
+	/* The StreamSocket Received in this function may not contain the desirable value.
+	 * It could have become -1.
+	 * */
+	_queue.enqueueNotification(new EVTCPServerNotification(fd,
+													EVTCPServerNotification::ERROR_WHILE_SENDING));
+
+	//DEBUGPOINT("Here %d\n", fd);
+	/* And then wake up the loop calls async_stop_cb_2 */
+	ev_async_send(_loop, this->stop_watcher_ptr2);
+	//DEBUGPOINT("Here\n");
+	return;
+}
+
 void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 {
 	/* Enque the socket */
@@ -1086,6 +1119,8 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
 				sendDataOnAccSocket(tn);
 				break;
+			case EVTCPServerNotification::ERROR_WHILE_SENDING:
+				//DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
 			case EVTCPServerNotification::ERROR_WHILE_RECEIVING:
 				//DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
 				if (!(tn->sockBusy()) && !(tn->pendingCSEvents())) {

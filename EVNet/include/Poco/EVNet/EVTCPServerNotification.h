@@ -30,6 +30,7 @@ public:
 		,DATA_FOR_SEND_READY
 		,ERROR_IN_PROCESSING
 		,ERROR_WHILE_RECEIVING
+		,ERROR_WHILE_SENDING
 	} what;
 	//EVTCPServerNotification(StreamSocket& socket);
 	EVTCPServerNotification(poco_socket_t sockfd, what event);
