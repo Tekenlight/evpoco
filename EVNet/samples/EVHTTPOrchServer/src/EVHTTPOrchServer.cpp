@@ -122,7 +122,6 @@ private:
 
 	EVMyPartHandler partHandler;
 	HTMLForm *form1 = NULL;
-	std::ostream* ostr_ptr = NULL;
 	StreamSocket ss;
 
 	void init()
@@ -140,7 +139,6 @@ private:
 
 		getResponse().send();
 
-		ostr_ptr = getResponse().getOStream();
 
 	}
 
@@ -161,7 +159,7 @@ private:
 
 		HTMLForm& form = *form1;
 
-		std::ostream& ostr = *ostr_ptr;
+		std::ostream& ostr = getResponse().getOStream();
 
 		ostr <<
 			"<html>\n"

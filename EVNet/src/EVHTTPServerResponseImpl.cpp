@@ -62,9 +62,9 @@ void EVHTTPServerResponseImpl::setMemoryStream(chunked_memory_stream* cms)
 	if (!_out_memory_stream) _out_memory_stream = cms;
 }
 
-std::ostream * EVHTTPServerResponseImpl::getOStream()
+std::ostream & EVHTTPServerResponseImpl::getOStream()
 {
-	return _pStream;
+	return *_pStream;
 }
 
 std::ostream& EVHTTPServerResponseImpl::send()

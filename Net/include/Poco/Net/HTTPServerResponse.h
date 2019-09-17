@@ -108,7 +108,7 @@ public:
 	virtual bool sent() const = 0;
 		/// Returns true if the response (header) has been sent.
 
-	virtual std::ostream* getOStream() = 0;
+	virtual std::ostream& getOStream() = 0;
 		/// Returns the pointer to output stream
 };
 

@@ -106,7 +106,7 @@ public:
 	bool sent() const;
 		/// Returns true if the response (header) has been sent.
 
-	virtual std::ostream* getOStream();
+	virtual std::ostream& getOStream();
 
 protected:
 	void attachRequest(HTTPServerRequestImpl* pRequest);
