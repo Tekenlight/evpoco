@@ -127,37 +127,37 @@ private:
 
 	void init()
 	{
-		Application::instance().logger().information("Request from " + getRequest()->clientAddress().toString());
+		Application::instance().logger().information("Request from " + getRequest().clientAddress().toString());
 		try {
-			form1 = new HTMLForm(*(getRequest()), getRequest()->stream(), partHandler);
+			form1 = new HTMLForm((getRequest()), getRequest().stream(), partHandler);
 		} catch (std::exception& ex) {
 			DEBUGPOINT("CHA %s\n",ex.what());
 			throw(ex);
 		}
 
-		getResponse()->setChunkedTransferEncoding(true);
-		getResponse()->setContentType("text/html");
+		getResponse().setChunkedTransferEncoding(true);
+		getResponse().setContentType("text/html");
 
-		getResponse()->send();
+		getResponse().send();
 
-		ostr_ptr = getResponse()->getOStream();
+		ostr_ptr = getResponse().getOStream();
 
 	}
 
 	void part_one()
 	{
-		Poco::EVNet::EVServer * server = getServer();
+		Poco::EVNet::EVServer & server = getServer();
 		SocketAddress address("127.0.0.1", 9980);
-		server->submitRequestForConnection(PART_TWO, getAccSockfd(), address, ss);
+		server.submitRequestForConnection(PART_TWO, getAccSockfd(), address, ss);
 	}
 
 	void part_two()
 	{
-		HTTPServerRequest& request = *(getRequest());
-		HTTPServerResponse& response = *(getResponse());
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
 
-		Poco::EVNet::EVUpstreamEventNotification *usN = getUNotification();
-		//DEBUGPOINT("Socket = %d Refcount = %d\n", usN->sockfd(), ss.impl()->referenceCount());
+		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
+		DEBUGPOINT("Socket = %d Refcount = %d\n", usN.sockfd(), ss.impl()->referenceCount());
 
 		HTMLForm& form = *form1;
 

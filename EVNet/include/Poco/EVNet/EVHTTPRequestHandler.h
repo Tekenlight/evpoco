@@ -63,19 +63,19 @@ public:
 
 	int getState();
 	void setState(int);
-	EVUpstreamEventNotification * getUNotification();
+	EVUpstreamEventNotification & getUNotification();
 	void setUNotification(EVUpstreamEventNotification *);
 	int getEvent();
-	EVServer* getServer();
+	EVServer& getServer();
 	void setServer(EVServer * server);
 	poco_socket_t getAccSockfd();
 	void setAccSockfd(poco_socket_t fd);
-	Net::HTTPServerRequest* getRequest();
+	Net::HTTPServerRequest& getRequest();
 	void setRequest(Net::HTTPServerRequest* req);
-	Net::HTTPServerResponse* getResponse();
+	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
 	void setProcState(EVProcessingState* reqProcState);
-	EVProcessingState* getProcState();
+	EVProcessingState& getProcState();
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
@@ -90,9 +90,9 @@ private:
 	EVProcessingState*				_reqProcState;
 };
 
-inline EVUpstreamEventNotification * EVHTTPRequestHandler::getUNotification()
+inline EVUpstreamEventNotification & EVHTTPRequestHandler::getUNotification()
 {
-	return _usN;
+	return *_usN;
 }
 
 inline void EVHTTPRequestHandler::setUNotification(EVUpstreamEventNotification * usN)
@@ -108,9 +108,9 @@ inline int EVHTTPRequestHandler::getEvent()
 	return _usN->getCBEVIDNum();
 }
 
-inline EVServer* EVHTTPRequestHandler::getServer()
+inline EVServer& EVHTTPRequestHandler::getServer()
 {
-	return _server;
+	return *_server;
 }
 
 inline void EVHTTPRequestHandler::setServer(EVServer * server)
@@ -128,9 +128,9 @@ inline void EVHTTPRequestHandler::setAccSockfd(poco_socket_t fd)
 	_acc_fd = fd;
 }
 
-inline Net::HTTPServerRequest* EVHTTPRequestHandler::getRequest()
+inline Net::HTTPServerRequest& EVHTTPRequestHandler::getRequest()
 {
-	return _req;
+	return *_req;
 }
 
 inline void EVHTTPRequestHandler::setRequest(Net::HTTPServerRequest* req)
@@ -138,9 +138,9 @@ inline void EVHTTPRequestHandler::setRequest(Net::HTTPServerRequest* req)
 	_req = req;
 }
 
-inline Net::HTTPServerResponse* EVHTTPRequestHandler::getResponse()
+inline Net::HTTPServerResponse& EVHTTPRequestHandler::getResponse()
 {
-	return _rsp;
+	return *_rsp;
 }
 
 inline void EVHTTPRequestHandler::setResponse(Net::HTTPServerResponse* rsp)
@@ -153,9 +153,9 @@ inline void EVHTTPRequestHandler::setProcState(EVProcessingState* reqProcState)
 	_reqProcState = reqProcState;
 }
 
-inline EVProcessingState* EVHTTPRequestHandler::getProcState()
+inline EVProcessingState& EVHTTPRequestHandler::getProcState()
 {
-	return _reqProcState;
+	return *_reqProcState;
 }
 
 
