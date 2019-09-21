@@ -452,7 +452,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
 
 	EVUpstreamEventNotification * usN = 0;
-	usN = new EVUpstreamEventNotification((cn->getStreamSocket().impl()->sockfd()), 
+	usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
 											EVUpstreamEventNotification::SOCKET_CONNECTED,
 											cb_ptr->cb_evid_num,
 											(!optval)?1:-1,
@@ -1451,7 +1451,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 		if (tn) {
 			DEBUGPOINT("Here errno = %d\n", errno);
 			EVUpstreamEventNotification * usN = 0;
-			usN = new EVUpstreamEventNotification((sr->getStreamSocket().impl()->sockfd()), 
+			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													EVUpstreamEventNotification::ERROR,
 													sr->getCBEVIDNum(), ret, errno);
 			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
@@ -1478,6 +1478,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 	cb_ptr->objPtr = this;
+	cb_ptr->sr_num = sr->getSRNum();
 	cb_ptr->cb_evid_num = sr->getCBEVIDNum();
 	cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
 	cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
@@ -1515,7 +1516,6 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 		tn->incrNumCSEvents();
 
 		EVTCPServiceRequest::what event = srNF->getEvent();
-		srNF->setSRNum(getNextSRSrlNum());
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
@@ -1531,16 +1531,18 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	return;
 }
 
-void EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::SocketAddress& addr, Net::StreamSocket& css)
+long EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::SocketAddress& addr, Net::StreamSocket& css)
 {
+	long sr_num = getNextSRSrlNum();
+
 	/* Enque the socket */
-	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(cb_evid_num, EVTCPServiceRequest::CONNECTION_REQUEST,
-																							acc_fd, css, addr));
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
+										EVTCPServiceRequest::CONNECTION_REQUEST, acc_fd, css, addr));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr3);
 	/* This will result in invocation of handleServiceRequest */
-	return;
+	return sr_num;
 }
 
 } } // namespace Poco::EVNet

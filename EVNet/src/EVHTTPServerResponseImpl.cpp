@@ -45,7 +45,6 @@ EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerSession& session)
 {
 }
 
-
 EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 {
 	delete _pStream;

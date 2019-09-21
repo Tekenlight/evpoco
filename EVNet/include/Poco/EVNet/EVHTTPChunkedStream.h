@@ -73,14 +73,6 @@ class Net_API EVHTTPChunkedInputStream: public EVHTTPChunkedIOS, public std::ist
 public:
 	EVHTTPChunkedInputStream(chunked_memory_stream *cms, size_t cumulative_body_len);
 	~EVHTTPChunkedInputStream();
-	
-	/*
-	void* operator new(std::size_t size);
-	void operator delete(void* ptr);
-	
-private:
-	static Poco::MemoryPool _pool;
-	*/
 };
 
 
@@ -90,14 +82,6 @@ class Net_API EVHTTPChunkedOutputStream: public EVHTTPChunkedIOS, public std::os
 public:
 	EVHTTPChunkedOutputStream(chunked_memory_stream *cms);
 	~EVHTTPChunkedOutputStream();
-
-	/*
-	void* operator new(std::size_t size);
-	void operator delete(void* ptr);
-	
-private:
-	static Poco::MemoryPool _pool;
-	*/
 };
 
 

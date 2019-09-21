@@ -144,9 +144,8 @@ private:
 
 	void part_one()
 	{
-		Poco::EVNet::EVServer & server = getServer();
 		SocketAddress address("127.0.0.1", 9980);
-		server.submitRequestForConnection(PART_TWO, getAccSockfd(), address, ss);
+		makeNewSocketConnection(PART_TWO, address, ss);
 	}
 
 	void part_two()
@@ -156,6 +155,7 @@ private:
 
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
 		DEBUGPOINT("Socket = %d Refcount = %d\n", usN.sockfd(), ss.impl()->referenceCount());
+		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
 
 		HTMLForm& form = *form1;
 
@@ -206,7 +206,7 @@ private:
 			}
 			ostr << "</p>";
 		}
-		
+
 		if (!partHandler.name().empty())
 		{
 			ostr << "<h2>Upload</h2><p>\n";
@@ -237,7 +237,7 @@ public:
 		cleanup();
 	}
 
-	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	int handleRequest()
 	{
 		int return_value = PROCESSING;
 		switch (getEvent()) {
@@ -256,13 +256,6 @@ public:
 				std::abort();
 		}
 		return return_value;
-	}
-
-	int old_handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
-	{
-
-
-		return PROCESSING_COMPLETE;
 	}
 };
 

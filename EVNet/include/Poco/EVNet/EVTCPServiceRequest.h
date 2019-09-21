@@ -30,8 +30,8 @@ public:
 		,DATA_RECEIVE_REQUEST
 		,CLEANUP_REQUEST
 	} what;
-	EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
-	EVTCPServiceRequest(int sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
+	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
+	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
 	
 	~EVTCPServiceRequest();
 

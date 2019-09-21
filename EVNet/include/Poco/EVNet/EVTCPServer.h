@@ -17,6 +17,8 @@
 #ifndef EVNet_EVTCPServer_INCLUDED
 #define EVNet_EVTCPServer_INCLUDED
 
+#include <atomic>
+
 #include <ev.h>
 #include <map>
 
@@ -79,6 +81,7 @@ typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
 typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_ic_cb_ptr_type, const bool& );
 
 struct _strms_io_struct_type {
+	long sr_num; // The identifier of service request, to be used in case of requests from worker threads
 	int cb_evid_num; // Event id to be invoked in the worker, when this SR completes.
 	EVTCPServer *objPtr;
 	fdReadyMethod dataAvailable;
@@ -232,7 +235,7 @@ public:
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
 
-	virtual void submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
+	virtual long submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
 								Net::SocketAddress& addr, Net::StreamSocket & css);
 		/// To be called whenever another thread wants to make a new connection.
 
@@ -330,7 +333,7 @@ private:
 	EVTCPServerConnectionFactory::Ptr	_pConnectionFactory;
 	time_t								_receiveTimeOut;
 
-	long								_sr_srl_num;
+	std::atomic_long					_sr_srl_num;
 
 };
 
@@ -339,8 +342,13 @@ private:
 //
 inline long EVTCPServer::getNextSRSrlNum()
 {
-	_sr_srl_num++;
-	return _sr_srl_num;
+	long sr_srl_num = 0L;
+	long old_srl_num = std::atomic_load(&_sr_srl_num);
+	do {
+		sr_srl_num = old_srl_num + 1;
+	} while (!std::atomic_compare_exchange_strong(&_sr_srl_num, &old_srl_num, sr_srl_num)) ;
+
+	return sr_srl_num;
 }
 
 inline const ServerSocket& EVTCPServer::socket() const

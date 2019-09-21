@@ -43,6 +43,7 @@ class Net_API EVHTTPRequestHandler
 	/// each new HTTP request that is received by the HTTPServer.
 {
 public:
+	typedef std::map<long,int *> SRColMapType;
 	static const int INITIAL = 0;
 
 	/* Return values of handleRequest method. */
@@ -56,10 +57,12 @@ public:
 	virtual ~EVHTTPRequestHandler();
 		/// Destroys the EVHTTPRequestHandler.
 
-	virtual int handleRequest(Net::HTTPServerRequest& request, Net::HTTPServerResponse& response) = 0;
+	virtual int handleRequest() = 0;
 		/// Must be overridden by subclasses.
 		///
 		/// Handles the given request.
+
+	int handleRequestSurrogate();
 
 	int getState();
 	void setState(int);
@@ -76,6 +79,8 @@ public:
 	void setResponse(Net::HTTPServerResponse* res);
 	void setProcState(EVProcessingState* reqProcState);
 	EVProcessingState& getProcState();
+	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
+	long makeNewHTTPConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
@@ -88,6 +93,7 @@ private:
 	Net::HTTPServerRequest*			_req = NULL;
 	Net::HTTPServerResponse*		_rsp = NULL;
 	EVProcessingState*				_reqProcState;
+	SRColMapType					_srColl;
 };
 
 inline EVUpstreamEventNotification & EVHTTPRequestHandler::getUNotification()

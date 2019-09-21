@@ -210,7 +210,7 @@ void EVHTTPRequestProcessor::evrun()
 					response->sendContinue();
 				if (pHandler) {
 					int ret = EVHTTPRequestHandler::PROCESSING;
-					ret = pHandler->handleRequest(*request, *response);
+					ret = pHandler->handleRequest();
 					switch (ret) {
 						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 						case EVHTTPRequestHandler::PROCESSING_ERROR:
@@ -229,13 +229,14 @@ void EVHTTPRequestProcessor::evrun()
 					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
 					while (elem) {
 						/* Process upstream events here. */
-						std::auto_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
 						try {
 							pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
 							{
 								int ret = EVHTTPRequestHandler::PROCESSING;
-								ret = pHandler->handleRequest(*request, *response);
+								//ret = pHandler->handleRequest(*request, *response);
+								ret = pHandler->handleRequest();
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 									case EVHTTPRequestHandler::PROCESSING_ERROR:

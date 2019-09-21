@@ -118,8 +118,10 @@ public:
 	{
 	}
 	
-	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	int handleRequest()
 	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
 		Application& app = Application::instance();
 		app.logger().information("Request from " + request.clientAddress().toString());
 

@@ -72,8 +72,10 @@ public:
 	{
 	}
 	
-	int handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
+	int handleRequest()
 	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
 		//printf("[%p:%s:%d] Reached here\n",pthread_self(),__FILE__,__LINE__);
 		Application& app = Application::instance();
 		app.logger().information("Request from " + request.clientAddress().toString());

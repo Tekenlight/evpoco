@@ -15,7 +15,8 @@
 
 namespace Poco{ namespace EVNet {
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no):
+EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no):
+	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_event(event),
 	_cb_evid_num(cb_evid_num),
@@ -24,7 +25,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, w
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no):
+EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no):
+	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_event(event),
 	_cb_evid_num(cb_evid_num),
@@ -33,7 +35,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, w
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no):
+EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no):
+	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_event(event),
 	_cb_evid_num(cb_evid_num),

@@ -31,9 +31,9 @@ public:
 		,DATA_SENT
 		,ERROR
 	} what;
-	EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no = 0);
-	EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no = 0);
-	EVUpstreamEventNotification(poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no = 0);
 
 	~EVUpstreamEventNotification();
 
@@ -49,13 +49,28 @@ public:
 
 	void debug(const char* file, const int lineno);
 
+	void setSRNum(long sr_num);
+
+	long getSRNum();
+
 private:
 	poco_socket_t			_sockfd;
 	what					_event;
 	int						_errno;
 	ssize_t					_bytes;
 	int						_cb_evid_num;
+	long					_sr_num;
 };
+
+inline void EVUpstreamEventNotification::setSRNum(long sr_num)
+{
+	_sr_num = sr_num;
+}
+
+inline long EVUpstreamEventNotification::getSRNum()
+{
+	return _sr_num;
+}
 
 inline EVUpstreamEventNotification::what EVUpstreamEventNotification::getEvent()
 {
