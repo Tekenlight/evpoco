@@ -53,7 +53,7 @@ public:
 	void noMoreDataNecessary();
 	void moreDataNecessary();
 	bool needMoreData();
-	EVConnectedStreamSocket * getEVConnSock(int fd);
+	EVConnectedStreamSocket & getEVConnSock(int fd);
 	void setEVConnSock(EVConnectedStreamSocket * cs);
 	ev_queue_type getUpstreamEventQ();
 	void setUpstreamEventQ(ev_queue_type);
@@ -82,8 +82,15 @@ inline bool EVProcessingState::newDataProcessed() { return (_no_new_data == 0); 
 inline void EVProcessingState::noMoreDataNecessary() { _need_more_data = 0; }
 inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
 inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
-inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd) { return _cssMap[fd]; }
-inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs) { _cssMap[cs->getSockfd()] = cs; }
+inline EVConnectedStreamSocket & EVProcessingState::getEVConnSock(int fd)
+{
+	EVConnectedStreamSocket * cn = _cssMap[fd];
+	return *(_cssMap[fd]);
+}
+inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs)
+{
+	_cssMap[cs->getSockfd()] = cs;
+}
 inline ev_queue_type EVProcessingState::getUpstreamEventQ() { return _upstream_io_event_queue; }
 inline void EVProcessingState::setUpstreamEventQ(ev_queue_type  q) { _upstream_io_event_queue = q; }
 

@@ -1,4 +1,4 @@
-//
+;//
 // EVConnectedStreamSocket.h
 //
 // Library: EVNet
@@ -72,11 +72,11 @@ public:
 	//
 	
 	void setSockFree();
-	// Sets the _sockBusy glag to false.
+	// Sets the _sockBusy flag to false.
 	//
-	
+
 	void setSockBusy();
-	// Sets the _sockBusy glag to true.
+	// Sets the _sockBusy flag to true.
 
 	size_t pushSendData(void * buffer, size_t size);
 	// This will be done by the caller, i.e. an instance
@@ -107,6 +107,8 @@ public:
 	EVConnectedStreamSocket::connected_sock_state getState();
 	void setState(EVConnectedStreamSocket::connected_sock_state state);
 	poco_socket_t getAccSockfd();
+	bool newConnection();
+	void setConnectionUsed();
 
 private:
 	poco_socket_t				_sock_fd;
@@ -121,7 +123,18 @@ private:
 	chunked_memory_stream*		_rcv_memory_stream;
 	connected_sock_state		_state;
 	int							_socketInError;
+	bool						_newConnection;
 };
+
+inline bool EVConnectedStreamSocket::newConnection()
+{
+	return _newConnection;
+}
+
+inline void EVConnectedStreamSocket::setConnectionUsed()
+{
+	_newConnection = false;
+}
 
 inline poco_socket_t EVConnectedStreamSocket::getAccSockfd()
 {

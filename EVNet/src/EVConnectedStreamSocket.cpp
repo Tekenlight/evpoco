@@ -30,7 +30,8 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_send_memory_stream(0),
 	_rcv_memory_stream(0),
 	_state(BEFORE_CONNECT),
-	_socketInError(0)
+	_socketInError(0),
+	_newConnection(true)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);

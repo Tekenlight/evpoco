@@ -46,6 +46,7 @@ public:
 	ssize_t getBytes();
 
 	int getCBEVIDNum();
+	void setCBEVIDNum(int);
 
 	void debug(const char* file, const int lineno);
 
@@ -85,6 +86,11 @@ inline int EVUpstreamEventNotification::getErrNo()
 inline ssize_t EVUpstreamEventNotification::getBytes()
 {
 	return _bytes;
+}
+
+inline void EVUpstreamEventNotification::setCBEVIDNum(int cb_evid_num)
+{
+	_cb_evid_num = cb_evid_num;
 }
 
 inline int EVUpstreamEventNotification::getCBEVIDNum()

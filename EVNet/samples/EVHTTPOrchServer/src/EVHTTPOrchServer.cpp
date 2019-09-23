@@ -145,7 +145,8 @@ private:
 	void part_one()
 	{
 		SocketAddress address("127.0.0.1", 9980);
-		makeNewSocketConnection(PART_TWO, address, ss);
+		//makeNewSocketConnection(PART_TWO, address, ss);
+		makeNewHTTPConnection(PART_TWO, address, ss);
 	}
 
 	void part_two()

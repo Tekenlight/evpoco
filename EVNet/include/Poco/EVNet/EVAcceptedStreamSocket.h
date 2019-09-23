@@ -73,11 +73,11 @@ public:
 	//
 	
 	void setSockFree();
-	// Sets the _sockBusy glag to false.
+	// Sets the _sockBusy flag to false.
 	//
 	
 	void setSockBusy();
-	// Sets the _sockBusy glag to true.
+	// Sets the _sockBusy flag to true.
 
 	size_t pushReqData(void * buffer, size_t size);
 	size_t pushResData(void * buffer, size_t size);

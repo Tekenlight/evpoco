@@ -194,6 +194,7 @@ void EVHTTPRequestProcessor::evrun()
 			if (!pHandler) {
 				pHandler = _pFactory->createRequestHandler(*request);
 				_reqProcState->setRequestHandler(pHandler);
+				pHandler->setProcState(_reqProcState);
 				pHandler->setServer(_reqProcState->getServer());
 				pHandler->setAccSockfd(socket().impl()->sockfd());
 				pHandler->setRequest(request);
@@ -210,7 +211,7 @@ void EVHTTPRequestProcessor::evrun()
 					response->sendContinue();
 				if (pHandler) {
 					int ret = EVHTTPRequestHandler::PROCESSING;
-					ret = pHandler->handleRequest();
+					ret = pHandler->handleRequestSurrogate();
 					switch (ret) {
 						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 						case EVHTTPRequestHandler::PROCESSING_ERROR:
@@ -235,8 +236,7 @@ void EVHTTPRequestProcessor::evrun()
 							pHandler->setUNotification(usN.get());
 							{
 								int ret = EVHTTPRequestHandler::PROCESSING;
-								//ret = pHandler->handleRequest(*request, *response);
-								ret = pHandler->handleRequest();
+								ret = pHandler->handleRequestSurrogate();
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 									case EVHTTPRequestHandler::PROCESSING_ERROR:

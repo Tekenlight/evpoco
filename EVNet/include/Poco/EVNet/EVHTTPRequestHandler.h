@@ -19,6 +19,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
+#include "Poco/Net/HTTPClientSession.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVUpstreamEventNotification.h"
 #include "Poco/EVNet/EVServer.h"
@@ -43,13 +44,22 @@ class Net_API EVHTTPRequestHandler
 	/// each new HTTP request that is received by the HTTPServer.
 {
 public:
-	typedef std::map<long,int *> SRColMapType;
+	struct SRData {
+		SRData(): cb_evid_num(0) {}
+		Net::SocketAddress addr;
+		int	cb_evid_num;
+	} ;
+	typedef std::map<long,SRData *> SRColMapType;
 	static const int INITIAL = 0;
 
 	/* Return values of handleRequest method. */
 	static const int PROCESSING_ERROR = -1;
 	static const int PROCESSING = 0;
 	static const int PROCESSING_COMPLETE = 1;
+
+	static const int HTTP_CONNECT_SOCK_READY = -1;
+	static const int HTTP_CONNECT_RSP_FROM_PROXY = -2;
+	static const int HTTP_RESP_MSG_FROM_HOST = -3;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -85,6 +95,9 @@ public:
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
 	EVHTTPRequestHandler& operator = (const EVHTTPRequestHandler&);
+	StreamSocket& getConnSS(poco_socket_t fd);
+	bool bypassProxy(std::string host);
+	const Net::HTTPClientSession::ProxyConfig& proxyConfig();
 
 	int								_state;
 	EVUpstreamEventNotification*	_usN;
@@ -162,6 +175,11 @@ inline void EVHTTPRequestHandler::setProcState(EVProcessingState* reqProcState)
 inline EVProcessingState& EVHTTPRequestHandler::getProcState()
 {
 	return *_reqProcState;
+}
+
+inline const Net::HTTPClientSession::ProxyConfig& EVHTTPRequestHandler::proxyConfig()
+{
+	return Net::HTTPClientSession::getGlobalProxyConfig();
 }
 
 

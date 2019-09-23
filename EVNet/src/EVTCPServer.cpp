@@ -452,6 +452,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
 
 	EVUpstreamEventNotification * usN = 0;
+	//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
 	usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
 											EVUpstreamEventNotification::SOCKET_CONNECTED,
 											cb_ptr->cb_evid_num,
@@ -519,6 +520,7 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 	}
 
 handleConnSocketWritable_finally:
+	cn->setConnectionUsed();
 	if (ret >=0) {
 		/* If there is more data to be sent, wait for 
 		 * the socket to become writable again.
@@ -1443,17 +1445,20 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	} catch (Exception &e) {
 		ret = -1;
 	}
-	//DEBUGPOINT("css RC = %d\n", sr->getStreamSocket().impl()->referenceCount());
+	//DEBUGPOINT("css RC = %d fd = %d\n", sr->getStreamSocket().impl()->referenceCount(), sr->getStreamSocket().impl()->sockfd());
 
 	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 	if (ret < 0) {
 		tn->decrNumCSEvents();
 		if (tn) {
-			DEBUGPOINT("Here errno = %d\n", errno);
+			int optval = 0;
+			unsigned int optlen = sizeof(optval);
+			getsockopt(sr->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
+			//DEBUGPOINT("Here errno = %d\n", optval);
 			EVUpstreamEventNotification * usN = 0;
 			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													EVUpstreamEventNotification::ERROR,
-													sr->getCBEVIDNum(), ret, errno);
+													sr->getCBEVIDNum(), ret, optval);
 			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 			//if (!(tn->sockBusy()) && !(tn->sockInError()))
 			if (!(tn->sockBusy())) {
