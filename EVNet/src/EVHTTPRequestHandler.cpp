@@ -105,42 +105,43 @@ StreamSocket& EVHTTPRequestHandler::getConnSS(poco_socket_t fd)
 int EVHTTPRequestHandler::handleRequestSurrogate()
 {
 	int ret = 0;
-	Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
 	bool continue_loop = true;
 
 	do {
 		//DEBUGPOINT("Here\n");
 		switch (getEvent()) {
 			case HTTP_CONNECT_SOCK_READY:
-				//DEBUGPOINT("Here\n");
-				if ((usN.getBytes() < 0) || usN.getErrNo()) {
+				{
 					//DEBUGPOINT("Here\n");
-					long sr_num = usN.getSRNum();
-					int cb_evid_num = (_srColl[sr_num])->cb_evid_num;
-					_srColl.erase(sr_num);
-					usN.setCBEVIDNum(cb_evid_num);
-					continue_loop = false;
-					break;
-				}
-				else {
-					long sr_num = usN.getSRNum();
-					int cb_evid_num = (_srColl[sr_num])->cb_evid_num;
-					Net::SocketAddress addr = getConnSS(usN.sockfd()).address();
-					if (proxyConfig().host.empty() || bypassProxy(addr.host().toString())) {
+					if ((_usN->getBytes() < 0) || _usN->getErrNo()) {
 						//DEBUGPOINT("Here\n");
-						/* No proxy or it has to be bypassed. */
+						long sr_num = _usN->getSRNum();
+						int cb_evid_num = (_srColl[sr_num])->cb_evid_num;
 						_srColl.erase(sr_num);
-						usN.setCBEVIDNum(cb_evid_num);
+						_usN->setCBEVIDNum(cb_evid_num);
 						continue_loop = false;
 						break;
 					}
 					else {
-						// TBD: Handle connecting through the proxy here. TBD
-						/* Send CONNECT request to proxy server, setting callback
-						 * event as HTTP_CONNECT_RSP_FROM_PROXY.
-						 * The event handling of HTTP_CONNECT_RSP_FROM_PROXY should be
-						 * coded in a reentrant manner.
-						 * */
+						long sr_num = _usN->getSRNum();
+						int cb_evid_num = (_srColl[sr_num])->cb_evid_num;
+						Net::SocketAddress addr = getConnSS(_usN->sockfd()).address();
+						if (proxyConfig().host.empty() || bypassProxy(addr.host().toString())) {
+							//DEBUGPOINT("Here\n");
+							/* No proxy or it has to be bypassed. */
+							_srColl.erase(sr_num);
+							_usN->setCBEVIDNum(cb_evid_num);
+							continue_loop = false;
+							break;
+						}
+						else {
+							// TBD: Handle connecting through the proxy here. TBD
+							/* Send CONNECT request to proxy server, setting callback
+							 * event as HTTP_CONNECT_RSP_FROM_PROXY.
+							 * The event handling of HTTP_CONNECT_RSP_FROM_PROXY should be
+							 * coded in a reentrant manner.
+							 * */
+						}
 					}
 				}
 				break;
