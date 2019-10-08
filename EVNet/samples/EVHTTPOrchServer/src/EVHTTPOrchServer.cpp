@@ -14,6 +14,7 @@
 #include "Poco/EVNet/EVHTTPServer.h"
 #include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
+#include "Poco/EVNet/EVHTTPClientSession.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
@@ -122,7 +123,7 @@ private:
 
 	EVMyPartHandler partHandler;
 	HTMLForm *form1 = NULL;
-	StreamSocket ss;
+	Poco::EVNet::EVHTTPClientSession session;
 
 	void init()
 	{
@@ -145,8 +146,10 @@ private:
 	void part_one()
 	{
 		SocketAddress address("127.0.0.1", 9980);
-		//makeNewSocketConnection(PART_TWO, address, ss);
-		makeNewHTTPConnection(PART_TWO, address, ss);
+		StreamSocket ss;
+		session.setSS(ss);
+		session.setAddr(address);
+		makeNewHTTPConnection(PART_TWO, &session);
 	}
 
 	void part_two()
@@ -155,7 +158,7 @@ private:
 		HTTPServerResponse& response = (getResponse());
 
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
-		DEBUGPOINT("Socket = %d Refcount = %d\n", usN.sockfd(), ss.impl()->referenceCount());
+		DEBUGPOINT("Socket = %d Refcount = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount());
 		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
 
 		HTMLForm& form = *form1;
@@ -244,10 +247,8 @@ public:
 		switch (getEvent()) {
 			case INITIAL:
 				init();
-				return_value = PROCESSING;
 			case PART_ONE:
 				part_one();
-				return_value = PROCESSING;
 				break;
 			case PART_TWO:
 				part_two();

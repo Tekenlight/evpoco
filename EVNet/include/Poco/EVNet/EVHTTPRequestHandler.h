@@ -20,6 +20,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPClientSession.h"
+#include "Poco/EVNet/EVHTTPClientSession.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVUpstreamEventNotification.h"
 #include "Poco/EVNet/EVServer.h"
@@ -47,6 +48,7 @@ public:
 	struct SRData {
 		SRData(): cb_evid_num(0) {}
 		Net::SocketAddress addr;
+		EVHTTPClientSession* session_ptr;
 		int	cb_evid_num;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
@@ -58,8 +60,9 @@ public:
 	static const int PROCESSING_COMPLETE = 1;
 
 	static const int HTTP_CONNECT_SOCK_READY = -1;
-	static const int HTTP_CONNECT_RSP_FROM_PROXY = -2;
-	static const int HTTP_RESP_MSG_FROM_HOST = -3;
+	static const int HTTP_CONNECT_PROXYSOCK_READY = -2;
+	static const int HTTP_CONNECT_RSP_FROM_PROXY = -3;
+	static const int HTTP_RESP_MSG_FROM_HOST = -4;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -73,6 +76,7 @@ public:
 		/// Handles the given request.
 
 	int handleRequestSurrogate();
+	int handleRequestSurrogateInitial();
 
 	int getState();
 	void setState(int);
@@ -90,7 +94,7 @@ public:
 	void setProcState(EVProcessingState* reqProcState);
 	EVProcessingState& getProcState();
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewHTTPConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
+	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);

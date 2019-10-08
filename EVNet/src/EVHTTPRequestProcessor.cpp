@@ -211,7 +211,7 @@ void EVHTTPRequestProcessor::evrun()
 					response->sendContinue();
 				if (pHandler) {
 					int ret = EVHTTPRequestHandler::PROCESSING;
-					ret = pHandler->handleRequestSurrogate();
+					ret = pHandler->handleRequestSurrogateInitial();
 					switch (ret) {
 						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 						case EVHTTPRequestHandler::PROCESSING_ERROR:
