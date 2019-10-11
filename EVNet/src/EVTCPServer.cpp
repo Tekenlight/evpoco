@@ -457,7 +457,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	 * TBD: We may have to further make sure that the service request for which this notification
 	 * is being passed is in the same session as the current state.
 	 * */
-	if ((tn->getProcState())) {
+	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
 		EVUpstreamEventNotification * usN = 0;
 		//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
 		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
@@ -858,6 +858,8 @@ handleDataAvlblOnAccSock_finally:
 				tn->setProcState(_pConnectionFactory->createReqProcState(this));
 			}
 			tn->setSockBusy();
+			long sr_num = std::atomic_load(&(this->_sr_srl_num));
+			tn->setBaseSRSrlNum(sr_num);
 			_pDispatcher->enqueue(tn);
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -1475,7 +1477,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 		 * TBD: We may have to further make sure that the service request for which this notification
 		 * is being passed is in the same session as the current state.
 		 * */
-		if ((tn->getProcState())) {
+		if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
 			EVUpstreamEventNotification * usN = 0;
 			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													EVUpstreamEventNotification::ERROR,

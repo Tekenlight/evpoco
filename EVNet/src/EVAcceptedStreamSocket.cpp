@@ -33,7 +33,8 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_state(NOT_WAITING),
 	_socketInError(0),
 	_upstream_io_event_queue(create_ev_queue()),
-	_active_cs_events(0)
+	_active_cs_events(0),
+	_base_sr_srl_num(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);

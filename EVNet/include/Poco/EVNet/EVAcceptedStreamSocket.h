@@ -112,6 +112,8 @@ public:
 	void decrNumCSEvents();
 	void incrNumCSEvents();
 	bool pendingCSEvents();
+	bool srInSession(long sr_srl_num);
+	void setBaseSRSrlNum(long sr_srl_num);
 
 private:
 	poco_socket_t				_sockFd;
@@ -132,7 +134,18 @@ private:
 												   on this socket. */
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
 	int							_active_cs_events; /* Tells how many SR requests are pending on this sock */
+	long						_base_sr_srl_num;
 };
+
+inline bool EVAcceptedStreamSocket::srInSession(long sr_srl_num)
+{
+	return (sr_srl_num > _base_sr_srl_num);
+}
+
+inline void EVAcceptedStreamSocket::setBaseSRSrlNum(long sr_srl_num)
+{
+	_base_sr_srl_num = sr_srl_num;
+}
 
 inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()
 {
