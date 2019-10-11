@@ -239,6 +239,9 @@ public:
 								Net::SocketAddress& addr, Net::StreamSocket & css);
 		/// To be called whenever another thread wants to make a new connection.
 
+	virtual long submitRequestForClose(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css);
+		/// To be called whenever another thread wants to close an existing connection.
+
 protected:
 	void run();
 		/// Runs the server. The server will run until
@@ -258,6 +261,7 @@ private:
 	ssize_t handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
 	int makeTCPConnection(EVTCPServiceRequest *);
+	int closeTCPConnection(EVTCPServiceRequest * sr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 	typedef std::map<poco_socket_t,EVTCPServiceRequest *> SRColMapType;

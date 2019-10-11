@@ -43,6 +43,7 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
 	if (this->_socket_watcher) {
+		ev_io_stop(this->_loop, this->_socket_watcher);
 		if ((void*)(this->_socket_watcher->data))
 			free((void*)(this->_socket_watcher->data));
 		free(this->_socket_watcher);

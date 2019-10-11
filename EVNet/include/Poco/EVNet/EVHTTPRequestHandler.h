@@ -16,6 +16,7 @@
 #ifndef Net_EVHTTPRequestHandler_INCLUDED
 #define Net_EVHTTPRequestHandler_INCLUDED
 
+#include <map>
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -24,7 +25,6 @@
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVUpstreamEventNotification.h"
 #include "Poco/EVNet/EVServer.h"
-#include "Poco/EVNet/EVProcessingState.h"
 
 
 namespace Poco {
@@ -63,6 +63,7 @@ public:
 	static const int HTTP_CONNECT_PROXYSOCK_READY = -2;
 	static const int HTTP_CONNECT_RSP_FROM_PROXY = -3;
 	static const int HTTP_RESP_MSG_FROM_HOST = -4;
+	static const int HTTP_CONNECTION_CLOSED = -4;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -91,15 +92,13 @@ public:
 	void setRequest(Net::HTTPServerRequest* req);
 	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
-	void setProcState(EVProcessingState* reqProcState);
-	EVProcessingState& getProcState();
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
+	long closeHTTPSession(EVHTTPClientSession* sess);
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
 	EVHTTPRequestHandler& operator = (const EVHTTPRequestHandler&);
-	StreamSocket& getConnSS(poco_socket_t fd);
 	bool bypassProxy(std::string host);
 	const Net::HTTPClientSession::ProxyConfig& proxyConfig();
 
@@ -109,7 +108,6 @@ private:
 	poco_socket_t					_acc_fd;
 	Net::HTTPServerRequest*			_req = NULL;
 	Net::HTTPServerResponse*		_rsp = NULL;
-	EVProcessingState*				_reqProcState;
 	SRColMapType					_srColl;
 };
 
@@ -169,16 +167,6 @@ inline Net::HTTPServerResponse& EVHTTPRequestHandler::getResponse()
 inline void EVHTTPRequestHandler::setResponse(Net::HTTPServerResponse* rsp)
 {
 	_rsp = rsp;
-}
-
-inline void EVHTTPRequestHandler::setProcState(EVProcessingState* reqProcState)
-{
-	_reqProcState = reqProcState;
-}
-
-inline EVProcessingState& EVHTTPRequestHandler::getProcState()
-{
-	return *_reqProcState;
 }
 
 inline const Net::HTTPClientSession::ProxyConfig& EVHTTPRequestHandler::proxyConfig()

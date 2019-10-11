@@ -100,6 +100,8 @@ public:
 	chunked_memory_stream * getResMemStream();
 	void deleteState();
 
+	void setEventLoop(struct ev_loop* loop);
+	struct ev_loop* getEventLoop();
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
 
 	accepted_sock_state getState();
@@ -113,6 +115,7 @@ public:
 
 private:
 	poco_socket_t				_sockFd;
+	struct ev_loop*				_loop;
 	ev_io*						_socket_watcher;
 	StreamSocket				_streamSocket;
 	time_t						_timeOfLastUse;
@@ -164,6 +167,26 @@ inline bool EVAcceptedStreamSocket::pendingCSEvents()
 {
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
 	return (_active_cs_events>0);
+}
+
+inline void EVAcceptedStreamSocket::setEventLoop(struct ev_loop* loop)
+{
+	_loop = loop;
+}
+
+inline struct ev_loop* EVAcceptedStreamSocket::getEventLoop()
+{
+	return _loop;
+}
+
+inline void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
+{
+	this->_socket_watcher = socket_watcher_ptr;
+}
+
+inline ev_io * EVAcceptedStreamSocket::getSocketWatcher()
+{
+	return this->_socket_watcher;
 }
 
 } } // namespace EVNet and Poco end.

@@ -101,6 +101,8 @@ public:
 	void deleteState();
 
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
+	void setEventLoop(struct ev_loop* loop);
+	struct ev_loop* getEventLoop();
 
 	void setSockInError();
 	bool sockInError();
@@ -114,6 +116,7 @@ private:
 	poco_socket_t				_sock_fd;
 	poco_socket_t				_acc_sock_fd;
 	ev_io*						_socket_watcher;
+	struct ev_loop*				_loop;
 	StreamSocket				_streamSocket;
 	time_t						_timeOfLastUse;
 	EVConnectedStreamSocket*	_prevPtr;
@@ -160,6 +163,16 @@ inline void EVConnectedStreamSocket::setSockInError()
 inline bool EVConnectedStreamSocket::sockInError()
 {
 	return (_socketInError>0);
+}
+
+inline void EVConnectedStreamSocket::setEventLoop(struct ev_loop* loop)
+{
+	_loop = loop;
+}
+
+inline struct ev_loop* EVConnectedStreamSocket::getEventLoop()
+{
+	return _loop;
 }
 
 } } // namespace EVNet and Poco end.

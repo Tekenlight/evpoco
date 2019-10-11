@@ -158,8 +158,9 @@ private:
 		HTTPServerResponse& response = (getResponse());
 
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
-		DEBUGPOINT("Socket = %d Refcount = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount());
+		DEBUGPOINT("Socket = %d Refcount = %d state = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState());
 		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
+		closeHTTPSession(&session);
 
 		HTMLForm& form = *form1;
 

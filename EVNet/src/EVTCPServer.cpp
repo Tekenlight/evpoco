@@ -451,18 +451,26 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
 
-	EVUpstreamEventNotification * usN = 0;
-	//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
-	usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
-											EVUpstreamEventNotification::SOCKET_CONNECTED,
-											cb_ptr->cb_evid_num,
-											(!optval)?1:-1,
-											optval);
-	enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-	//if (!(tn->sockBusy()) && !(tn->sockInError()))
-	if (!(tn->sockBusy())) {
-		tn->setSockBusy();
-		_pDispatcher->enqueue(tn);
+	/* Enqueue the notification only if the accepted socket is still being processed.
+	 * 
+	 * For consideration
+	 * TBD: We may have to further make sure that the service request for which this notification
+	 * is being passed is in the same session as the current state.
+	 * */
+	if ((tn->getProcState())) {
+		EVUpstreamEventNotification * usN = 0;
+		//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
+		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+												EVUpstreamEventNotification::SOCKET_CONNECTED,
+												cb_ptr->cb_evid_num,
+												(!optval)?1:-1,
+												optval);
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		//if (!(tn->sockBusy()) && !(tn->sockInError()))
+		if (!(tn->sockBusy())) {
+			tn->setSockBusy();
+			_pDispatcher->enqueue(tn);
+		}
 	}
 
 	return 1;
@@ -1200,6 +1208,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 			EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
 			acceptedSock->setSocketWatcher(socket_watcher_ptr);
+			acceptedSock->setEventLoop(_loop);
 			fd = ss.impl()->sockfd();
 			_accssColl[ss.impl()->sockfd()] = acceptedSock;
 			acceptedSock->setTimeOfLastUse();
@@ -1438,32 +1447,43 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	int ret = 0;
 	ev_io * socket_watcher_ptr = 0;
 	strms_ic_cb_ptr_type cb_ptr = 0;
+	int optval = 0;
+	unsigned int optlen = sizeof(optval);
 
 	errno = 0;
 	try {
 		sr->getStreamSocket().connectNB(sr->getAddr());
 	} catch (Exception &e) {
+		DEBUGPOINT("Exception = %s\n", e.what());
+		optval = errno;
 		ret = -1;
 	}
 	//DEBUGPOINT("css RC = %d fd = %d\n", sr->getStreamSocket().impl()->referenceCount(), sr->getStreamSocket().impl()->sockfd());
 
 	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 	if (ret < 0) {
+
 		tn->decrNumCSEvents();
-		if (tn) {
-			int optval = 0;
-			unsigned int optlen = sizeof(optval);
-			getsockopt(sr->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
-			//DEBUGPOINT("Here errno = %d\n", optval);
+		// SO_ERROR probably works only in case of select system call.
+		// It is not returning the correct errno over here.
+		//getsockopt(sr->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
+		//DEBUGPOINT("Here errno = %d\n", optval);
+
+		/* Enqueue the notification only if the accepted socket is still being processed.
+		 * 
+		 * For consideration
+		 * TBD: We may have to further make sure that the service request for which this notification
+		 * is being passed is in the same session as the current state.
+		 * */
+		if ((tn->getProcState())) {
 			EVUpstreamEventNotification * usN = 0;
 			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													EVUpstreamEventNotification::ERROR,
 													sr->getCBEVIDNum(), ret, optval);
 			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-			//if (!(tn->sockBusy()) && !(tn->sockInError()))
 			if (!(tn->sockBusy())) {
-				tn->setSockBusy();
-				_pDispatcher->enqueue(tn);
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
 			}
 		}
 		return ret;
@@ -1475,6 +1495,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), sr->getStreamSocket());
 	//DEBUGPOINT("css RC = %d\n", sr->getStreamSocket().impl()->referenceCount());
 	connectedSock->setSocketWatcher(socket_watcher_ptr);
+	connectedSock->setEventLoop(_loop);
 
 	tn->getProcState()->setEVConnSock(connectedSock);
 	connectedSock->setTimeOfLastUse();
@@ -1493,6 +1514,44 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, sr->getStreamSocket().impl()->sockfd(), EV_READ|EV_WRITE);
 	ev_io_start (_loop, socket_watcher_ptr);
 
+	return ret;
+}
+
+int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
+{
+	int ret = 0;
+	ev_io * socket_watcher_ptr = 0;
+	strms_ic_cb_ptr_type cb_ptr = 0;
+
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	if (tn->getProcState()) {
+		EVConnectedStreamSocket * cn = tn->getProcState()->getEVConnSock(sr->sockfd());
+		if (cn) {
+			socket_watcher_ptr = cn->getSocketWatcher();
+			ev_io_stop (_loop, socket_watcher_ptr);
+		}
+
+		errno = 0;
+		ret = 0;
+		try {
+			sr->getStreamSocket().close();
+		} catch (Exception &e) {
+			ret = -1;
+		}
+
+		tn->getProcState()->eraseEVConnSock(sr->accSockfd());
+	}
+	tn->decrNumCSEvents();
+
+	/* We do not enqueue upstream notification for socket closure.
+	 * Neither do we check for accepted socket being busy etc.
+	 *
+	 * The assumption is that the caller is not really interested in
+	 * result of the closure operation.
+	 * */
+
+	int fd = sr->getStreamSocket().impl()->sockfd();
+	DEBUGPOINT("Closed TCP connection for fd = [%d]\n", fd);
 	return ret;
 }
 
@@ -1526,6 +1585,9 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
 				makeTCPConnection(srNF);
 				break;
+			case EVTCPServiceRequest::CLEANUP_REQUEST:
+				closeTCPConnection(srNF);
+				break;
 			default:
 				break;
 		}
@@ -1543,6 +1605,20 @@ long EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_
 	/* Enque the socket */
 	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
 										EVTCPServiceRequest::CONNECTION_REQUEST, acc_fd, css, addr));
+
+	/* And then wake up the loop calls async_stop_cb_2 */
+	ev_async_send(_loop, this->stop_watcher_ptr3);
+	/* This will result in invocation of handleServiceRequest */
+	return sr_num;
+}
+
+long EVTCPServer::submitRequestForClose(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
+										EVTCPServiceRequest::CLEANUP_REQUEST, acc_fd, css));
 
 	/* And then wake up the loop calls async_stop_cb_2 */
 	ev_async_send(_loop, this->stop_watcher_ptr3);

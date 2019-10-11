@@ -194,7 +194,6 @@ void EVHTTPRequestProcessor::evrun()
 			if (!pHandler) {
 				pHandler = _pFactory->createRequestHandler(*request);
 				_reqProcState->setRequestHandler(pHandler);
-				pHandler->setProcState(_reqProcState);
 				pHandler->setServer(_reqProcState->getServer());
 				pHandler->setAccSockfd(socket().impl()->sockfd());
 				pHandler->setRequest(request);

@@ -63,16 +63,6 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 	}
 }
 
-void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
-{
-	this->_socket_watcher = socket_watcher_ptr;
-}
-
-ev_io * EVAcceptedStreamSocket::getSocketWatcher()
-{
-	return this->_socket_watcher;
-}
-
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);

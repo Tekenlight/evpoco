@@ -30,6 +30,7 @@ public:
 	typedef enum {
 		NOT_CONNECTED=-1
 		,CONNECTED
+		,ERROR
 		,CLOSED
 	} SessionState;
 
@@ -39,6 +40,9 @@ public:
 
 	void setSS(Net::StreamSocket&);
 	void setAddr(Net::SocketAddress& );
+	
+	void setState(SessionState);
+	SessionState getState();
 
 	Net::StreamSocket& getSS();
 	Net::SocketAddress& getAddr();
@@ -67,6 +71,16 @@ inline void EVHTTPClientSession::setSS(Net::StreamSocket& sock)
 inline void EVHTTPClientSession::setAddr(Net::SocketAddress& addr)
 {
 	_addr = addr;
+}
+
+inline void EVHTTPClientSession::setState(EVHTTPClientSession::SessionState s)
+{
+	_state = s;
+}
+
+inline EVHTTPClientSession::SessionState EVHTTPClientSession::getState()
+{
+	return _state;
 }
 
 
