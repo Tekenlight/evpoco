@@ -91,6 +91,10 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
+	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+		return -1;
+	}
+
 	SRData * srdata = new SRData();
 	srdata->addr = sess->getAddr();
 	srdata->session_ptr = sess;

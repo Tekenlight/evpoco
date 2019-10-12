@@ -1131,6 +1131,24 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
 				sendDataOnAccSocket(tn);
 				break;
+			case EVTCPServerNotification::ERROR_IN_PROCESSING:
+				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				tn->setSockFree();
+				if (tn->pendingCSEvents()) {
+					//DEBUGPOINT("RETAINING  ACC SOCK\n");
+					tn->setSockInError();
+				}
+				else {
+					//DEBUGPOINT("CLEARING ACC SOCK\n");
+					clearAcceptedSocket(pcNf->sockfd());
+				}
+				break;
+
+			/* The following 2 cases are generated within the thread of
+			 * EVTCPServer. Whereas the above ones are resultant of some
+			 * event in the worker thread.
+			 * */
+
 			case EVTCPServerNotification::ERROR_WHILE_SENDING:
 				//DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
 			case EVTCPServerNotification::ERROR_WHILE_RECEIVING:
@@ -1142,18 +1160,6 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				else {
 					//DEBUGPOINT("RETAINING  ACC SOCK\n");
 					tn->setSockInError();
-				}
-				break;
-			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
-				tn->setSockFree();
-				if (tn->pendingCSEvents()) {
-					//DEBUGPOINT("RETAINING  ACC SOCK\n");
-					tn->setSockInError();
-				}
-				else {
-					//DEBUGPOINT("CLEARING ACC SOCK\n");
-					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
 			default:
@@ -1452,6 +1458,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	int optval = 0;
 	unsigned int optlen = sizeof(optval);
 
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 	errno = 0;
 	try {
 		sr->getStreamSocket().connectNB(sr->getAddr());
@@ -1462,7 +1469,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	}
 	//DEBUGPOINT("css RC = %d fd = %d\n", sr->getStreamSocket().impl()->referenceCount(), sr->getStreamSocket().impl()->sockfd());
 
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 	if (ret < 0) {
 
 		tn->decrNumCSEvents();
@@ -1579,12 +1585,17 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 			continue;
 		}
+		if (!(tn->getProcState()) || !(tn->srInSession(srNF->getSRNum()))) {
+			DEBUGPOINT("Here DEAD REQUEST\n");
+			continue;
+		}
 		tn->incrNumCSEvents();
 
 		EVTCPServiceRequest::what event = srNF->getEvent();
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
+				DEBUGPOINT("Here\n");
 				makeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::CLEANUP_REQUEST:

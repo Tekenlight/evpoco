@@ -143,16 +143,20 @@ private:
 
 	}
 
-	void part_one()
+	int part_one()
 	{
 		SocketAddress address("127.0.0.1", 9980);
 		StreamSocket ss;
 		session.setSS(ss);
 		session.setAddr(address);
-		makeNewHTTPConnection(PART_TWO, &session);
+		if (0 > makeNewHTTPConnection(PART_TWO, &session))
+			return -1;
+
+		return 0;
+
 	}
 
-	void part_two()
+	int part_two()
 	{
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
@@ -224,6 +228,8 @@ private:
 		ostr << "</body>\n";
 		ostr.flush();
 
+		return 0;
+
 	}
 
 	void cleanup()
@@ -249,11 +255,20 @@ public:
 			case INITIAL:
 				init();
 			case PART_ONE:
-				part_one();
+				if (0 > part_one()) {
+					DEBUGPOINT("Here\n");
+					return_value = PROCESSING_ERROR;
+				}
 				break;
 			case PART_TWO:
-				part_two();
-				return_value = PROCESSING_COMPLETE;
+				if (0> part_two()) {
+					DEBUGPOINT("Here\n");
+				 	return_value = PROCESSING_ERROR;
+				}
+				else {
+					DEBUGPOINT("Here\n");
+					return_value = PROCESSING_COMPLETE;
+				}
 				break;
 			default:
 				std::abort();
