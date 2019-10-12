@@ -1132,7 +1132,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				tn->setSockFree();
 				if (tn->pendingCSEvents()) {
 					//DEBUGPOINT("RETAINING  ACC SOCK\n");
@@ -1595,7 +1595,6 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
-				DEBUGPOINT("Here\n");
 				makeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::CLEANUP_REQUEST:
