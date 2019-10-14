@@ -309,7 +309,7 @@ private:
 	ssize_t receiveData(StreamSocket&, void * chptr, size_t size);
 	ssize_t sendData(int fd, void * chptr, size_t size);
 	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
-	void handlePeriodicWakup(const bool& ev_occured);
+	void handlePeriodicWakeup(const bool& ev_occured);
 	long getNextSRSrlNum();
 
 	ServerSocket						_socket;
