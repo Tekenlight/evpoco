@@ -179,7 +179,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			break;
 	}
 
-	if (continue_event_loop) { ret = PROCESSING; }
+	if (continue_event_loop) {
+		ret = PROCESSING;
+	}
 	else {
 		try {
 			ret = handleRequest();
