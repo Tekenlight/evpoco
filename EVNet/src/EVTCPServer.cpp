@@ -1268,6 +1268,10 @@ void EVTCPServer::handlePeriodicWakeup(const bool& ev_occured)
 		/* Handle all those sockets which are waiting for read while
 		 * processing of input data is in progress.
 		 * */
+
+		/* This O(n) parsing can be a problem, if there are hundreds
+		 * of thousands of connections.
+		 * */
 		if ((EVAcceptedStreamSocket::WAITING_FOR_READWRITE == tn->getState() ||
 			EVAcceptedStreamSocket::WAITING_FOR_READ == tn->getState()) &&
 			(tn->getProcState() && (tn->getProcState()->needMoreData()))) {
@@ -1450,6 +1454,56 @@ AbstractConfiguration& EVTCPServer::appConfig()
 	}
 }
 
+int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
+{
+	int ret = 0;
+	ev_io * socket_watcher_ptr = 0;
+	strms_ic_cb_ptr_type cb_ptr = 0;
+	int optval = 0;
+	unsigned int optlen = sizeof(optval);
+
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	errno = 0;
+	if (tn->getProcState()) {
+
+		EVConnectedStreamSocket * cn = tn->getProcState()->getEVConnSock(sr->sockfd());
+		if (cn) {
+			socket_watcher_ptr = cn->getSocketWatcher();
+			ev_io_stop (_loop, socket_watcher_ptr);
+		}
+		else return -1;
+
+
+		socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
+		memset(socket_watcher_ptr,0,sizeof(ev_io));
+
+		EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), sr->getStreamSocket());
+		//DEBUGPOINT("css RC = %d\n", sr->getStreamSocket().impl()->referenceCount());
+		connectedSock->setSocketWatcher(socket_watcher_ptr);
+		connectedSock->setEventLoop(_loop);
+
+		tn->getProcState()->setEVConnSock(connectedSock);
+		connectedSock->setTimeOfLastUse();
+
+		cb_ptr = (strms_ic_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
+		memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
+
+		cb_ptr->objPtr = this;
+		cb_ptr->sr_num = sr->getSRNum();
+		cb_ptr->cb_evid_num = sr->getCBEVIDNum();
+		cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
+		cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
+		cb_ptr->cn = connectedSock;
+		socket_watcher_ptr->data = (void*)cb_ptr;
+
+		ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, sr->getStreamSocket().impl()->sockfd(), EV_READ|EV_WRITE);
+		ev_io_start (_loop, socket_watcher_ptr);
+
+	}
+
+	return ret;
+}
+
 int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 {
 	int ret = 0;
@@ -1600,6 +1654,9 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			case EVTCPServiceRequest::CLEANUP_REQUEST:
 				closeTCPConnection(srNF);
 				break;
+			case EVTCPServiceRequest::SENDDATA_REQUEST:
+				sendDataOnConnSocket(srNF);
+				break;
 			default:
 				break;
 		}
@@ -1608,6 +1665,20 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	}
 
 	return;
+}
+
+long EVTCPServer::submitRequestForSendData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
+										EVTCPServiceRequest::SENDDATA_REQUEST, acc_fd, css));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->stop_watcher_ptr3);
+	/* This will result in invocation of handleServiceRequest */
+	return sr_num;
 }
 
 long EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::SocketAddress& addr, Net::StreamSocket& css)

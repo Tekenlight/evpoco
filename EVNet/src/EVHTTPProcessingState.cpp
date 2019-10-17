@@ -511,7 +511,6 @@ int EVHTTPProcessingState::continueRead()
 	if (_state == MESSAGE_COMPLETE) {
 
 		{
-			size_t length = _request->getMessageBodySize();
 			size_t node_buffer_len = 0;
 			size_t xfr_size = 0;
 			_request->formInputStream(_req_memory_stream);

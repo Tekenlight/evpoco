@@ -20,6 +20,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
+#include "Poco/EVNet/EVServer.h"
 #include "Poco/EVNet/EVHTTPServerSession.h"
 #include "Poco/MemoryPool.h"
 #include <cstddef>
@@ -40,12 +41,10 @@ class Net_API EVHTTPHeaderStreamBuf: public ev_buffered_stream
 public:
 	typedef std::basic_ios<char, std::char_traits<char>>::openmode openmode;
 
-	EVHTTPHeaderStreamBuf(EVHTTPServerSession & session, chunked_memory_stream *cms, openmode mode);
+	EVHTTPHeaderStreamBuf(chunked_memory_stream *cms, openmode mode);
 	void get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len);
 	~EVHTTPHeaderStreamBuf();
 
-private:
-	EVHTTPServerSession& _session;
 };
 
 
@@ -53,7 +52,7 @@ class Net_API EVHTTPHeaderIOS: public virtual std::ios
 	/// The base class for EVHTTPHeaderInputStream.
 {
 public:
-	EVHTTPHeaderIOS(EVHTTPServerSession& session, chunked_memory_stream *cms, EVHTTPHeaderStreamBuf::openmode mode);
+	EVHTTPHeaderIOS(chunked_memory_stream *cms, EVHTTPHeaderStreamBuf::openmode mode);
 	~EVHTTPHeaderIOS();
 	EVHTTPHeaderStreamBuf* rdbuf();
 
@@ -66,7 +65,7 @@ class Net_API EVHTTPHeaderInputStream: public EVHTTPHeaderIOS, public std::istre
 	/// This class is for internal use by HTTPSession only.
 {
 public:
-	EVHTTPHeaderInputStream(EVHTTPServerSession& session, chunked_memory_stream * cms);
+	EVHTTPHeaderInputStream(chunked_memory_stream * cms);
 	~EVHTTPHeaderInputStream();
 
 };
@@ -76,7 +75,7 @@ class Net_API EVHTTPHeaderOutputStream: public EVHTTPHeaderIOS, public std::ostr
 	/// This class is for internal use by HTTPSession only.
 {
 public:
-	EVHTTPHeaderOutputStream(EVHTTPServerSession& session, chunked_memory_stream * cms);
+	EVHTTPHeaderOutputStream(chunked_memory_stream * cms);
 	~EVHTTPHeaderOutputStream();
 
 };

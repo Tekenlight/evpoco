@@ -10,6 +10,8 @@
 //
 
 
+#include <fcntl.h>
+
 #include "Poco/EVNet/EVHTTPRequestHandler.h"
 #include "Poco/RegularExpression.h"
 
@@ -112,6 +114,13 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
+}
+
+/* This method assumes that input HTTPRequest is completely formed. */
+long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession *sess)
+{
+	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	return 0;
 }
 
 bool EVHTTPRequestHandler::bypassProxy(std::string host)

@@ -47,13 +47,16 @@ EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerSession& session)
 
 EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 {
+	//_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
 	delete _pStream;
 }
 
 void EVHTTPServerResponseImpl::sendContinue()
 {
-	EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
+	EVHTTPHeaderOutputStream hs(_out_memory_stream);
 	hs << getVersion() << " 100 Continue\r\n\r\n";
+	_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
+
 }
 
 void EVHTTPServerResponseImpl::setMemoryStream(chunked_memory_stream* cms)
@@ -83,7 +86,7 @@ std::ostream& EVHTTPServerResponseImpl::send()
 		write(*_pStream);
 	}
 	else if (getChunkedTransferEncoding()) {
-		EVHTTPHeaderOutputStream hs(_session, _out_memory_stream);
+		EVHTTPHeaderOutputStream hs(_out_memory_stream);
 		write(hs);
 		_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
 		_pStream = new EVHTTPChunkedOutputStream(_out_memory_stream);
@@ -127,7 +130,7 @@ void EVHTTPServerResponseImpl::sendFile(const std::string& path, const std::stri
 	Poco::FileInputStream istr(path);
 	if (istr.good())
 	{
-		_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
+		_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 		write(*_pStream);
 		if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 		{
@@ -145,7 +148,7 @@ void EVHTTPServerResponseImpl::sendBuffer(const void* pBuffer, std::size_t lengt
 	setContentLength(static_cast<int>(length));
 	setChunkedTransferEncoding(false);
 	
-	_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
+	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 	write(*_pStream);
 	if (_pRequest && _pRequest->getMethod() != HTTPRequest::HTTP_HEAD)
 	{
@@ -164,7 +167,7 @@ void EVHTTPServerResponseImpl::redirect(const std::string& uri, HTTPStatus statu
 	setStatusAndReason(status);
 	set("Location", uri);
 
-	_pStream = new EVHTTPHeaderOutputStream(_session, _out_memory_stream);
+	_pStream = new EVHTTPHeaderOutputStream(_out_memory_stream);
 	write(*_pStream);
 }
 

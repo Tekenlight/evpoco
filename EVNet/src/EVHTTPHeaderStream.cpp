@@ -26,8 +26,7 @@ namespace EVNet {
 //
 
 
-EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(EVHTTPServerSession& session, chunked_memory_stream *cms, openmode mode):
-	_session(session),
+EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(chunked_memory_stream *cms, openmode mode):
 	ev_buffered_stream(cms, 1024)
 {
 }
@@ -35,7 +34,7 @@ EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(EVHTTPServerSession& session, chunk
 
 EVHTTPHeaderStreamBuf::~EVHTTPHeaderStreamBuf()
 {
-	_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
+	//_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
 }
 
 void EVHTTPHeaderStreamBuf::get_prefix(char* buffer, std::streamsize bytes, char *prefix, size_t prefix_len)
@@ -47,8 +46,8 @@ void EVHTTPHeaderStreamBuf::get_prefix(char* buffer, std::streamsize bytes, char
 //
 
 
-EVHTTPHeaderIOS::EVHTTPHeaderIOS(EVHTTPServerSession& session, chunked_memory_stream *cms, EVHTTPHeaderStreamBuf::openmode mode):
-	_buf(session, cms, mode)
+EVHTTPHeaderIOS::EVHTTPHeaderIOS(chunked_memory_stream *cms, EVHTTPHeaderStreamBuf::openmode mode):
+	_buf(cms, mode)
 {
 	poco_ios_init(&_buf);
 }
@@ -82,8 +81,8 @@ EVHTTPHeaderStreamBuf* EVHTTPHeaderIOS::rdbuf()
 //
 
 
-EVHTTPHeaderInputStream::EVHTTPHeaderInputStream(EVHTTPServerSession& session, chunked_memory_stream *cms):
-	EVHTTPHeaderIOS(session, cms, std::ios::in),
+EVHTTPHeaderInputStream::EVHTTPHeaderInputStream(chunked_memory_stream *cms):
+	EVHTTPHeaderIOS(cms, std::ios::in),
 	std::istream(&_buf)
 {
 }
@@ -98,8 +97,8 @@ EVHTTPHeaderInputStream::~EVHTTPHeaderInputStream()
 //
 
 
-EVHTTPHeaderOutputStream::EVHTTPHeaderOutputStream(EVHTTPServerSession& session, chunked_memory_stream *cms):
-	EVHTTPHeaderIOS(session, cms, std::ios::in),
+EVHTTPHeaderOutputStream::EVHTTPHeaderOutputStream(chunked_memory_stream *cms):
+	EVHTTPHeaderIOS(cms, std::ios::in),
 	std::ostream(&_buf)
 {
 }

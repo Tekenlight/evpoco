@@ -9,6 +9,7 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
+#include <iostream>
 
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/EVNet/EVHTTPServer.h"
@@ -31,8 +32,9 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
-#include <iostream>
 
+
+#include "Poco/Net/HTTPRequest.h"
 
 using Poco::Net::ServerSocket;
 using Poco::EVNet::EVHTTPRequestHandler;
@@ -44,6 +46,7 @@ using Poco::Net::HTTPServerParams;
 using Poco::Net::MessageHeader;
 using Poco::Net::HTMLForm;
 using Poco::Net::NameValueCollection;
+using Poco::Net::HTTPRequest;
 using Poco::Util::ServerApplication;
 using Poco::Util::Application;
 using Poco::Util::Option;
@@ -119,7 +122,8 @@ class EVFormRequestHandler: public EVHTTPRequestHandler
 private:
 	static const int PART_ONE = 1;
 	static const int PART_TWO = 2;
-	static const int FINAL = 3;
+	static const int PART_THREE = 3;
+	static const int FINAL = 4;
 
 	EVMyPartHandler partHandler;
 	HTMLForm *form1 = NULL;
@@ -139,8 +143,6 @@ private:
 		getResponse().setContentType("text/html");
 
 		getResponse().send();
-
-
 	}
 
 	int part_one()
@@ -149,8 +151,10 @@ private:
 		StreamSocket ss;
 		session.setSS(ss);
 		session.setAddr(address);
-		if (0 > makeNewHTTPConnection(PART_TWO, &session))
+		if (0 > makeNewHTTPConnection(PART_TWO, &session)) {
+			send_error_response();
 			return -1;
+		}
 
 		return 0;
 
@@ -158,13 +162,22 @@ private:
 
 	int part_two()
 	{
-		HTTPServerRequest& request = (getRequest());
-		HTTPServerResponse& response = (getResponse());
-
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
 		DEBUGPOINT("Socket = %d Refcount = %d state = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState());
 		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
-		//closeHTTPSession(&session);
+		if (usN.getBytes() < 0) {
+			send_error_response();
+			return -1;
+		}
+
+		return part_three();
+	}
+
+	int part_three()
+	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
+
 
 		HTMLForm& form = *form1;
 
@@ -226,10 +239,36 @@ private:
 			ostr << "</p>";
 		}
 		ostr << "</body>\n";
+		ostr << "</html>\n";
 		ostr.flush();
 
 		return 0;
 
+	}
+
+	void send_error_response()
+	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
+
+
+		HTMLForm& form = *form1;
+
+		std::ostream& ostr = getResponse().getOStream();
+
+		ostr <<
+			"<html>\n"
+			"<head>\n"
+			"<title>EVHTTPOrchServer Processing ERROR</title>\n"
+			"</head>\n"
+			"<body>\n"
+			"<h1>EVHTTP Form Server Sample</h1>\n";
+
+		ostr << "COULD NOT OPEN CONNECTION WITH DATA PROVIDER\n";
+
+		ostr << "</body>\n";
+		ostr << "</html>\n";
+		ostr.flush();
 	}
 
 	void cleanup()
@@ -269,6 +308,9 @@ public:
 					DEBUGPOINT("Here\n");
 					return_value = PROCESSING_COMPLETE;
 				}
+				break;
+			case PART_THREE:
+				return_value = PROCESSING_COMPLETE;
 				break;
 			default:
 				std::abort();
