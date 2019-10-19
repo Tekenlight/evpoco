@@ -242,7 +242,7 @@ public:
 	virtual long submitRequestForClose(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css);
 		/// To be called whenever another thread wants to close an existing connection.
 
-	virtual long submitRequestForSendData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css);
+	virtual long submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSocket& css);
 		/// To be called whenver a worker thread wants to send data
 		/// to a server it has opened connection with.
 protected:

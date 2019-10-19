@@ -14,67 +14,84 @@
 
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVHTTPRequest.h"
+#include "Poco/CountingStream.h"
 #include "Poco/EVNet/EVHTTPHeaderStream.h"
-
+#include "Poco/EVNet/EVHTTPChunkedStream.h"
+#include "Poco/EVNet/EVHTTPFixedLengthStream.h"
 
 namespace Poco {
 namespace EVNet {
 
 EVHTTPRequest::EVHTTPRequest():
-HTTPRequest("HTTP/1.1"),
-_msg_body(new chunked_memory_stream())
+	HTTPRequest("HTTP/1.1"),
+	_msg_header(new chunked_memory_stream()),
+	_msg_body(new chunked_memory_stream()),
+	_msg_body_stream(0)
 {
 }
 
 EVHTTPRequest::EVHTTPRequest(const std::string& method, const std::string& uri):
-HTTPRequest(method, uri, "HTTP/1.1"),
-_msg_body(new chunked_memory_stream())
+	HTTPRequest(method, uri, "HTTP/1.1"),
+	_msg_header(new chunked_memory_stream()),
+	_msg_body(new chunked_memory_stream()),
+	_msg_body_stream(0)
 {
 }
 
 EVHTTPRequest::~EVHTTPRequest()
 {
+	delete _msg_header;
+	delete _msg_body;
+	delete _msg_body_stream;
 }
 
-std::ostream& EVHTTPRequest::prepareRequestStream()
+chunked_memory_stream* EVHTTPRequest::getMessageHeader()
 {
-	/*
+	return _msg_header;
+}
+
+chunked_memory_stream* EVHTTPRequest::getMessageBody()
+{
+	_msg_body_stream->flush();
+	return _msg_body;
+}
+
+void EVHTTPRequest::prepareHeaderForSend()
+{
 	const std::string& method = getMethod();
 	if (getChunkedTransferEncoding()) {
-		EVHTTPHeaderOutputStream hos(*this);
-		request.write(hos);
-		_pRequestStream = new HTTPChunkedOutputStream(*this);
+		EVHTTPHeaderOutputStream hos(_msg_header);
+		write(hos);
+		_msg_body_stream = new EVHTTPChunkedOutputStream(_msg_body);
 	}
-	else if (request.hasContentLength())
-	{
-		Poco::CountingOutputStream cs;
-		request.write(cs);
+	else if (hasContentLength()) {
+		EVHTTPHeaderOutputStream hos(_msg_header);
+		write(hos);
 #if POCO_HAVE_INT64
-		_pRequestStream = new HTTPFixedLengthOutputStream(*this, request.getContentLength64() + cs.chars());
+		_msg_body_stream = new EVHTTPFixedLengthOutputStream(_msg_body, getContentLength64());
 #else
-		_pRequestStream = new HTTPFixedLengthOutputStream(*this, request.getContentLength() + cs.chars());
+		_msg_body_stream = new EVHTTPFixedLengthOutputStream(_msg_body, getContentLength());
 #endif
-		request.write(*_pRequestStream);
 	}
-	else if ((method != HTTPRequest::HTTP_PUT && method != HTTPRequest::HTTP_POST && method != HTTPRequest::HTTP_PATCH) || request.has(HTTPRequest::UPGRADE))
-	{
-		Poco::CountingOutputStream cs;
-		request.write(cs);
-		_pRequestStream = new HTTPFixedLengthOutputStream(*this, cs.chars());
-		request.write(*_pRequestStream);
+	else if ((method != HTTPRequest::HTTP_PUT && method != HTTPRequest::HTTP_POST && method != HTTPRequest::HTTP_PATCH) || has(HTTPRequest::UPGRADE)) {
+		EVHTTPHeaderOutputStream hos(_msg_header);
+		write(hos);
 	}
-	else
-	{
-		_pRequestStream = new HTTPOutputStream(*this);
-		request.write(*_pRequestStream);
-	}	
-	*/
-	return *_message_body_stream;
+	else {
+		/*
+		_msg_body_stream = new HTTPOutputStream(*this);
+		request.write(*_msg_body_stream);
+		*/
+		DEBUGPOINT("A request message originating should be one of header-only , or fixed length, or chunked\n");
+		std::abort();
+	}
+
+	return ;
 }
 
-std::ostream& EVHTTPRequest::getRequestStream()
+std::ostream* EVHTTPRequest::getRequestStream()
 {
-	return *_message_body_stream;
+	return _msg_body_stream;
 }
 
 }

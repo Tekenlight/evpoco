@@ -34,7 +34,7 @@
 #include "Poco/Util/HelpFormatter.h"
 
 
-#include "Poco/Net/HTTPRequest.h"
+#include "Poco/EVNet/EVHTTPRequest.h"
 
 using Poco::Net::ServerSocket;
 using Poco::EVNet::EVHTTPRequestHandler;
@@ -169,7 +169,15 @@ private:
 			send_error_response();
 			return -1;
 		}
+		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
+		request.setHost("localhost:9980");
+		std::string body("this is a random request body");
+		request.setContentLength((int) body.length());
+		sendHTTPHeader(session, request);
+		*(request.getRequestStream()) << body;
+		sendHTTPRequestData(session, request);
 
+		sleep(1);
 		return part_three();
 	}
 

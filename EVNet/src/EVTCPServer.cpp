@@ -465,6 +465,8 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 												cb_ptr->cb_evid_num,
 												(!optval)?1:-1,
 												optval);
+		usN->setRecvStream(cn->getRcvMemStream());
+		usN->setSendStream(cn->getSendMemStream());
 		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 		//if (!(tn->sockBusy()) && !(tn->sockInError()))
 		if (!(tn->sockBusy())) {
@@ -485,6 +487,8 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 		cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 		return handleConnSocketConnected(cb_ptr, ev_occured);
 	}
+
+	EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
 	if (!cn->sendDataAvlbl()) {
 		goto handleConnSocketWritable_finally;
 	}
@@ -505,6 +509,7 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 			buffer = cms->get_buffer(nodeptr);
 			bytes = cms->get_buffer_len(nodeptr);
 
+			DEBUGPOINT("Here\n[%s]\n",(char*)buffer);
 			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
 			ret1 = sendData(cn->getStreamSocket(), buffer, bytes);
 			if (ret1 > 0) {
@@ -537,13 +542,16 @@ handleConnSocketWritable_finally:
 		else ret = 0;
 	}
 
+			DEBUGPOINT("Here\n");
 	if (ret > 0) {
+			DEBUGPOINT("Here\n");
 		ev_io * socket_watcher_ptr = 0;
 		strms_ic_cb_ptr_type cb_ptr = 0;
 
 		socket_watcher_ptr = cn->getSocketWatcher();
 
 		if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_WRITE) {
+			DEBUGPOINT("Here\n");
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			cn->setState(EVConnectedStreamSocket::NOT_WAITING);
@@ -561,6 +569,13 @@ handleConnSocketWritable_finally:
 		}
 
 		// TBD Handle dispatching of EVENT here. TBD
+
+		/* For the case of sending data, calling the upstream event back is not done
+		 * A send simply tries to transfer data to the socket
+		 *
+		 * If there is any failure the caller is expected to find from the 
+		 * receive side.
+		 * */
 	}
 	else if (ret <0) {
 		/* At this point we know that the socket has become unusable,
@@ -575,7 +590,16 @@ handleConnSocketWritable_finally:
 		cn->setSockInError();
 
 		// TBD Handle dispatching of EVENT here. TBD
+
+		/* For the case of sending data, calling the upstream event back is not done
+		 * A send simply tries to transfer data to the socket
+		 *
+		 * If there is any failure the caller is expected to find from the 
+		 * receive side.
+		 * */
 	}
+
+	if (ret != 0) tn->decrNumCSEvents();
 
 	return ret;
 }
@@ -1469,36 +1493,36 @@ int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
 		EVConnectedStreamSocket * cn = tn->getProcState()->getEVConnSock(sr->sockfd());
 		if (cn) {
 			socket_watcher_ptr = cn->getSocketWatcher();
+			cb_ptr = (strms_ic_cb_ptr_type)socket_watcher_ptr->data;
 			ev_io_stop (_loop, socket_watcher_ptr);
 		}
 		else return -1;
 
+		socket_watcher_ptr = cn->getSocketWatcher();
+		cn->setTimeOfLastUse();
 
-		socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
-		memset(socket_watcher_ptr,0,sizeof(ev_io));
+		if ((cn->getState() == EVConnectedStreamSocket::NOT_WAITING) ||
+			 cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
+			int events = 0;
+			if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
+				events = EVConnectedStreamSocket::WAITING_FOR_READWRITE;
+				cn->setState(EVConnectedStreamSocket::WAITING_FOR_READWRITE);
+			}
+			else {
+				events = EVConnectedStreamSocket::WAITING_FOR_WRITE;
+				cn->setState(EVConnectedStreamSocket::WAITING_FOR_WRITE);
+			}
 
-		EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), sr->getStreamSocket());
-		//DEBUGPOINT("css RC = %d\n", sr->getStreamSocket().impl()->referenceCount());
-		connectedSock->setSocketWatcher(socket_watcher_ptr);
-		connectedSock->setEventLoop(_loop);
-
-		tn->getProcState()->setEVConnSock(connectedSock);
-		connectedSock->setTimeOfLastUse();
-
-		cb_ptr = (strms_ic_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
-		memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
-
-		cb_ptr->objPtr = this;
-		cb_ptr->sr_num = sr->getSRNum();
-		cb_ptr->cb_evid_num = sr->getCBEVIDNum();
-		cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
-		cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
-		cb_ptr->cn = connectedSock;
-		socket_watcher_ptr->data = (void*)cb_ptr;
-
-		ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, sr->getStreamSocket().impl()->sockfd(), EV_READ|EV_WRITE);
-		ev_io_start (_loop, socket_watcher_ptr);
-
+			/* Connected socket writable does not invoke any call back.
+			 * Hence there is no service request number or event number relevant for this
+			 * */
+			/* This will invoke the call back EVTCPServer::handleConnSocketWritable. */
+			ev_io_stop(_loop, socket_watcher_ptr);
+			ev_io_init(socket_watcher_ptr, async_stream_socket_cb_4, cn->getSockfd(), events);
+			ev_io_start (_loop, socket_watcher_ptr);
+			tn->incrNumCSEvents();
+			DEBUGPOINT("Here\n");
+		}
 	}
 
 	return ret;
@@ -1542,6 +1566,8 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													EVUpstreamEventNotification::ERROR,
 													sr->getCBEVIDNum(), ret, optval);
+			usN->setRecvStream(0);
+			usN->setSendStream(0);
 			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 			if (!(tn->sockBusy())) {
 					tn->setSockBusy();
@@ -1643,15 +1669,16 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			DEBUGPOINT("Here DEAD REQUEST\n");
 			continue;
 		}
-		tn->incrNumCSEvents();
 
 		EVTCPServiceRequest::what event = srNF->getEvent();
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
+				tn->incrNumCSEvents();
 				makeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::CLEANUP_REQUEST:
+				tn->incrNumCSEvents();
 				closeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::SENDDATA_REQUEST:
@@ -1667,13 +1694,13 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	return;
 }
 
-long EVTCPServer::submitRequestForSendData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css)
+long EVTCPServer::submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSocket& css)
 {
 	long sr_num = getNextSRSrlNum();
 
 	/* Enque the socket */
-	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
-										EVTCPServiceRequest::SENDDATA_REQUEST, acc_fd, css));
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::SENDDATA_REQUEST,
+																						acc_fd, css));
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(_loop, this->stop_watcher_ptr3);

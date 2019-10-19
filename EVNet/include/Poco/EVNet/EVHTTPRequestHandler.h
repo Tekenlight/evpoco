@@ -16,12 +16,14 @@
 #ifndef Net_EVHTTPRequestHandler_INCLUDED
 #define Net_EVHTTPRequestHandler_INCLUDED
 
+#include <ostream>
 #include <map>
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPRequest.h"
+#include "Poco/EVNet/EVHTTPRequest.h"
 #include "Poco/EVNet/EVHTTPClientSession.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/EVNet/EVUpstreamEventNotification.h"
@@ -95,7 +97,8 @@ public:
 	void setResponse(Net::HTTPServerResponse* res);
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
-	long sendHTTPRequestData(EVHTTPClientSession *ses);
+	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
+	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
 	long closeHTTPSession(EVHTTPClientSession* sess);
 
 private:

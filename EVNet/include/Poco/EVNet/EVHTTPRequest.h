@@ -36,14 +36,18 @@ public:
 	EVHTTPRequest(const std::string& method, const std::string& uri);
 		/// Creates a HTTP/1.1 request with the given method and URI.
 	
-	std::ostream& getRequestStream();
-	std::ostream& prepareRequestStream();
+	std::ostream* getRequestStream();
+	void prepareHeaderForSend();
+
+	chunked_memory_stream* getMessageHeader();
+	chunked_memory_stream* getMessageBody();
 
 	~EVHTTPRequest();
 
 private:
+	chunked_memory_stream*		_msg_header;
 	chunked_memory_stream*		_msg_body;
-	std::ostream*				_message_body_stream;
+	std::ostream*				_msg_body_stream;
 
 
 };

@@ -19,12 +19,16 @@ namespace EVNet {
 EVHTTPClientSession::EVHTTPClientSession(Net::StreamSocket& sock, Net::SocketAddress &addr):
 	_sock(sock),
 	_addr(addr),
-	_state(NOT_CONNECTED)
+	_state(NOT_CONNECTED),
+	_send_stream(0),
+	_recv_stream(0)
 {
 }
 
 EVHTTPClientSession::EVHTTPClientSession():
-	_state(NOT_CONNECTED)
+	_state(NOT_CONNECTED),
+	_send_stream(0),
+	_recv_stream(0)
 {
 }
 

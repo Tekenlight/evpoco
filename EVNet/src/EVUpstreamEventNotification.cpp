@@ -21,7 +21,9 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_event(event),
 	_cb_evid_num(cb_evid_num),
 	_bytes(bytes),
-	_errno(err_no)
+	_errno(err_no),
+	_send_stream(0),
+	_recv_stream(0)
 {
 }
 
@@ -31,7 +33,9 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_event(event),
 	_cb_evid_num(cb_evid_num),
 	_bytes(bytes),
-	_errno(err_no)
+	_errno(err_no),
+	_send_stream(0),
+	_recv_stream(0)
 {
 }
 
@@ -41,7 +45,9 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_event(event),
 	_cb_evid_num(cb_evid_num),
 	_bytes(bytes),
-	_errno(err_no)
+	_errno(err_no),
+	_send_stream(0),
+	_recv_stream(0)
 {
 }
 

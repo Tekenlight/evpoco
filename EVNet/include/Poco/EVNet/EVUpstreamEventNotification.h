@@ -12,6 +12,7 @@
 //
 
 #include <errno.h>
+#include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/Net/StreamSocket.h"
@@ -54,6 +55,11 @@ public:
 
 	long getSRNum();
 
+	void setRecvStream(chunked_memory_stream *cms);
+	chunked_memory_stream* getRecvStream();
+	void setSendStream(chunked_memory_stream *cms);
+	chunked_memory_stream* getSendStream();
+
 private:
 	poco_socket_t			_sockfd;
 	what					_event;
@@ -61,7 +67,29 @@ private:
 	ssize_t					_bytes;
 	int						_cb_evid_num;
 	long					_sr_num;
+	chunked_memory_stream*	_send_stream;
+	chunked_memory_stream*	_recv_stream;
 };
+
+inline void EVUpstreamEventNotification::setRecvStream(chunked_memory_stream *cms)
+{
+	_recv_stream = cms;
+}
+
+inline chunked_memory_stream* EVUpstreamEventNotification::getRecvStream()
+{
+	return _recv_stream;
+}
+
+inline void EVUpstreamEventNotification::setSendStream(chunked_memory_stream *cms)
+{
+	_send_stream = cms;
+}
+
+inline chunked_memory_stream* EVUpstreamEventNotification::getSendStream()
+{
+	return _send_stream;
+}
 
 inline void EVUpstreamEventNotification::setSRNum(long sr_num)
 {

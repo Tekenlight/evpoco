@@ -116,10 +116,27 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	return sr_num;
 }
 
-/* This method assumes that input HTTPRequest is completely formed. */
-long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession *sess)
+long EVHTTPRequestHandler::sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req)
 {
-	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	req.prepareHeaderForSend();
+	sess.getSendStream()->transfer(req.getMessageHeader());
+	getServer().submitRequestForSendData(getAccSockfd(), sess.getSS());
+	DEBUGPOINT("Here\n");
+
+	return 0;
+}
+
+/* This method assumes that input HTTPRequest is completely formed. */
+long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession &sess, EVHTTPRequest &req)
+{
+	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	sess.getSendStream()->transfer(req.getMessageBody());
+	getServer().submitRequestForSendData(getAccSockfd(), sess.getSS());
+	DEBUGPOINT("Here\n");
+
 	return 0;
 }
 
@@ -169,6 +186,8 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 				
 				_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
 				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::CONNECTED);
+				_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
+				_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
 			}
 			break;
 		case HTTP_CONNECT_PROXYSOCK_READY:
