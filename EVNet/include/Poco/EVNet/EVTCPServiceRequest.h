@@ -27,7 +27,7 @@ public:
 	typedef enum {
 		CONNECTION_REQUEST
 		,SENDDATA_REQUEST
-		,RECVDATAIVE_REQUEST
+		,RECVDATA_REQUEST
 		,CLEANUP_REQUEST
 	} what;
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);

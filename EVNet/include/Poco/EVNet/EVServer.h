@@ -16,8 +16,9 @@ public:
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr) = 0;
 	virtual void dataReadyForSend(int fd) = 0;
 	virtual long submitRequestForConnection(int cb_evid_num, poco_socket_t acc_fd, Net::SocketAddress& addr, Net::StreamSocket & css) = 0;
-	virtual long submitRequestForClose(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css) = 0;
+	virtual long submitRequestForClose(poco_socket_t acc_fd, Net::StreamSocket& css) = 0;
 	virtual long submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSocket& css) = 0;
+	virtual long submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css) = 0;
 };
 
 }

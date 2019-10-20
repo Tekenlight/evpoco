@@ -52,7 +52,7 @@ chunked_memory_stream* EVHTTPRequest::getMessageHeader()
 
 chunked_memory_stream* EVHTTPRequest::getMessageBody()
 {
-	_msg_body_stream->flush();
+	if (_msg_body_stream) _msg_body_stream->flush();
 	return _msg_body;
 }
 

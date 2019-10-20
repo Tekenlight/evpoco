@@ -58,15 +58,15 @@ public:
 	static const int INITIAL = 0;
 
 	/* Return values of handleRequest method. */
-	static const int PROCESSING_ERROR = -1;
+	static const int INVALID_STATE = -1;
+	static const int PROCESSING_ERROR = -1000;
 	static const int PROCESSING = 0;
-	static const int PROCESSING_COMPLETE = 1;
+	static const int PROCESSING_COMPLETE = 1000;
 
-	static const int HTTP_CONNECT_SOCK_READY = -1;
-	static const int HTTP_CONNECT_PROXYSOCK_READY = -2;
-	static const int HTTP_CONNECT_RSP_FROM_PROXY = -3;
-	static const int HTTP_RESP_MSG_FROM_HOST = -4;
-	static const int HTTP_CONNECTION_CLOSED = -4;
+	static const int HTTP_CONNECT_SOCK_READY = -100;
+	static const int HTTP_CONNECT_PROXYSOCK_READY = -200;
+	static const int HTTP_CONNECT_RSP_FROM_PROXY = -300;
+	static const int HTTP_RESP_MSG_FROM_HOST = -400;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -97,6 +97,7 @@ public:
 	void setResponse(Net::HTTPServerResponse* res);
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
+	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPRequest &req);
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
 	long closeHTTPSession(EVHTTPClientSession* sess);
