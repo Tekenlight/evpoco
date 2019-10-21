@@ -58,16 +58,6 @@ namespace Poco {
 
 namespace EVNet {
 
-typedef enum {
-	HTTP_INVALID_TYPE,
-	HTTP_HEADER_ONLY,
-	HTTP_FIXED_LENGTH,
-	HTTP_MULTI_PART,
-	HTTP_MESSAGE_TILL_EOF,
-	HTTP_CHUNKED
-} HTTP_REQ_TYPE_ENUM;
-
-
 class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest
 	/// This subclass of HTTPServerRequest is used for
 	/// representing server-side HTTP requests.

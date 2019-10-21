@@ -111,7 +111,7 @@ long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSess
 	srdata->session_ptr = sess;
 	srdata->cb_evid_num = cb_evid_num;
 
-	sr_num = server.submitRequestForRecvData(HTTP_CONNECT_SOCK_READY, getAccSockfd(), sess->getSS());
+	sr_num = server.submitRequestForRecvData(HTTP_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
 
 	_srColl[sr_num] = srdata;
 

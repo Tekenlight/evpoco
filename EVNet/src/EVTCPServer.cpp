@@ -917,6 +917,9 @@ handleDataAvlblOnAccSock_finally:
 			ret = 1;
 		} 
 		else {
+			/* This is a case of receiving data that is not asked by the
+			 * server.
+			 * */
 			//DEBUGPOINT("Did not enqueue and ret = %zd\n", ret);
 		}
 		//DEBUGPOINT("Here %d\n", streamSocket.impl()->sockfd());

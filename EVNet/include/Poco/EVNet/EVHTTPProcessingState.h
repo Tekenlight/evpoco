@@ -32,8 +32,6 @@
 #ifndef EVNet_EVHTTPProcessingState_INCLUDED
 #define EVNet_EVHTTPProcessingState_INCLUDED
 
-#define EVHTTPP_TRANSFER_ENCODING "transfer-encoding"
-
 namespace Poco {
 namespace EVNet {
 
@@ -100,7 +98,6 @@ public:
 	void setTrEncodingPresent();
 	EVHTTPRequestHandler * getRequestHandler();
 	void setRequestHandler(EVHTTPRequestHandler *);
-
 
 private:
 	void setReqProperties();

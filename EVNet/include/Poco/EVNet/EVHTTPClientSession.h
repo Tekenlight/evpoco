@@ -11,12 +11,16 @@
 //
 // SPDX-License-Identifier:	BSL-1.0
 //
+#include <string>
 #include <chunked_memory_stream.h>
+#include <http_parser.h>
+
 #include "Poco/Net/Net.h"
 #include "Poco/EVNet/EVNet.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/HTTPClientSession.h"
+#include "Poco/EVNet/EVHTTPResponse.h"
 
 
 #ifndef Net_EVHTTPClientSession_INCLUDED
@@ -39,6 +43,9 @@ public:
 	EVHTTPClientSession(Net::StreamSocket &, Net::SocketAddress &);
 	~EVHTTPClientSession();
 
+	void parser_init(EVHTTPResponse*);
+	int continueRead(EVHTTPResponse& response);
+
 	void setSS(Net::StreamSocket&);
 	void setAddr(Net::SocketAddress& );
 	
@@ -59,6 +66,10 @@ private:
 	Net::SocketAddress		_addr;
 	chunked_memory_stream*	_send_stream;
 	chunked_memory_stream*	_recv_stream;
+	http_parser*			_parser;
+
+	void setRespProperties(EVHTTPResponse& response);
+	int http_parser_hack();
 };
 
 inline void EVHTTPClientSession::setRecvStream(chunked_memory_stream *cms)
