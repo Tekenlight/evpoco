@@ -98,7 +98,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPRequest &req)
+long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPResponse& res)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -110,6 +110,7 @@ long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSess
 	srdata->addr = sess->getAddr();
 	srdata->session_ptr = sess;
 	srdata->cb_evid_num = cb_evid_num;
+	srdata->response = &res;
 
 	sr_num = server.submitRequestForRecvData(HTTP_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
 
@@ -172,16 +173,13 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	 * */
 	if (!_srColl[sr_num]) return PROCESSING;
 
-	//DEBUGPOINT("Here\n");
 	switch (getEvent()) {
 		case HTTP_CONNECT_SOCK_READY:
-			//DEBUGPOINT("Here\n");
 			_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
-			if ((_usN->getBytes() < 0) || _usN->getErrNo()) {
+			if ((_usN->getRet() < 0) || _usN->getErrNo()) {
 				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
 			}
 			else {
-				//DEBUGPOINT("Here\n");
 				/* No proxy or it has to be bypassed. */
 				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::CONNECTED);
 				_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
@@ -197,16 +195,40 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			 * */
 			break;
 		case HTTP_RESP_MSG_FROM_HOST:
-			_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
-			if ((_usN->getBytes() < 0) || _usN->getErrNo()) {
-				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
-			}
-			else {
-				_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
-				_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
+			{
+				int parse_ret = 0;
+				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
+					_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
+					_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+				}
+				else {
+					_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
+					_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
+					parse_ret = _srColl[sr_num]->session_ptr->continueRead(*(_srColl[sr_num]->response));
+					if (parse_ret < 0) {
+						_usN->setRet(-1);
+						closeHTTPSession(_srColl[sr_num]->session_ptr);
+						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+					}
+					else if (parse_ret < MESSAGE_COMPLETE) {
+						SRData * old = _srColl[sr_num];
+						SRData * srdata = new SRData(*old);
+						_srColl.erase(sr_num);
+						delete old;
+						Poco::EVNet::EVServer & server = getServer();
+						sr_num = server.submitRequestForRecvData(HTTP_RESP_MSG_FROM_HOST,
+											getAccSockfd(), srdata->session_ptr->getSS());
+						_srColl[sr_num] = srdata;
+						continue_event_loop = true;
+					}
+					else {
+						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+					}
+				}
 			}
 			break;
 		case HTTP_CONNECT_RSP_FROM_PROXY:
+			break;
 		default:
 			break;
 	}
@@ -221,7 +243,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		catch (...) {
 			ret = PROCESSING_ERROR;
 		}
+		SRData * old = _srColl[sr_num];
 		_srColl.erase(sr_num);
+		delete old;
 	}
 
 	return ret;

@@ -32,9 +32,9 @@ public:
 		,DATA_SENT
 		,ERROR
 	} what;
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, ssize_t bytes, int err_no = 0);
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, size_t bytes, int err_no = 0);
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, int bytes, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, ssize_t ret, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, size_t ret, int err_no = 0);
+	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, what event, int cb_evid_num, int ret, int err_no = 0);
 
 	~EVUpstreamEventNotification();
 
@@ -44,7 +44,8 @@ public:
 	
 	int getErrNo();
 
-	ssize_t getBytes();
+	ssize_t getRet();
+	void setRet(ssize_t ret);
 
 	int getCBEVIDNum();
 	void setCBEVIDNum(int);
@@ -64,7 +65,7 @@ private:
 	poco_socket_t			_sockfd;
 	what					_event;
 	int						_errno;
-	ssize_t					_bytes;
+	ssize_t					_ret;
 	int						_cb_evid_num;
 	long					_sr_num;
 	chunked_memory_stream*	_send_stream;
@@ -111,9 +112,14 @@ inline int EVUpstreamEventNotification::getErrNo()
 	return _errno;
 }
 
-inline ssize_t EVUpstreamEventNotification::getBytes()
+inline void EVUpstreamEventNotification::setRet(ssize_t ret)
 {
-	return _bytes;
+	_ret = ret;;
+}
+
+inline ssize_t EVUpstreamEventNotification::getRet()
+{
+	return _ret;
 }
 
 inline void EVUpstreamEventNotification::setCBEVIDNum(int cb_evid_num)
@@ -130,7 +136,7 @@ inline void EVUpstreamEventNotification::debug(const char* file, const int linen
 {
 	printf("[%p][%s:%d] _sockfd = %d\n", pthread_self(), file, lineno, _sockfd);
 	printf("[%p][%s:%d] _event = %d\n", pthread_self(), file, lineno, _event);
-	printf("[%p][%s:%d] _bytes = %zd\n", pthread_self(), file, lineno, _bytes);
+	printf("[%p][%s:%d] _ret = %zd\n", pthread_self(), file, lineno, _ret);
 	printf("[%p][%s:%d] _cb_evid_num = %d\n", pthread_self(), file, lineno, _cb_evid_num);
 	printf("[%p][%s:%d] _errno = %d\n", pthread_self(), file, lineno, _errno);
 }

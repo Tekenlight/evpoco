@@ -110,6 +110,13 @@ public:
 		HTTP_NOT_EXTENDED                    = 510,
 		HTTP_NETWORK_AUTHENTICATION_REQUIRED = 511
 	};
+	enum Limits
+	{
+		MAX_VERSION_LENGTH = 8,
+		MAX_STATUS_LENGTH  = 3,
+		MAX_REASON_LENGTH  = 512
+	};
+	
 
 	HTTPResponse();
 		/// Creates the HTTPResponse with OK status.
@@ -259,13 +266,6 @@ public:
 	static const std::string SET_COOKIE;
 
 private:
-	enum Limits
-	{
-		MAX_VERSION_LENGTH = 8,
-		MAX_STATUS_LENGTH  = 3,
-		MAX_REASON_LENGTH  = 512
-	};
-	
 	HTTPStatus  _status;
 	std::string _reason;
 	

@@ -30,6 +30,7 @@ void EVHTTPResponse::initParseState()
 
 EVHTTPResponse::EVHTTPResponse():
 	HTTPResponse(),
+	_istr(0),
 	_msg_parse_state(new resp_msg_parse_state())
 {
 }
@@ -37,12 +38,36 @@ EVHTTPResponse::EVHTTPResponse():
 EVHTTPResponse::~EVHTTPResponse()
 {
 	if (_msg_parse_state) free(_msg_parse_state); _msg_parse_state = NULL;
+	if (_istr) delete _istr;
 }
 
 void EVHTTPResponse::clear()
 {
 	initParseState();
 	HTTPResponse::clear();
+}
+
+void EVHTTPResponse::formInputStream(chunked_memory_stream * mem_inp_stream)
+{
+	switch (getRespType()) {
+		case HTTP_HEADER_ONLY:
+			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, 0);
+			break;
+		case HTTP_CHUNKED:
+			_istr = new EVHTTPChunkedInputStream(mem_inp_stream, this->getMessageBodySize());
+			break;
+		case HTTP_MULTI_PART:
+		case HTTP_FIXED_LENGTH:
+#if defined(POCO_HAVE_INT64)
+			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength64());
+#else
+			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength());
+#endif
+			break;
+		default:
+			DEBUGPOINT("Invalid response type\n");
+			std::abort();
+	}
 }
 
 }

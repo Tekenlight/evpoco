@@ -38,11 +38,20 @@ private:
 		unsigned long		_content_length;
 		HTTP_REQ_TYPE_ENUM	_resp_type;
 		int					_tr_encoding_present;
+		size_t				_message_body_size;
+		int					_header_field_in_progress;
+		int					_header_value_in_progress;
+		std::string			_name;
+		std::string			_value;
+
 		resp_msg_parse_state(): _state(0), _msg_body_size(0), _prev_node_ptr(0),
 								_content_length(0), _resp_type(HTTP_INVALID_TYPE),
-								_tr_encoding_present(0) {}
+								_tr_encoding_present(0), _message_body_size(0),
+								_header_field_in_progress(0), _header_value_in_progress(0) {}
+
 	} ;
-	resp_msg_parse_state* _msg_parse_state;
+	resp_msg_parse_state*	_msg_parse_state;
+	std::istream*			_istr;
 
 public:
 	EVHTTPResponse();
@@ -62,7 +71,26 @@ public:
 	HTTP_REQ_TYPE_ENUM getRespType();
 	void setTrEncodingPresent();
 	bool trEncodingPresent();
+	void formInputStream(chunked_memory_stream * mem_inp_stream);
+	std::istream* getStream();
+
+	// Setting of states.
+	void messageBegin();
+	void appendToName(const char * , size_t, int);
+	void appendToValue(const char * , size_t, int);
+	void clearName();
+	void clearValue();
+	void headerComplete();
+	void messageComplete();
+	void chunkComplete();
+	void chunkHeaderComplete();
+	void bodyStarted(char * ptr);
 };
+
+inline void EVHTTPResponse::messageBegin()
+{
+	_msg_parse_state->_state = HEADER_NOT_READ;
+}
 
 inline void EVHTTPResponse::setPrevNodePtr(void * p)
 {
@@ -86,7 +114,9 @@ inline HTTP_REQ_TYPE_ENUM EVHTTPResponse::getRespType()
 
 inline void EVHTTPResponse::setContentLength(unsigned long l)
 {
-	_msg_parse_state->_content_length = l;
+	if ((l != 0) && (l != ULLONG_MAX)) {
+		_msg_parse_state->_content_length = l;
+	}
 }
 
 inline unsigned long EVHTTPResponse::getContentLength()
@@ -122,6 +152,67 @@ inline void EVHTTPResponse::setTrEncodingPresent()
 inline bool EVHTTPResponse::trEncodingPresent()
 {
 	return (_msg_parse_state->_tr_encoding_present == 1);
+}
+
+inline std::istream* EVHTTPResponse::getStream()
+{
+	//poco_check_ptr (_pStream);
+	
+	return _istr;
+}
+
+inline void EVHTTPResponse::appendToName(const char *buf, size_t len, int state)
+{
+	_msg_parse_state->_header_field_in_progress = state;
+	_msg_parse_state->_name.append(buf,len);
+	switch (_msg_parse_state->_header_field_in_progress) {
+		case 0:
+			_msg_parse_state->_value.erase(); // Expecting the next field is value
+			break;
+		case 1: // Already appended to name, parse is interrupted for want of data.
+			break;
+		case 2: // Signal is to discard the header field.
+			_msg_parse_state->_name.erase();
+			break;
+		default:
+			break;
+	}
+}
+
+inline void EVHTTPResponse::appendToValue(const char *buf, size_t len, int state)
+{
+	_msg_parse_state->_header_value_in_progress = state;
+	_msg_parse_state->_value.append(buf,len);
+	switch (_msg_parse_state->_header_value_in_progress) {
+		case 0:
+			Poco::trimInPlace(_msg_parse_state->_name);
+			Poco::trimInPlace(_msg_parse_state->_value);
+			add(_msg_parse_state->_name, decodeWord(_msg_parse_state->_value));
+			//printf("%s:%s\n",_name.c_str(), _value.c_str());
+			_msg_parse_state->_name.erase();
+			_msg_parse_state->_value.erase();
+			break;
+		case 1: // Already appended to value, parse is interrupted for want of data.
+			break;
+		case 2: // Signal is to discard the header value.
+			_msg_parse_state->_value.erase();
+			break;
+		default:
+			break;
+	}
+
+	if (!strcasecmp(_msg_parse_state->_name.c_str(), EVHTTPP_TRANSFER_ENCODING))
+		setTrEncodingPresent();
+}
+
+inline void EVHTTPResponse::headerComplete()
+{
+	_msg_parse_state->_state = HEADER_READ_COMPLETE;
+}
+
+inline void EVHTTPResponse::messageComplete()
+{
+	_msg_parse_state->_state = MESSAGE_COMPLETE;
 }
 
 } } 

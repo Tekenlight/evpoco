@@ -49,10 +49,12 @@ class Net_API EVHTTPRequestHandler
 {
 public:
 	struct SRData {
-		SRData(): cb_evid_num(0) {}
+		SRData(): cb_evid_num(0), session_ptr(0), response(0) {}
+		~SRData() {}
 		Net::SocketAddress addr;
 		EVHTTPClientSession* session_ptr;
 		int	cb_evid_num;
+		EVHTTPResponse * response;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
 	static const int INITIAL = 0;
@@ -97,7 +99,7 @@ public:
 	void setResponse(Net::HTTPServerResponse* res);
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
-	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPRequest &req);
+	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPResponse &req);
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
 	long closeHTTPSession(EVHTTPClientSession* sess);

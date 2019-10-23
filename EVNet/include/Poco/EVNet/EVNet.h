@@ -97,7 +97,7 @@ namespace EVNet {
 		HTTP_MESSAGE_TILL_EOF
 	} HTTP_REQ_TYPE_ENUM;
 
-	enum reqProcState {
+	enum httpMsgProcState {
 		 HEADER_NOT_READ = 0
 		,STATUS_LINE_READ
 		,HEADER_READ_COMPLETE

@@ -52,11 +52,9 @@ EVHTTPClientSession::~EVHTTPClientSession()
 static int message_begin_cb (http_parser *p)
 {
 	//printf("message_begin_cb\n");
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	e->messageBegin();
-	*/
 	return 0;
 }
 
@@ -64,56 +62,54 @@ static int request_url_cb (http_parser *p, const char *buf, size_t len, int inte
 {
 	//printf("request_url_cb\n");
 	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 	
 	e->appendToUri(buf, len);
 	*/
 	return 0;
 }
 
+static int response_status_cb (http_parser *p, const char *buf, size_t len, int interrupted)
+{
+	//printf("response_status_cb\n");
+	// Use p->http->major, and p->http->minor for version
+	// Use p->status_code for response status
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
+	return 0;
+}
+
 static int header_field_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
 	//printf("header_field_cb\n");
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	e->appendToName(buf, len, interrupted);
-	*/
 	return 0;
 }
 
 static int header_value_cb (http_parser *p, const char *buf, size_t len, int interrupted)
 {
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	//printf("header_value_cb interrupted = %d\n",interrupted);
 	e->appendToValue(buf, len, interrupted);
-	*/
 	return 0;
 }
 
 static int headers_complete_cb (http_parser *p)
 {
-	/*
-	char v[EVHTTPProcessingState::MAX_VERSION_LENGTH] = {'\0'};
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	char v[EVHTTPResponse::MAX_VERSION_LENGTH] = {'\0'};
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	http_version(v, p);
 	e->setVersion(v);
-	e->setMethod(http_method_str((enum http_method)(p->method)));
+	EVHTTPResponse::HTTPStatus status_code = (EVHTTPResponse::HTTPStatus)p->status_code;
+	e->setStatusAndReason(status_code);
 	e->headerComplete();
 
 	http_parser_pause(p, 1);
 
-	*/
 	//printf("headers_complete_cb\n");
-	return 0;
-}
-
-static int response_status_cb (http_parser *p, const char *buf, size_t len, int interrupted)
-{
-	//printf("response_status_cb\n");
 	return 0;
 }
 
@@ -122,7 +118,7 @@ static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted
 	//printf("body_cb\n");
 	/*
 	void * ptr = (void*)buf;
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	e->bodyStarted((char*)ptr);
 
@@ -133,10 +129,8 @@ static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted
 static int chunk_header_cb (http_parser *p)
 {
 	//printf("chunk_header_cb\n");
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	//EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
-	*/
 	//e->chunkHeaderComplete();
 	//http_parser_pause(p, 1);
 	return 0;
@@ -145,10 +139,8 @@ static int chunk_header_cb (http_parser *p)
 static int chunk_complete_cb (http_parser *p)
 {
 	//printf("chunk_complete_cb\n");
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	//EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
-	*/
 	//e->chunkComplete();
 	//http_parser_pause(p, 1);
 
@@ -158,13 +150,11 @@ static int chunk_complete_cb (http_parser *p)
 static int message_complete_cb (http_parser *p)
 {
 	//printf("message_complete_cb\n");
-	/*
-	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
+	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	e->messageComplete();
 	http_parser_pause(p, 1);
 
-	*/
 	return 0;
 }
 
@@ -209,13 +199,13 @@ int EVHTTPClientSession::http_parser_hack()
 	 * previous char.
 	 * In such a situation we should erase it by one more char.
 	 * */
-	int n = 0, c = 0, len2 = 0;
+	int n = 0, c = 0, reduction_count = 0;
 	n = _recv_stream->copy(0, &c, 1);
 	if (n && (c == 10)) {
 		_recv_stream->erase(1);
-		len2 = 1;
+		reduction_count = 1;
 	}
-	return len2;
+	return reduction_count;
 }
 
 int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
@@ -262,6 +252,9 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
 			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
 			response.clear();
+			response.initParseState();
+			parser_init(&response);
+			setState(ERROR);
 			return -1;
 		}
 
@@ -270,6 +263,10 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 				// Should not happen
 				//throw NetException(http_errno_description((enum http_errno)_parser->http_errno));
 				DEBUGPOINT("Should not happen %s \n", http_errno_description((enum http_errno)_parser->http_errno));
+				response.clear();
+				response.initParseState();
+				parser_init(&response);
+				setState(ERROR);
 				return -1;
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
@@ -298,23 +295,29 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			http_parser_pause(_parser, 0);
 			response.setParseState(POST_HEADER_READ_COMPLETE);
 			response.setContentLength(_parser->header_content_length);
-
 			setRespProperties(response);
-			/* ERROR AS PER RFC 7230 3.3.3 point 3. */
-			/* We dont want to process endless messages. */
 			if (response.trEncodingPresent() && !(_parser->flags & F_CHUNKED)) {
+			/* CONDITION AS PER RFC 7230 3.3.3 point 3. */
+			/* Our design choice: We dont want to process endless messages. */
 				DEBUGPOINT("Bad Response:transfer-encoding present and message not chunked\n");
 				DEBUGPOINT("Bad Response: Cannot handle messages that have to be read till EOF\n");
+				response.clear();
+				response.initParseState();
+				parser_init(&response);
+				setState(ERROR);
 				return -1;
 			}
 			else if (HTTP_MESSAGE_TILL_EOF == response.getRespType()) {
+				/* Our design choice: We dont want to process endless messages. */
 				DEBUGPOINT("Bad Response: Cannot handle messages that have to be read till EOF\n");
+				response.clear();
+				response.initParseState();
+				parser_init(&response);
+				setState(ERROR);
 				return -1;
 			}
 
 			if (HTTP_HEADER_ONLY == response.getRespType()) {
-				response.setParseState(MESSAGE_COMPLETE);
-				response.setPrevNodePtr(0);
 				len2 -= http_parser_hack();
 				if (response.getStatus() == EVHTTPResponse::HTTP_CONTINUE) {
 					response.clear();
@@ -322,6 +325,8 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 					parser_init(&response);
 				}
 				else {
+					response.setParseState(MESSAGE_COMPLETE);
+					response.setPrevNodePtr(0);
 					break;
 				}
 			}
@@ -337,6 +342,11 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			buffer = (char*)_recv_stream->get_buffer(nodeptr);
 			len1 = _recv_stream->get_buffer_len(nodeptr);
 		}
+	}
+	response.setMessageBodySize(len2);
+	if (MESSAGE_COMPLETE == response.getParseState()) {
+		response.formInputStream(_recv_stream);
+		parser_init(0);
 	}
 
 	return response.getParseState();

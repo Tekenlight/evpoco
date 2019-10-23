@@ -137,6 +137,7 @@ public:
 		DEBUGPOINT("REQUEST BODY\n%s\n", request_body);
 
 		std::ostream& ostr = response.send();
+		//sleep(1);
 		ostr.write(request_body, strlen(request_body));
 
 		return PROCESSING_COMPLETE;
