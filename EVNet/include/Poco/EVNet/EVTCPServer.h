@@ -318,7 +318,7 @@ private:
 	ssize_t sendData(int fd, void * chptr, size_t size);
 	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 	void handlePeriodicWakeup(const bool& ev_occured);
-	long getNextSRSrlNum();
+	unsigned long getNextSRSrlNum();
 
 	ServerSocket						_socket;
 	EVTCPServerDispatcher*				_pDispatcher;
@@ -345,17 +345,17 @@ private:
 	EVTCPServerConnectionFactory::Ptr	_pConnectionFactory;
 	time_t								_receiveTimeOut;
 
-	std::atomic_long					_sr_srl_num;
+	std::atomic_ulong					_sr_srl_num;
 
 };
 
 //
 // inlines
 //
-inline long EVTCPServer::getNextSRSrlNum()
+inline unsigned long EVTCPServer::getNextSRSrlNum()
 {
-	long sr_srl_num = 0L;
-	long old_srl_num = std::atomic_load(&_sr_srl_num);
+	unsigned long sr_srl_num = 0L;
+	unsigned long old_srl_num = std::atomic_load(&_sr_srl_num);
 	do {
 		sr_srl_num = old_srl_num + 1;
 	} while (!std::atomic_compare_exchange_strong(&_sr_srl_num, &old_srl_num, sr_srl_num)) ;

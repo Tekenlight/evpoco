@@ -128,6 +128,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 		/* The below line of code essentially calls
 		 * EVTCPServer::handleAccSocketReadable(const bool)
 		 */
+		//DEBUGPOINT("INVOKING handleAccSocketReadable\n");
 		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
 		//ev_io_stop(loop, w);
@@ -140,6 +141,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 // this callback is called when connected socket is writable
 static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 {
+	//DEBUGPOINT("Here\n");
 	strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
 	 * with its corresponding stop function.
@@ -162,6 +164,7 @@ static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 // this callback is called when data is readable on a connected socket
 static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 {
+	//DEBUGPOINT("Here\n");
 	if (revents & EV_WRITE) async_stream_socket_cb_4(loop, w, revents);
 
 	if (revents & EV_READ) {
@@ -457,6 +460,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	 * TBD: We may have to further make sure that the service request for which this notification
 	 * is being passed is in the same session as the current state.
 	 * */
+	//DEBUGPOINT("Here %p %d %lu\n", tn->getProcState(), (int)tn->srInSession(cb_ptr->sr_num), cb_ptr->sr_num);
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
 		EVUpstreamEventNotification * usN = 0;
 		//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
@@ -833,7 +837,6 @@ handleConnSocketReadable_finally:
 	}
 
 	if ((ret >=0) && cn->rcvDataAvlbl()) {
-		//DEBUGPOINT("Here\n");
 		EVUpstreamEventNotification * usN = 0;
 		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
 												EVUpstreamEventNotification::DATA_RECEIVED,
@@ -843,7 +846,6 @@ handleConnSocketReadable_finally:
 		usN->setSendStream(cn->getSendMemStream());
 		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 		if (!(tn->sockBusy())) {
-			//DEBUGPOINT("Here\n");
 			tn->setSockBusy();
 			_pDispatcher->enqueue(tn);
 		}
@@ -910,14 +912,23 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & streamSocket, const 
 handleDataAvlblOnAccSock_finally:
 	if ((ret >=0) && tn->reqDataAvlbl()) {
 		if (!(tn->getProcState()) ||
-			(tn->getProcState()->newDataProcessed()) ||
-			(!(tn->getProcState()->newDataProcessed()) && (received_bytes > 0))) {
+			( tn->getProcState()->needMoreData() &&
+			  ( (tn->getProcState()->newDataProcessed()) ||
+				(!(tn->getProcState()->newDataProcessed()) && (received_bytes > 0))
+			  )
+			)
+			) {
 			if (!(tn->getProcState())) {
 				tn->setProcState(_pConnectionFactory->createReqProcState(this));
+				/* Session starts when a new processing state is created. */
+				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
+				tn->setBaseSRSrlNum(sr_num);
+				//DEBUGPOINT("ret = %zd received_bytes=%zu NDP=%d %p\n",
+						//ret, received_bytes, (int)tn->getProcState()->newDataProcessed(), tn->getProcState());
+				//DEBUGPOINT("NMD=%d RDA=%d BASE NUM = %lu\n",
+						//(int)tn->getProcState()->needMoreData(), (int)tn->reqDataAvlbl(), sr_num);
 			}
 			tn->setSockBusy();
-			long sr_num = std::atomic_load(&(this->_sr_srl_num));
-			tn->setBaseSRSrlNum(sr_num);
 			_pDispatcher->enqueue(tn);
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -1097,7 +1108,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * This can be a cause for unnecessary thread context switching
 		 * opportunity for optimization.
 		 * */
-		//DEBUGPOINT("Here\n");
+		//DEBUGPOINT("MONITORING Here\n");
 		handleAccSocketReadable(ss, false);
 	}
 

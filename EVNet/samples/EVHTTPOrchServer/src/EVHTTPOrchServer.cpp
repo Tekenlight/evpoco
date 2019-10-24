@@ -157,6 +157,7 @@ private:
 			send_error_response();
 			return -1;
 		}
+		DEBUGPOINT("PART_ONE\n");
 
 		return 0;
 
@@ -164,6 +165,7 @@ private:
 
 	int part_two()
 	{
+		DEBUGPOINT("PART_TWO\n");
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
 		DEBUGPOINT("Socket = %d Refcount = %d state = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState());
 		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
@@ -185,13 +187,14 @@ private:
 
 	int part_three()
 	{
+		DEBUGPOINT("PART_THREE\n");
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
 
 		char str[1024] = {0};
 		std::istream * istr = uresponse.getStream();
 		istr->get(str, 512);
-		DEBUGPOINT("RECEIVED DATA = \n%s\n", str);
+		//DEBUGPOINT("RECEIVED DATA = \n%s\n", str);
 
 
 		HTMLForm& form = *form1;
@@ -230,6 +233,9 @@ private:
 		{
 			ostr << it->first << ": " << it->second << "<br>\n";
 		}
+		ostr << "<h3>Received data from upstream server</h3>\n";
+		ostr << str;
+		ostr << "\n";
 		ostr << "</p>";
 
 		if (!form.empty())

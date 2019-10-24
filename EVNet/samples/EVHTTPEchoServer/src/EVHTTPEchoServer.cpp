@@ -134,7 +134,7 @@ public:
 		response.setChunkedTransferEncoding(true);
 		response.setContentType("text/plain");
 
-		DEBUGPOINT("REQUEST BODY\n%s\n", request_body);
+		//DEBUGPOINT("REQUEST BODY\n%s\n", request_body);
 
 		std::ostream& ostr = response.send();
 		//sleep(1);
