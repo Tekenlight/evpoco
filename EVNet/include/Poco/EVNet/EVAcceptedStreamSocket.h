@@ -114,6 +114,8 @@ public:
 	bool pendingCSEvents();
 	bool srInSession(unsigned long sr_srl_num);
 	void setBaseSRSrlNum(unsigned long sr_srl_num);
+	void setWaitingTobeEnqueued(bool flg);
+	bool waitingTobeEnqueued();
 
 private:
 	poco_socket_t				_sockFd;
@@ -129,13 +131,24 @@ private:
 	ev_queue_type				_upstream_io_event_queue;
 
 	/* Status indicators */
-	accepted_sock_state			_state; /* Tells whether the socket is wating for OS event or not */
+	accepted_sock_state			_state; /* Tells whether the socket is waiting for OS event or not */
 	int							_socketInError; /* Tells if an error is observed while processing request
 												   on this socket. */
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
 	int							_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
+	bool						_waiting_tobe_enqueued;
 };
+
+inline void EVAcceptedStreamSocket::setWaitingTobeEnqueued(bool flg)
+{
+	_waiting_tobe_enqueued = flg;
+}
+
+inline bool EVAcceptedStreamSocket::waitingTobeEnqueued()
+{
+	return _waiting_tobe_enqueued;
+}
 
 inline bool EVAcceptedStreamSocket::srInSession(unsigned long sr_srl_num)
 {
@@ -177,6 +190,7 @@ inline void EVAcceptedStreamSocket::incrNumCSEvents()
 {
 	_active_cs_events++;
 }
+
 inline bool EVAcceptedStreamSocket::pendingCSEvents()
 {
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);

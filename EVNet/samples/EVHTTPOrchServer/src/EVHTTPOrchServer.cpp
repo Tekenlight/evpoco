@@ -157,18 +157,20 @@ private:
 			send_error_response();
 			return -1;
 		}
-		DEBUGPOINT("PART_ONE\n");
+		DEBUGPOINT("PART_ONE from %d\n", session.getAccfd());
 
+		//sleep(1);
 		return 0;
 
 	}
 
 	int part_two()
 	{
-		DEBUGPOINT("PART_TWO\n");
+		DEBUGPOINT("PART_TWO, from %d\n", session.getAccfd());
 		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
-		DEBUGPOINT("Socket = %d Refcount = %d state = %d\n", usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState());
-		DEBUGPOINT("Service Request Number = %ld\n", usN.getSRNum());
+		DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
+				usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState(), session.getAccfd());
+		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
 		if (usN.getRet() < 0) {
 			send_error_response();
 			return -1;
@@ -187,14 +189,14 @@ private:
 
 	int part_three()
 	{
-		DEBUGPOINT("PART_THREE\n");
+		DEBUGPOINT("PART_THREE from %d\n", session.getAccfd());
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
 
 		char str[1024] = {0};
 		std::istream * istr = uresponse.getStream();
 		istr->get(str, 512);
-		//DEBUGPOINT("RECEIVED DATA = \n%s\n", str);
+		//DEBUGPOINT("RECEIVED DATA = \n%s\n from %d\n", str, session.getAccfd());
 
 
 		HTMLForm& form = *form1;
@@ -316,13 +318,13 @@ public:
 				init();
 			case PART_ONE:
 				if (0 > part_one()) {
-					DEBUGPOINT("Here\n");
+					DEBUGPOINT("Here from %d\n", session.getAccfd());
 					return_value = PROCESSING_ERROR;
 				}
 				break;
 			case PART_TWO:
 				if (0> part_two()) {
-					DEBUGPOINT("Here\n");
+					DEBUGPOINT("Here from %d\n", session.getAccfd());
 				 	return_value = PROCESSING_ERROR;
 				}
 				break;

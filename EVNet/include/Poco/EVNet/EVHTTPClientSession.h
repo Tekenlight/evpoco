@@ -59,8 +59,11 @@ public:
 	chunked_memory_stream* getRecvStream();
 	void setSendStream(chunked_memory_stream *cms);
 	chunked_memory_stream* getSendStream();
+	void setAccfd(poco_socket_t fd);
+	poco_socket_t getAccfd();
 
 private:
+	poco_socket_t			_acc_fd;
 	SessionState			_state;
 	Net::StreamSocket		_sock;
 	Net::SocketAddress		_addr;
@@ -71,6 +74,16 @@ private:
 	void setRespProperties(EVHTTPResponse& response);
 	int http_parser_hack();
 };
+
+inline void EVHTTPClientSession::setAccfd(poco_socket_t fd)
+{
+	_acc_fd = fd;
+}
+
+inline poco_socket_t EVHTTPClientSession::getAccfd()
+{
+	return _acc_fd;
+}
 
 inline void EVHTTPClientSession::setRecvStream(chunked_memory_stream *cms)
 {

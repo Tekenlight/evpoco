@@ -190,6 +190,7 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 	if (_queue.size() < _pParams->getMaxQueued())
 	{
 		_queue.enqueueNotification(new TCPConnectionNotification(evAccSocket));
+		evAccSocket->setWaitingTobeEnqueued(false);
 		if (!_queue.hasIdleThreads() && _currentThreads < _pParams->getMaxThreads())
 		{
 			try

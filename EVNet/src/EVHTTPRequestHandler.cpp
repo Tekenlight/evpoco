@@ -79,6 +79,8 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 		return -1;
 	}
 
+	sess->setAccfd(getAccSockfd());
+
 	SRData * srdata = new SRData();
 	srdata->addr = sess->getAddr();
 	srdata->session_ptr = sess;
@@ -171,7 +173,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	/* If this Service request was not created here
 	 * no action needs to be taken here.
 	 * */
+	//DEBUGPOINT("Here event = %d, SRP = %p\n", getEvent(), _srColl[sr_num]);
 	if (!_srColl[sr_num]) return PROCESSING;
+	//DEBUGPOINT("Here event = %d, \n", getEvent());
 
 	switch (getEvent()) {
 		case HTTP_CONNECT_SOCK_READY:
