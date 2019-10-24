@@ -20,6 +20,7 @@
 #include "Poco/AutoPtr.h"
 #include <memory>
 
+#include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -34,6 +35,12 @@ using Poco::Net::MessageException;
 
 namespace Poco {
 namespace EVNet {
+
+void tcpd_signal_handler(int signal)
+{
+	std::abort();
+	return ;
+}
 
 
 class TCPConnectionNotification: public Notification
@@ -116,6 +123,8 @@ void EVTCPServerDispatcher::run()
 	AutoPtr<EVTCPServerDispatcher> guard(this, true); // ensure object stays alive
 
 	int idleTime = (int) _pParams->getThreadIdleTime().totalMilliseconds();
+
+	//signal(SIGSEGV, tcpd_signal_handler);
 
 	for (;;)
 	{
@@ -295,6 +304,5 @@ void EVTCPServerDispatcher::endConnection()
 
 	--_currentConnections;
 }
-
 
 } } // namespace Poco::EVNet

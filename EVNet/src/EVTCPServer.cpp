@@ -1201,7 +1201,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
 				sendDataOnAccSocket(tn);
-				if (tn->waitingTobeEnqueued()) {
+				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
 					tn->setSockBusy();
 					_pDispatcher->enqueue(tn);
 				}
@@ -1333,7 +1333,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			ev_io_start (_loop, socket_watcher_ptr);
 		}
 		else {
-				DEBUGPOINT("CONN REQUEST REJECTED\n");
+			DEBUGPOINT("CONN REQUEST REJECTED\n");
 		}
 	}
 	catch (Poco::Exception& exc) {
