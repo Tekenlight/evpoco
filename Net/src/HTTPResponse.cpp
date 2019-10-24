@@ -215,6 +215,7 @@ void HTTPResponse::write(std::ostream& ostr) const
 	ostr << getVersion() << " " << static_cast<int>(_status) << " " << _reason << "\r\n";
 	HTTPMessage::write(ostr);
 	ostr << "\r\n";
+	ostr.flush();
 }
 
 
