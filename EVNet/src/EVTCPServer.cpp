@@ -199,7 +199,7 @@ static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
 
 /* This callback is for completion of processing of one socket. */
 /* SOMETHING HAPPENED HOUTSIDE EVENT LOOP IN ANOTHER THREAD */
-static void event_notification_on_listen_socket(struct ev_loop *loop, ev_async *w, int revents)
+static void event_notification_on_downstream_socket(struct ev_loop *loop, ev_async *w, int revents)
 {
 	bool ev_occurred = true;
 	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
@@ -1004,7 +1004,7 @@ void EVTCPServer::dataReadyForSend(int fd)
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::DATA_FOR_SEND_READY));
 
-	/* And then wake up the loop calls event_notification_on_listen_socket */
+	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	return;
 }
@@ -1015,7 +1015,7 @@ void EVTCPServer::receivedDataConsumed(int fd)
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
-	/* And then wake up the loop calls event_notification_on_listen_socket */
+	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	return;
 }
@@ -1031,7 +1031,7 @@ void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_SENDING));
 
 	//DEBUGPOINT("Here %d\n", fd);
-	/* And then wake up the loop calls event_notification_on_listen_socket */
+	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	//DEBUGPOINT("Here\n");
 	return;
@@ -1048,7 +1048,7 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_RECEIVING));
 
 	//DEBUGPOINT("Here %d\n", fd);
-	/* And then wake up the loop calls event_notification_on_listen_socket */
+	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	//DEBUGPOINT("Here\n");
 	return;
@@ -1065,7 +1065,7 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
 	//DEBUGPOINT("Here %d\n", fd);
-	/* And then wake up the loop calls event_notification_on_listen_socket */
+	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr2);
 	//DEBUGPOINT("Here\n");
 	return;
@@ -1404,7 +1404,7 @@ void EVTCPServer::run()
 		pc_cb_ptr->method = &EVTCPServer::somethingHappenedInAnotherThread;
 
 		stop_watcher_2.data = (void*)pc_cb_ptr;
-		ev_async_init (&(stop_watcher_2), event_notification_on_listen_socket);
+		ev_async_init (&(stop_watcher_2), event_notification_on_downstream_socket);
 		ev_async_start (_loop, &(stop_watcher_2));
 	}
 
