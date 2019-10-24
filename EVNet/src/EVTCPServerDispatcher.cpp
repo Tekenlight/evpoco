@@ -196,10 +196,10 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 	FastMutex::ScopedLock lock(_mutex);
 
 	/* default maxQueued is 64. */
+	evAccSocket->setWaitingTobeEnqueued(false);
 	if (_queue.size() < _pParams->getMaxQueued())
 	{
 		_queue.enqueueNotification(new TCPConnectionNotification(evAccSocket));
-		evAccSocket->setWaitingTobeEnqueued(false);
 		if (!_queue.hasIdleThreads() && _currentThreads < _pParams->getMaxThreads())
 		{
 			try

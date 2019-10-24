@@ -1198,6 +1198,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
 					//DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
 					tn->deleteState();
+					tn->setWaitingTobeEnqueued(false);
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
 				sendDataOnAccSocket(tn);
