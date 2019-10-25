@@ -48,7 +48,7 @@ EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerSession& session)
 EVHTTPServerResponseImpl::~EVHTTPServerResponseImpl()
 {
 	//_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
-	_pStream->flush();
+	if (_pStream) *_pStream << std::flush;
 	delete _pStream;
 }
 
