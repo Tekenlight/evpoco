@@ -131,144 +131,6 @@ private:
 	Poco::EVNet::EVHTTPClientSession session;
 	Poco::EVNet::EVHTTPResponse uresponse;
 
-	void init()
-	{
-		Application::instance().logger().information("Request from " + getRequest().clientAddress().toString());
-		try {
-			form1 = new HTMLForm((getRequest()), getRequest().stream(), partHandler);
-		} catch (std::exception& ex) {
-			DEBUGPOINT("CHA %s\n",ex.what());
-			throw(ex);
-		}
-
-		getResponse().setChunkedTransferEncoding(true);
-		getResponse().setContentType("text/html");
-
-		getResponse().send();
-	}
-
-	int part_one()
-	{
-		SocketAddress address("127.0.0.1", 9980);
-		StreamSocket ss;
-		session.setSS(ss);
-		session.setAddr(address);
-		if (0 > makeNewHTTPConnection(PART_TWO, &session)) {
-			send_error_response();
-			return -1;
-		}
-		DEBUGPOINT("PART_ONE from %d\n", session.getAccfd());
-
-		//sleep(1);
-		return 0;
-
-	}
-
-	int part_two()
-	{
-		DEBUGPOINT("PART_TWO, from %d\n", session.getAccfd());
-		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
-		DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
-				usN.sockfd(), session.getSS().impl()->referenceCount(), session.getState(), session.getAccfd());
-		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
-		if (usN.getRet() < 0) {
-			send_error_response();
-			return -1;
-		}
-		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
-		request.setHost("localhost:9980");
-		std::string body("this is a random request body");
-		request.setContentLength((int) body.length());
-		sendHTTPHeader(session, request);
-		*(request.getRequestStream()) << body;
-		sendHTTPRequestData(session, request);
-
-		waitForHTTPResponse(PART_THREE, &session, uresponse);
-		return 0;
-	}
-
-	int part_three()
-	{
-		DEBUGPOINT("PART_THREE from %d\n", session.getAccfd());
-		HTTPServerRequest& request = (getRequest());
-		HTTPServerResponse& response = (getResponse());
-
-		char str[1024] = {0};
-		std::istream * istr = uresponse.getStream();
-		istr->get(str, 512);
-		//DEBUGPOINT("RECEIVED DATA = \n%s\n from %d\n", str, session.getAccfd());
-
-
-		HTMLForm& form = *form1;
-
-		std::ostream& ostr = getResponse().getOStream();
-
-		ostr <<
-			"<html>\n"
-			"<head>\n"
-			"<title>POCO Form Server Sample</title>\n"
-			"</head>\n"
-			"<body>\n"
-			"<h1>POCO Form Server Sample</h1>\n"
-			"<h2>GET Form</h2>\n"
-			"<form method=\"GET\" action=\"/form\">\n"
-			"<input type=\"text\" name=\"text\" size=\"31\">\n"
-			"<input type=\"submit\" value=\"GET\">\n"
-			"</form>\n"
-			"<h2>POST Form</h2>\n"
-			"<form method=\"POST\" action=\"/form\">\n"
-			"<input type=\"text\" name=\"text\" size=\"31\">\n"
-			"<input type=\"submit\" value=\"POST\">\n"
-			"</form>\n"
-			"<h2>File Upload</h2>\n"
-			"<form method=\"POST\" action=\"/form\" enctype=\"multipart/form-data\">\n"
-			"<input type=\"file\" name=\"file\" size=\"31\"> \n"
-			"<input type=\"submit\" value=\"Upload\">\n"
-			"</form>\n";
-			
-		ostr << "<h2>Request</h2><p>\n";
-		ostr << "Method: " << request.getMethod() << "<br>\n";
-		ostr << "URI: " << request.getURI() << "<br>\n";
-		NameValueCollection::ConstIterator it = request.begin();
-		NameValueCollection::ConstIterator end = request.end();
-		for (; it != end; ++it)
-		{
-			ostr << it->first << ": " << it->second << "<br>\n";
-		}
-		ostr << "<h3>Received data from upstream server</h3>\n";
-		ostr << str;
-		ostr << "\n";
-		ostr << "</p>";
-
-		if (!form.empty())
-		{
-			ostr << "<h2>Form</h2><p>\n";
-			it = form.begin();
-			end = form.end();
-			for (; it != end; ++it)
-			{
-				ostr << it->first << ": " << it->second << "<br>\n";
-			}
-			ostr << "</p>";
-		}
-
-		if (!partHandler.name().empty())
-		{
-			ostr << "<h2>Upload</h2><p>\n";
-			ostr << "Name: " << partHandler.name() << "<br>\n";
-			ostr << "File Name: " << partHandler.fileName() << "<br>\n";
-			ostr << "Type: " << partHandler.contentType() << "<br>\n";
-			ostr << "Size: " << partHandler.length() << "<br>\n";
-			ostr << "</p>";
-		}
-		ostr << "</body>\n";
-		ostr << "</html>\n";
-		ostr.flush();
-
-		return 0;
-
-	}
-
 	void send_error_response()
 	{
 		HTTPServerRequest& request = (getRequest());
@@ -294,6 +156,143 @@ private:
 		ostr.flush();
 	}
 
+	void init()
+	{
+		Application::instance().logger().information("Request from " + getRequest().clientAddress().toString());
+		try {
+			form1 = new HTMLForm((getRequest()), getRequest().stream(), partHandler);
+		} catch (std::exception& ex) {
+			DEBUGPOINT("CHA %s\n",ex.what());
+			throw(ex);
+		}
+
+		getResponse().setChunkedTransferEncoding(true);
+		getResponse().setContentType("text/html");
+
+		getResponse().send();
+	}
+
+	class part_three : public EventHandler {
+		EVFormRequestHandler* handler;
+		public:
+		part_three(EVFormRequestHandler*h):EventHandler() { handler=h; }
+		int operator ()()
+		{
+			Poco::EVNet::EVUpstreamEventNotification &usN = handler->getUNotification();
+			DEBUGPOINT("PART_THREE from %d\n", handler->session.getAccfd());
+			HTTPServerRequest& request = handler->getRequest();
+			HTTPServerResponse& response = handler->getResponse();
+
+			if (usN.getRet() < 0) {
+				handler->send_error_response();
+				return -1;
+			}
+
+			char str[1024] = {0};
+			std::istream * istr = handler->uresponse.getStream();
+			istr->get(str, 512);
+			//DEBUGPOINT("RECEIVED DATA = \n%s\n from %d\n", str, handler->session.getAccfd());
+
+
+			HTMLForm& form = *(handler->form1);
+
+			std::ostream& ostr = handler->getResponse().getOStream();
+
+			ostr <<
+				"<html>\n"
+				"<head>\n"
+				"<title>POCO Form Server Sample</title>\n"
+				"</head>\n"
+				"<body>\n"
+				"<h1>POCO Form Server Sample</h1>\n"
+				"<h2>GET Form</h2>\n"
+				"<form method=\"GET\" action=\"/form\">\n"
+				"<input type=\"text\" name=\"text\" size=\"31\">\n"
+				"<input type=\"submit\" value=\"GET\">\n"
+				"</form>\n"
+				"<h2>POST Form</h2>\n"
+				"<form method=\"POST\" action=\"/form\">\n"
+				"<input type=\"text\" name=\"text\" size=\"31\">\n"
+				"<input type=\"submit\" value=\"POST\">\n"
+				"</form>\n"
+				"<h2>File Upload</h2>\n"
+				"<form method=\"POST\" action=\"/form\" enctype=\"multipart/form-data\">\n"
+				"<input type=\"file\" name=\"file\" size=\"31\"> \n"
+				"<input type=\"submit\" value=\"Upload\">\n"
+				"</form>\n";
+				
+			ostr << "<h2>Request</h2><p>\n";
+			ostr << "Method: " << request.getMethod() << "<br>\n";
+			ostr << "URI: " << request.getURI() << "<br>\n";
+			NameValueCollection::ConstIterator it = request.begin();
+			NameValueCollection::ConstIterator end = request.end();
+			for (; it != end; ++it)
+			{
+				ostr << it->first << ": " << it->second << "<br>\n";
+			}
+			ostr << "<h3>Received data from upstream server</h3>\n";
+			ostr << str;
+			ostr << "\n";
+			ostr << "</p>";
+
+			if (!form.empty())
+			{
+				ostr << "<h2>Form</h2><p>\n";
+				it = form.begin();
+				end = form.end();
+				for (; it != end; ++it)
+				{
+					ostr << it->first << ": " << it->second << "<br>\n";
+				}
+				ostr << "</p>";
+			}
+
+			if (!handler->partHandler.name().empty())
+			{
+				ostr << "<h2>Upload</h2><p>\n";
+				ostr << "Name: " << handler->partHandler.name() << "<br>\n";
+				ostr << "File Name: " << handler->partHandler.fileName() << "<br>\n";
+				ostr << "Type: " << handler->partHandler.contentType() << "<br>\n";
+				ostr << "Size: " << handler->partHandler.length() << "<br>\n";
+				ostr << "</p>";
+			}
+			ostr << "</body>\n";
+			ostr << "</html>\n";
+			ostr.flush();
+
+			return PROCESSING_COMPLETE;
+		}
+	}; part_three three{this};
+
+	class part_two : public EventHandler {
+		EVFormRequestHandler* handler;
+		public:
+		part_two(EVFormRequestHandler*h):EventHandler() { handler=h; }
+		int operator ()()
+		{
+			DEBUGPOINT("PART_TWO, from %d\n", handler->session.getAccfd());
+			Poco::EVNet::EVUpstreamEventNotification &usN = handler->getUNotification();
+			DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
+					usN.sockfd(), handler->session.getSS().impl()->referenceCount(),
+					handler->session.getState(), handler->session.getAccfd());
+			DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), handler->session.getAccfd());
+			if (usN.getRet() < 0) {
+				handler->send_error_response();
+				return -1;
+			}
+			Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
+			request.setHost("localhost:9980");
+			std::string body("this is a random request body");
+			request.setContentLength((int) body.length());
+			handler->sendHTTPHeader(handler->session, request);
+			*(request.getRequestStream()) << body;
+			handler->sendHTTPRequestData(handler->session, request);
+
+			handler->waitForHTTPResponse(handler->three, &(handler->session), handler->uresponse);
+			return PROCESSING;
+		}
+	} ; part_two two{this};
+
 	void cleanup()
 	{
 		if (form1) delete form1;
@@ -312,30 +311,20 @@ public:
 
 	int handleRequest()
 	{
-		int return_value = PROCESSING;
-		switch (getEvent()) {
-			case INITIAL:
-				init();
-			case PART_ONE:
-				if (0 > part_one()) {
-					DEBUGPOINT("Here from %d\n", session.getAccfd());
-					return_value = PROCESSING_ERROR;
-				}
-				break;
-			case PART_TWO:
-				if (0> part_two()) {
-					DEBUGPOINT("Here from %d\n", session.getAccfd());
-				 	return_value = PROCESSING_ERROR;
-				}
-				break;
-			case PART_THREE:
-				part_three();
-				return_value = PROCESSING_COMPLETE;
-				break;
-			default:
-				std::abort();
+		init();
+		SocketAddress address("127.0.0.1", 9980);
+		StreamSocket ss;
+		session.setSS(ss);
+		session.setAddr(address);
+		//if (0 > makeNewHTTPConnection(&EVFormRequestHandler::part_two, &session)) 
+		if (0 > makeNewHTTPConnection(two, &session)) {
+			send_error_response();
+			return -1;
 		}
-		return return_value;
+		DEBUGPOINT("PART_ONE from %d\n", session.getAccfd());
+
+		//sleep(1);
+		return PROCESSING;
 	}
 };
 

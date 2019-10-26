@@ -44,14 +44,28 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
-long EVHTTPRequestHandler::makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css)
+long EVHTTPRequestHandler::makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 	SRData * srdata = new SRData();
 
 	srdata->addr = addr;
-	srdata->cb_evid_num = cb_evid_num;
+	srdata->cb_handler = &cb_handler;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER ;
+	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
+
+	_srColl[sr_num] = srdata;
+
+	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+	SRData * srdata = new SRData();
 
 	srdata->addr = addr;
 	srdata->cb_evid_num = cb_evid_num;
@@ -88,11 +102,42 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
 	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTP_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
-		// Set callback to HTTP_CONNECT_PROXYSOCK_READY here
+		// Set callback to HTTPRH_CONNECT_PROXYSOCK_READY here
+	}
+
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+		return -1;
+	}
+
+	sess->setAccfd(getAccSockfd());
+
+	SRData * srdata = new SRData();
+	srdata->addr = sess->getAddr();
+	srdata->session_ptr = sess;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb_handler = &cb_handler;
+
+	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
+	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+	}
+	else {
+		// TBD : Connect to proxy server first over here. TBD
+		// Set callback to HTTPRH_CONNECT_PROXYSOCK_READY here
 	}
 
 	_srColl[sr_num] = srdata;
@@ -114,7 +159,29 @@ long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSess
 	srdata->cb_evid_num = cb_evid_num;
 	srdata->response = &res;
 
-	sr_num = server.submitRequestForRecvData(HTTP_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession* sess, EVHTTPResponse& res)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	if (sess->getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+
+	SRData * srdata = new SRData();
+	srdata->addr = sess->getAddr();
+	srdata->session_ptr = sess;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb_handler = &cb_handler;
+	srdata->response = &res;
+
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
 
 	_srColl[sr_num] = srdata;
 
@@ -178,7 +245,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	//DEBUGPOINT("Here event = %d, \n", getEvent());
 
 	switch (getEvent()) {
-		case HTTP_CONNECT_SOCK_READY:
+		case HTTPRH_CONNECT_SOCK_READY:
 			_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
 			if ((_usN->getRet() < 0) || _usN->getErrNo()) {
 				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
@@ -190,15 +257,15 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 				_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
 			}
 			break;
-		case HTTP_CONNECT_PROXYSOCK_READY:
+		case HTTPRH_CONNECT_PROXYSOCK_READY:
 			// TBD: Handle connecting through the proxy here. TBD
 			/* Send CONNECT request to proxy server, setting callback
-			 * event as HTTP_CONNECT_RSP_FROM_PROXY.
-			 * The event handling of HTTP_CONNECT_RSP_FROM_PROXY should be
+			 * event as HTTPRH_CONNECT_RSP_FROM_PROXY.
+			 * The event handling of HTTPRH_CONNECT_RSP_FROM_PROXY should be
 			 * coded in a reentrant manner.
 			 * */
 			break;
-		case HTTP_RESP_MSG_FROM_HOST:
+		case HTTPRH_RESP_MSG_FROM_HOST:
 			{
 				int parse_ret = 0;
 				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
@@ -220,7 +287,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						_srColl.erase(sr_num);
 						delete old;
 						Poco::EVNet::EVServer & server = getServer();
-						sr_num = server.submitRequestForRecvData(HTTP_RESP_MSG_FROM_HOST,
+						sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST,
 											getAccSockfd(), srdata->session_ptr->getSS());
 						_srColl[sr_num] = srdata;
 						continue_event_loop = true;
@@ -231,7 +298,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 				}
 			}
 			break;
-		case HTTP_CONNECT_RSP_FROM_PROXY:
+		case HTTPRH_CONNECT_RSP_FROM_PROXY:
+			break;
+		case HTTPRH_CALL_CB_HANDLER:
 			break;
 		default:
 			break;
@@ -242,7 +311,12 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	}
 	else {
 		try {
-			ret = handleRequest();
+			if ((_srColl[sr_num])->cb_handler) {
+				ret = (*((_srColl[sr_num])->cb_handler))();
+			}
+			else {
+				ret = handleRequest();
+			}
 		}
 		catch (...) {
 			ret = PROCESSING_ERROR;
@@ -252,7 +326,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		delete old;
 	}
 
-	return ret;
+	return (ret<0)?PROCESSING_ERROR:ret;
 }
 
 } } // namespace Poco::EVNet

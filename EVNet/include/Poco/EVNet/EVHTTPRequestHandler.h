@@ -33,6 +33,8 @@
 namespace Poco {
 namespace EVNet {
 
+class EVHTTPRequestHandler;
+
 class Net_API EVHTTPRequestHandler
 	/// The abstract base class for EVHTTPRequestHandlers 
 	/// created by EVHTTPServer.
@@ -48,13 +50,19 @@ class Net_API EVHTTPRequestHandler
 	/// each new HTTP request that is received by the HTTPServer.
 {
 public:
+	class EventHandler {
+		public:
+		EventHandler() { }
+		virtual int operator ()() =0;
+	};
 	struct SRData {
-		SRData(): cb_evid_num(0), session_ptr(0), response(0) {}
+		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0) {}
 		~SRData() {}
-		Net::SocketAddress addr;
-		EVHTTPClientSession* session_ptr;
-		int	cb_evid_num;
-		EVHTTPResponse * response;
+		Net::SocketAddress		addr;
+		EVHTTPClientSession*	session_ptr;
+		int						cb_evid_num;
+		EVHTTPResponse*			response;
+		EventHandler*			cb_handler;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
 	static const int INITIAL = 0;
@@ -65,10 +73,11 @@ public:
 	static const int PROCESSING = 0;
 	static const int PROCESSING_COMPLETE = 1000;
 
-	static const int HTTP_CONNECT_SOCK_READY = -100;
-	static const int HTTP_CONNECT_PROXYSOCK_READY = -200;
-	static const int HTTP_CONNECT_RSP_FROM_PROXY = -300;
-	static const int HTTP_RESP_MSG_FROM_HOST = -400;
+	static const int HTTPRH_CONNECT_SOCK_READY = -100;
+	static const int HTTPRH_CONNECT_PROXYSOCK_READY = -200;
+	static const int HTTPRH_CONNECT_RSP_FROM_PROXY = -300;
+	static const int HTTPRH_RESP_MSG_FROM_HOST = -400;
+	static const int HTTPRH_CALL_CB_HANDLER = -500;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -97,9 +106,15 @@ public:
 	void setRequest(Net::HTTPServerRequest* req);
 	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
+
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
 	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPResponse &req);
+
+	long makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css);
+	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess);
+	long waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession* sess, EVHTTPResponse& res);
+
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
 	long closeHTTPSession(EVHTTPClientSession* sess);
