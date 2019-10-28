@@ -44,12 +44,21 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
 	if (this->_socket_watcher) {
 		ev_io_stop(this->_loop, this->_socket_watcher);
-		if ((void*)(this->_socket_watcher->data))
+		if ((void*)(this->_socket_watcher->data)) {
 			free((void*)(this->_socket_watcher->data));
+			this->_socket_watcher->data = NULL;
+		}
 		free(this->_socket_watcher);
+		this->_socket_watcher = NULL;
 	}
-	if (this->_send_memory_stream) delete this->_send_memory_stream;
-	if (this->_rcv_memory_stream) delete this->_rcv_memory_stream;
+	if (this->_send_memory_stream) {
+		delete this->_send_memory_stream;
+		this->_send_memory_stream = NULL;
+	}
+	if (this->_rcv_memory_stream) {
+		delete this->_rcv_memory_stream;
+		this->_rcv_memory_stream = NULL;
+	}
 }
 
 void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)

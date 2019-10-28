@@ -95,31 +95,31 @@ long EVHTTPRequestHandler::makeNewSocketConnection(int cb_evid_num, Net::SocketA
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession* sess)
+long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 {
-	getServer().submitRequestForClose(getAccSockfd(), sess->getSS());
+	getServer().submitRequestForClose(getAccSockfd(), sess.getSS());
 	return 0;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess)
+long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession& sess)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+	if (sess.getState() != EVHTTPClientSession::NOT_CONNECTED) {
 		return -1;
 	}
 
-	sess->setAccfd(getAccSockfd());
+	sess.setAccfd(getAccSockfd());
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = cb_evid_num;
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
-	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess.getAddr(), sess.getSS());
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
@@ -131,26 +131,26 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession* sess)
+long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+	if (sess.getState() != EVHTTPClientSession::NOT_CONNECTED) {
 		return -1;
 	}
 
-	sess->setAccfd(getAccSockfd());
+	sess.setAccfd(getAccSockfd());
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
-	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess.getAddr(), sess.getSS());
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
@@ -162,26 +162,26 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess)
+long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+	if (sess.getState() != EVHTTPClientSession::NOT_CONNECTED) {
 		return -1;
 	}
 
-	sess->setAccfd(getAccSockfd());
+	sess.setAccfd(getAccSockfd());
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = HTTPRH_INVALID_CB_NUM;
 	srdata->cb_handler = &cb_handler;
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
-	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess.getAddr(), sess.getSS());
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
@@ -193,65 +193,65 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTT
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPResponse& res)
+long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession& sess, EVHTTPResponse& res)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::CONNECTED) return -1;
-	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = cb_evid_num;
 	srdata->response = &res;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
 
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession* sess, EVHTTPResponse& res)
+long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::CONNECTED) return -1;
-	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
 	srdata->response = &res;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
 
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession* sess, EVHTTPResponse& res)
+long EVHTTPRequestHandler::waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession& sess, EVHTTPResponse& res)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
 
-	if (sess->getState() != EVHTTPClientSession::CONNECTED) return -1;
-	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 
 	SRData * srdata = new SRData();
-	srdata->addr = sess->getAddr();
-	srdata->session_ptr = sess;
+	srdata->addr = sess.getAddr();
+	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb_handler = &cb_handler;
 	srdata->response = &res;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
 
 	_srColl[sr_num] = srdata;
 
@@ -348,7 +348,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					parse_ret = _srColl[sr_num]->session_ptr->continueRead(*(_srColl[sr_num]->response));
 					if (parse_ret < 0) {
 						_usN->setRet(-1);
-						closeHTTPSession(_srColl[sr_num]->session_ptr);
+						closeHTTPSession(*(_srColl[sr_num]->session_ptr));
 						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
 					}
 					else if (parse_ret < MESSAGE_COMPLETE) {

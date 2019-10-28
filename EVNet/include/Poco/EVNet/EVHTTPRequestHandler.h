@@ -113,21 +113,22 @@ public:
 	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
 
+	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession& sess, EVHTTPResponse &req);
+	long waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession& sess, EVHTTPResponse& res);
+	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
+
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession* sess);
-	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession* sess, EVHTTPResponse &req);
-
 	long makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess);
-	long waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession* sess, EVHTTPResponse& res);
-
 	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession* sess);
-	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession* sess, EVHTTPResponse& res);
+
+	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
+	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession& sess);
+	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess);
 
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
-	long closeHTTPSession(EVHTTPClientSession* sess);
+
+	long closeHTTPSession(EVHTTPClientSession& sess);
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);

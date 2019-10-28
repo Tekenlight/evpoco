@@ -291,11 +291,35 @@ private:
 			*(request.getRequestStream()) << body;
 			handler->sendHTTPRequestData(handler->session, request);
 
-			handler->waitForHTTPResponse(handler->three, &(handler->session), handler->uresponse);
+			handler->waitForHTTPResponse(handler->three, (handler->session), handler->uresponse);
 			return PROCESSING;
 		}
 	} ; part_two two{this};
 	*/
+
+	int part_two()
+	{
+		DEBUGPOINT("PART_TWO, from %d\n", session.getAccfd());
+		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
+		DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
+				usN.sockfd(), session.getSS().impl()->referenceCount(),
+				session.getState(), session.getAccfd());
+		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
+		if (usN.getRet() < 0) {
+			send_error_response();
+			return -1;
+		}
+		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
+		request.setHost("localhost:9980");
+		std::string body("this is a random request body");
+		request.setContentLength((int) body.length());
+		sendHTTPHeader(session, request);
+		*(request.getRequestStream()) << body;
+		sendHTTPRequestData(session, request);
+
+		waitForHTTPResponse(std::bind(&EVFormRequestHandler::part_three, this), (session), uresponse);
+		return PROCESSING;
+	}
 
 	int part_three()
 	{
@@ -384,30 +408,6 @@ private:
 		return PROCESSING_COMPLETE;
 	}
 
-	int part_two()
-	{
-		DEBUGPOINT("PART_TWO, from %d\n", session.getAccfd());
-		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
-		DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
-				usN.sockfd(), session.getSS().impl()->referenceCount(),
-				session.getState(), session.getAccfd());
-		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
-		if (usN.getRet() < 0) {
-			send_error_response();
-			return -1;
-		}
-		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
-		request.setHost("localhost:9980");
-		std::string body("this is a random request body");
-		request.setContentLength((int) body.length());
-		sendHTTPHeader(session, request);
-		*(request.getRequestStream()) << body;
-		sendHTTPRequestData(session, request);
-
-		waitForHTTPResponse(std::bind(&EVFormRequestHandler::part_three, this), &(session), uresponse);
-		return PROCESSING;
-	}
-
 	void cleanup()
 	{
 		if (form1) delete form1;
@@ -433,7 +433,7 @@ public:
 		session.setAddr(address);
 		//This is the event handler (functor) mechanism
 		//if (0 > makeNewHTTPConnection(two, &session)) 
-		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), &session)) {
+		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), session)) {
 			send_error_response();
 			return -1;
 		}

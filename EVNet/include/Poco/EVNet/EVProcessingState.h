@@ -107,8 +107,4 @@ inline void EVProcessingState::setUpstreamEventQ(ev_queue_type  q) { _upstream_i
 }
 } // End namespace Poco::EVNet
 
-
-
-
-
 #endif

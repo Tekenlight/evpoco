@@ -48,13 +48,25 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 {
 	//printf("[%p:%s:%d] Here in distructor of the created socket\n",pthread_self(),__FILE__,__LINE__);
 	if (this->_socket_watcher) {
-		if ((void*)(this->_socket_watcher->data))
+		if ((void*)(this->_socket_watcher->data)) {
 			free((void*)(this->_socket_watcher->data));
+			this->_socket_watcher->data = NULL;
+		}
 		free(this->_socket_watcher);
+		this->_socket_watcher = NULL;
 	}
-	if (this->_reqProcState) delete this->_reqProcState;
-	if (this->_req_memory_stream) delete this->_req_memory_stream;
-	if (this->_res_memory_stream) delete this->_res_memory_stream;
+	if (this->_reqProcState) {
+		delete this->_reqProcState;
+		this->_reqProcState = NULL;
+	}
+	if (this->_req_memory_stream) {
+		delete this->_req_memory_stream;
+		this->_req_memory_stream = NULL;
+	}
+	if (this->_res_memory_stream) {
+		delete this->_res_memory_stream;
+		this->_res_memory_stream = NULL;
+	}
 	if (this->_upstream_io_event_queue) {
 		EVUpstreamEventNotification * usN = NULL;
 		usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
@@ -62,6 +74,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 			delete usN;
 			usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
 		}
+		this->_upstream_io_event_queue = NULL;
 	}
 }
 
