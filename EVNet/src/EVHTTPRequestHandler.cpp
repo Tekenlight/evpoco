@@ -44,6 +44,23 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
+long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+
+	srdata->addr = addr;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
+
+	_srColl[sr_num] = srdata;
+
+	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	return sr_num;
+}
+
 long EVHTTPRequestHandler::makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css)
 {
 	Poco::EVNet::EVServer & server = getServer();
@@ -52,7 +69,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(EventHandler& cb_handler, Net
 
 	srdata->addr = addr;
 	srdata->cb_handler = &cb_handler;
-	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER ;
+	srdata->cb_evid_num = HTTPRH_INVALID_CB_NUM;
 	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
 
 	_srColl[sr_num] = srdata;
@@ -114,7 +131,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSe
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess)
+long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession* sess)
 {
 	Poco::EVNet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -129,6 +146,37 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTT
 	srdata->addr = sess->getAddr();
 	srdata->session_ptr = sess;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
+	if (proxyConfig().host.empty() || bypassProxy(sess->getAddr().host().toString())) {
+		sr_num = server.submitRequestForConnection(HTTPRH_CONNECT_SOCK_READY, getAccSockfd(), sess->getAddr(), sess->getSS());
+	}
+	else {
+		// TBD : Connect to proxy server first over here. TBD
+		// Set callback to HTTPRH_CONNECT_PROXYSOCK_READY here
+	}
+
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession* sess)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	if (sess->getState() != EVHTTPClientSession::NOT_CONNECTED) {
+		return -1;
+	}
+
+	sess->setAccfd(getAccSockfd());
+
+	SRData * srdata = new SRData();
+	srdata->addr = sess->getAddr();
+	srdata->session_ptr = sess;
+	srdata->cb_evid_num = HTTPRH_INVALID_CB_NUM;
 	srdata->cb_handler = &cb_handler;
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
@@ -157,6 +205,28 @@ long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSess
 	srdata->addr = sess->getAddr();
 	srdata->session_ptr = sess;
 	srdata->cb_evid_num = cb_evid_num;
+	srdata->response = &res;
+
+	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
+
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession* sess, EVHTTPResponse& res)
+{
+	Poco::EVNet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	if (sess->getState() != EVHTTPClientSession::CONNECTED) return -1;
+	if (fcntl(sess->getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
+
+	SRData * srdata = new SRData();
+	srdata->addr = sess->getAddr();
+	srdata->session_ptr = sess;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
 	srdata->response = &res;
 
 	sr_num = server.submitRequestForRecvData(HTTPRH_RESP_MSG_FROM_HOST, getAccSockfd(), sess->getSS());
@@ -313,6 +383,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		try {
 			if ((_srColl[sr_num])->cb_handler) {
 				ret = (*((_srColl[sr_num])->cb_handler))();
+			}
+			else if (0 != (_srColl[sr_num])->cb) {
+				ret = (_srColl[sr_num])->cb();
 			}
 			else {
 				ret = handleRequest();

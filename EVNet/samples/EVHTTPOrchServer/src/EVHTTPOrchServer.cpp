@@ -172,6 +172,9 @@ private:
 		getResponse().send();
 	}
 
+	/*
+	 * These two below are imppmenetation of the request handler
+	 * using the event handling mechanism.
 	class part_three : public EventHandler {
 		EVFormRequestHandler* handler;
 		public:
@@ -292,6 +295,118 @@ private:
 			return PROCESSING;
 		}
 	} ; part_two two{this};
+	*/
+
+	int part_three()
+	{
+		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
+		DEBUGPOINT("PART_THREE from %d\n", session.getAccfd());
+		HTTPServerRequest& request = getRequest();
+		HTTPServerResponse& response = getResponse();
+
+		if (usN.getRet() < 0) {
+			send_error_response();
+			return -1;
+		}
+
+		char str[1024] = {0};
+		std::istream * istr = uresponse.getStream();
+		istr->get(str, 512);
+		//DEBUGPOINT("RECEIVED DATA = \n%s\n from %d\n", str, session.getAccfd());
+
+
+		HTMLForm& form = *(form1);
+
+		std::ostream& ostr = getResponse().getOStream();
+
+		ostr <<
+			"<html>\n"
+			"<head>\n"
+			"<title>POCO Form Server Sample</title>\n"
+			"</head>\n"
+			"<body>\n"
+			"<h1>POCO Form Server Sample</h1>\n"
+			"<h2>GET Form</h2>\n"
+			"<form method=\"GET\" action=\"/form\">\n"
+			"<input type=\"text\" name=\"text\" size=\"31\">\n"
+			"<input type=\"submit\" value=\"GET\">\n"
+			"</form>\n"
+			"<h2>POST Form</h2>\n"
+			"<form method=\"POST\" action=\"/form\">\n"
+			"<input type=\"text\" name=\"text\" size=\"31\">\n"
+			"<input type=\"submit\" value=\"POST\">\n"
+			"</form>\n"
+			"<h2>File Upload</h2>\n"
+			"<form method=\"POST\" action=\"/form\" enctype=\"multipart/form-data\">\n"
+			"<input type=\"file\" name=\"file\" size=\"31\"> \n"
+			"<input type=\"submit\" value=\"Upload\">\n"
+			"</form>\n";
+			
+		ostr << "<h2>Request</h2><p>\n";
+		ostr << "Method: " << request.getMethod() << "<br>\n";
+		ostr << "URI: " << request.getURI() << "<br>\n";
+		NameValueCollection::ConstIterator it = request.begin();
+		NameValueCollection::ConstIterator end = request.end();
+		for (; it != end; ++it)
+		{
+			ostr << it->first << ": " << it->second << "<br>\n";
+		}
+		ostr << "<h3>Received data from upstream server</h3>\n";
+		ostr << str;
+		ostr << "\n";
+		ostr << "</p>";
+
+		if (!form.empty())
+		{
+			ostr << "<h2>Form</h2><p>\n";
+			it = form.begin();
+			end = form.end();
+			for (; it != end; ++it)
+			{
+				ostr << it->first << ": " << it->second << "<br>\n";
+			}
+			ostr << "</p>";
+		}
+
+		if (!partHandler.name().empty())
+		{
+			ostr << "<h2>Upload</h2><p>\n";
+			ostr << "Name: " << partHandler.name() << "<br>\n";
+			ostr << "File Name: " << partHandler.fileName() << "<br>\n";
+			ostr << "Type: " << partHandler.contentType() << "<br>\n";
+			ostr << "Size: " << partHandler.length() << "<br>\n";
+			ostr << "</p>";
+		}
+		ostr << "</body>\n";
+		ostr << "</html>\n";
+		ostr.flush();
+
+		return PROCESSING_COMPLETE;
+	}
+
+	int part_two()
+	{
+		DEBUGPOINT("PART_TWO, from %d\n", session.getAccfd());
+		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
+		DEBUGPOINT("Socket = %d Refcount = %d state = %d from %d\n",
+				usN.sockfd(), session.getSS().impl()->referenceCount(),
+				session.getState(), session.getAccfd());
+		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
+		if (usN.getRet() < 0) {
+			send_error_response();
+			return -1;
+		}
+		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
+		request.setHost("localhost:9980");
+		std::string body("this is a random request body");
+		request.setContentLength((int) body.length());
+		sendHTTPHeader(session, request);
+		*(request.getRequestStream()) << body;
+		sendHTTPRequestData(session, request);
+
+		waitForHTTPResponse(std::bind(&EVFormRequestHandler::part_three, this), &(session), uresponse);
+		return PROCESSING;
+	}
 
 	void cleanup()
 	{
@@ -316,8 +431,9 @@ public:
 		StreamSocket ss;
 		session.setSS(ss);
 		session.setAddr(address);
-		//if (0 > makeNewHTTPConnection(&EVFormRequestHandler::part_two, &session)) 
-		if (0 > makeNewHTTPConnection(two, &session)) {
+		//This is the event handler (functor) mechanism
+		//if (0 > makeNewHTTPConnection(two, &session)) 
+		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), &session)) {
 			send_error_response();
 			return -1;
 		}
