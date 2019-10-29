@@ -30,7 +30,8 @@ namespace Poco {
 namespace EVNet {
 
 
-class EVHTTPClientSession {
+class EVHTTPClientSession
+{
 public:
 	typedef enum {
 		NOT_CONNECTED=-1

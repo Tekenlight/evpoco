@@ -131,6 +131,7 @@ public:
 		std::istream & is = request.stream();
 		is.get(request_body, 1024);
 
+		//response.setVersion("HTTP/1.0");
 		response.setChunkedTransferEncoding(true);
 		response.setContentType("text/plain");
 

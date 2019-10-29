@@ -1415,19 +1415,6 @@ void EVTCPServer::run()
 	ev_async_start (_loop, &(stop_watcher_1));
 
 	{
-		/* When request processing either completes or more data is required
-		 * for processing. */
-		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
-		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
-		pc_cb_ptr->objPtr = this;
-		pc_cb_ptr->method = &EVTCPServer::somethingHappenedInAnotherThread;
-
-		stop_watcher_2.data = (void*)pc_cb_ptr;
-		ev_async_init (&(stop_watcher_2), event_notification_on_downstream_socket);
-		ev_async_start (_loop, &(stop_watcher_2));
-	}
-
-	{
 		/* When servicing of connected sockets is required, either to make new connection
 		 * or to send data or to receive data.
 		 * */
@@ -1439,6 +1426,19 @@ void EVTCPServer::run()
 		stop_watcher_3.data = (void*)pc_cb_ptr;
 		ev_async_init (&(stop_watcher_3), process_service_request);
 		ev_async_start (_loop, &(stop_watcher_3));
+	}
+
+	{
+		/* When request processing either completes or more data is required
+		 * for processing. */
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::somethingHappenedInAnotherThread;
+
+		stop_watcher_2.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_2), event_notification_on_downstream_socket);
+		ev_async_start (_loop, &(stop_watcher_2));
 	}
 
 	{

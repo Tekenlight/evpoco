@@ -97,6 +97,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(int cb_evid_num, Net::SocketA
 
 long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 {
+	sess.setState(EVHTTPClientSession::CLOSED);
 	getServer().submitRequestForClose(getAccSockfd(), sess.getSS());
 	return 0;
 }
@@ -363,6 +364,10 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						continue_event_loop = true;
 					}
 					else {
+						if (!(_srColl[sr_num]->response->getVersion().compare("HTTP/1.0"))) {
+							//DEBUGPOINT("Got a response of version 1.0\n");
+							closeHTTPSession(*(_srColl[sr_num]->session_ptr));
+						}
 						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
 					}
 				}
