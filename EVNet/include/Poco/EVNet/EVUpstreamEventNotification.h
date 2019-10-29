@@ -11,6 +11,8 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
+#include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
@@ -138,7 +140,7 @@ inline void EVUpstreamEventNotification::debug(const char* file, const int linen
 	printf("[%p][%s:%d] _event = %d\n", pthread_self(), file, lineno, _event);
 	printf("[%p][%s:%d] _ret = %zd\n", pthread_self(), file, lineno, _ret);
 	printf("[%p][%s:%d] _cb_evid_num = %d\n", pthread_self(), file, lineno, _cb_evid_num);
-	printf("[%p][%s:%d] _errno = %d\n", pthread_self(), file, lineno, _errno);
+	printf("[%p][%s:%d] _errno = %d, %s\n", pthread_self(), file, lineno, _errno, strerror(_errno));
 }
 
 } } // namespace EVNet and Poco end.

@@ -131,7 +131,7 @@ private:
 	Poco::EVNet::EVHTTPClientSession session;
 	Poco::EVNet::EVHTTPResponse uresponse;
 
-	void send_error_response()
+	void send_error_response(int line_no)
 	{
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
@@ -149,7 +149,7 @@ private:
 			"<body>\n"
 			"<h1>EVHTTP Form Server Sample</h1>\n";
 
-		ostr << "COULD NOT OPEN CONNECTION WITH DATA PROVIDER\n";
+		ostr << line_no << ":" << "COULD NOT OPEN CONNECTION WITH DATA PROVIDER\n";
 
 		ostr << "</body>\n";
 		ostr << "</html>\n";
@@ -187,7 +187,7 @@ private:
 			HTTPServerResponse& response = handler->getResponse();
 
 			if (usN.getRet() < 0) {
-				handler->send_error_response();
+				handler->send_error_response(__LINE__);
 				return -1;
 			}
 
@@ -280,7 +280,7 @@ private:
 					handler->session.getState(), handler->session.getAccfd());
 			DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), handler->session.getAccfd());
 			if (usN.getRet() < 0) {
-				handler->send_error_response();
+				handler->send_error_response(__LINE__);
 				return -1;
 			}
 			Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
@@ -306,11 +306,13 @@ private:
 				session.getState(), session.getAccfd());
 		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
 		if (usN.getRet() < 0) {
-			send_error_response();
+			usN.debug(__FILE__, __LINE__);
+			send_error_response(__LINE__);
 			return -1;
 		}
 		Poco::EVNet::EVHTTPRequest request(HTTPRequest::HTTP_POST, "http://localhost:9980/echo");
 		request.setHost("localhost:9980");
+		request.setExpectContinue(true);
 		std::string body("this is a random request body");
 		request.setContentLength((int) body.length());
 		sendHTTPHeader(session, request);
@@ -318,6 +320,9 @@ private:
 		sendHTTPRequestData(session, request);
 
 		waitForHTTPResponse(std::bind(&EVFormRequestHandler::part_three, this), (session), uresponse);
+
+
+
 		return PROCESSING;
 	}
 
@@ -329,7 +334,8 @@ private:
 		HTTPServerResponse& response = getResponse();
 
 		if (usN.getRet() < 0) {
-			send_error_response();
+			usN.debug(__FILE__, __LINE__);
+			send_error_response(__LINE__);
 			return -1;
 		}
 
@@ -434,7 +440,7 @@ public:
 		//This is the event handler (functor) mechanism
 		//if (0 > makeNewHTTPConnection(two, &session)) 
 		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), session)) {
-			send_error_response();
+			send_error_response(__LINE__);
 			return -1;
 		}
 		DEBUGPOINT("PART_ONE from %d\n", session.getAccfd());

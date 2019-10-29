@@ -201,6 +201,7 @@ int EVHTTPClientSession::http_parser_hack()
 	 * */
 	int n = 0, c = 0, reduction_count = 0;
 	n = _recv_stream->copy(0, &c, 1);
+	//DEBUGPOINT("Found c = %c\n", c);
 	if (n && (c == 10)) {
 		_recv_stream->erase(1);
 		reduction_count = 1;
@@ -251,6 +252,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
 			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
+			DEBUGPOINT("\n%s\n", buffer);
 			response.clear();
 			response.initParseState();
 			parser_init(&response);
@@ -318,13 +320,17 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			}
 
 			if (HTTP_HEADER_ONLY == response.getRespType()) {
-				len2 -= http_parser_hack();
 				if (response.getStatus() == EVHTTPResponse::HTTP_CONTINUE) {
+					//DEBUGPOINT("GOT A CONTINUATION RESPONSE, restarting the parsing\n");
+					//DEBUGPOINT("\n%s\n", buffer);
 					response.clear();
 					response.initParseState();
 					parser_init(&response);
+					len2 = response.getMessageBodySize();
+					//len2 = 0; Restart parse length.
 				}
 				else {
+					http_parser_hack();
 					response.setParseState(MESSAGE_COMPLETE);
 					response.setPrevNodePtr(0);
 					break;

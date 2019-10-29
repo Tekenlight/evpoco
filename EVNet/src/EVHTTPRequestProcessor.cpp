@@ -206,8 +206,10 @@ void EVHTTPRequestProcessor::evrun()
 				if (!server.empty())
 					response->set("Server", server);
 
-				if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK)
+				if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK) {
+					//DEBUGPOINT("RESPONDING TO CONTINUE EXPECTATION\n");
 					response->sendContinue();
+				}
 				if (pHandler) {
 					int ret = EVHTTPRequestHandler::PROCESSING;
 					ret = pHandler->handleRequestSurrogateInitial();

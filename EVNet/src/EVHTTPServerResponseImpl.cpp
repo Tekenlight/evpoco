@@ -56,6 +56,7 @@ void EVHTTPServerResponseImpl::sendContinue()
 {
 	EVHTTPHeaderOutputStream hs(_out_memory_stream);
 	hs << getVersion() << " 100 Continue\r\n\r\n";
+	hs.flush();
 	_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
 
 }
