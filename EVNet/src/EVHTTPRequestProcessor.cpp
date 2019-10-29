@@ -154,7 +154,7 @@ void EVHTTPRequestProcessor::evrun()
 			int ret = _reqProcState->continueRead();
 			if (ret < 0) {
 				DEBUGPOINT("Here\n");
-				sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+				sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 				throw NetException("Badly formed HTTP Request");
 				return ;
 			}
@@ -177,6 +177,12 @@ void EVHTTPRequestProcessor::evrun()
 
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
 				//DEBUGPOINT("Here %d\n",c);
+				return ;
+			}
+
+			if ((request->getVersion().compare("HTTP/1.1"))) {
+				//sendErrorResponse(*session, *response, HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
+				throw Poco::Exception("Unsupported HTTP Version", HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
 				return ;
 			}
 		}
@@ -224,7 +230,7 @@ void EVHTTPRequestProcessor::evrun()
 							break;
 					}
 				}
-				else sendErrorResponse(*session, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+				else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 			}
 			else {
 				if (_reqProcState->getUpstreamEventQ() &&
@@ -266,7 +272,7 @@ void EVHTTPRequestProcessor::evrun()
 				try
 				{
 					DEBUGPOINT("Here\n");
-					sendErrorResponse(*session, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+					sendErrorResponse(*session, *response, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 				}
 				catch (...)
 				{
@@ -276,20 +282,20 @@ void EVHTTPRequestProcessor::evrun()
 		}
 		catch (...) {
 			DEBUGPOINT("Here\n");
-			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+			sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 			throw;
 		}
 	}
 	catch (NoMessageException& e)
 	{
 		DEBUGPOINT("Here\n");
-		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
 	catch (MessageException& e)
 	{
 		DEBUGPOINT("Here\n");
-		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
 	catch (Poco::Exception& e)
@@ -297,18 +303,20 @@ void EVHTTPRequestProcessor::evrun()
 		if (session->networkException())
 		{
 			DEBUGPOINT("Here\n");
-			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
+			else sendErrorResponse(*session, *response, (HTTPResponse::HTTPStatus)e.code());
 			session->networkException()->rethrow();
 		}
 		else { 
-			DEBUGPOINT("Here\n");
-			sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+			DEBUGPOINT("Here %d\n", e.code());
+			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
+			else sendErrorResponse(*session, *response, (HTTPResponse::HTTPStatus)e.code());
 			throw e;
 		}
 	}
 	catch (...) {
 		DEBUGPOINT("Here\n");
-		sendErrorResponse(*session, HTTPResponse::HTTP_BAD_REQUEST);
+		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw;
 	}
 	return ;
@@ -319,16 +327,16 @@ void EVHTTPRequestProcessor::run()
 	return evrun();
 }
 
-void EVHTTPRequestProcessor::sendErrorResponse(EVHTTPServerSession& session, HTTPResponse::HTTPStatus status)
+void EVHTTPRequestProcessor::sendErrorResponse(EVHTTPServerSession& session,
+			EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status)
 {
-	EVHTTPServerResponseImpl response(session);
 	response.setVersion(HTTPMessage::HTTP_1_1);
 	response.setStatusAndReason(status);
 	response.setKeepAlive(false);
-	response.send();
+	response.send() << std::flush;
+	session.getServer()->dataReadyForSend(session.socket().impl()->sockfd());
 	session.setKeepAlive(false);
 }
-
 
 void EVHTTPRequestProcessor::onServerStopped(const bool& abortCurrent)
 {

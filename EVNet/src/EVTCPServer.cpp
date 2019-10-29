@@ -1794,7 +1794,7 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			continue;
 		}
 		if (!(tn->getProcState()) || !(tn->srInSession(srNF->getSRNum()))) {
-			DEBUGPOINT("Here DEAD REQUEST\n");
+			DEBUGPOINT("Here DEAD REQUEST %d\n", srNF->getEvent());
 			continue;
 		}
 

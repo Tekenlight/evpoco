@@ -65,7 +65,8 @@ public:
 		/// Handles HTTP requests coming, in an event driven way.
 	
 protected:
-	void sendErrorResponse(EVHTTPServerSession& session, HTTPResponse::HTTPStatus status);
+	void sendErrorResponse(EVHTTPServerSession& session,
+				EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status);
 	void onServerStopped(const bool& abortCurrent);
 	EVProcessingState * getProcState();
 	void setProcState(EVProcessingState *s);

@@ -149,7 +149,7 @@ private:
 			"<body>\n"
 			"<h1>EVHTTP Form Server Sample</h1>\n";
 
-		ostr << line_no << ":" << "COULD NOT OPEN CONNECTION WITH DATA PROVIDER\n";
+		ostr << line_no << ":" << "COULD NOT CONTACT DATA PROVIDER\n";
 
 		ostr << "</body>\n";
 		ostr << "</html>\n";
