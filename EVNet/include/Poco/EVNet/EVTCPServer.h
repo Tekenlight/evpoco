@@ -333,7 +333,6 @@ private:
 	ev_async*							stop_watcher_ptr3;;
 
 	ASColMapType						_accssColl;
-	SRColMapType						_srColl;
 
 	NotificationQueue					_queue;
 	NotificationQueue					_service_request_queue;

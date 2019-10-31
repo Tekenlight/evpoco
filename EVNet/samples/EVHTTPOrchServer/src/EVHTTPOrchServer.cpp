@@ -306,7 +306,7 @@ private:
 				session.getState(), session.getAccfd());
 		DEBUGPOINT("Service Request Number = %ld from %d\n", usN.getSRNum(), session.getAccfd());
 		if (usN.getRet() < 0) {
-			usN.debug(__FILE__, __LINE__);
+			//usN.debug(__FILE__, __LINE__);
 			send_error_response(__LINE__);
 			return -1;
 		}

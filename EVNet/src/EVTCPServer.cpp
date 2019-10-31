@@ -338,10 +338,6 @@ void EVTCPServer::freeClear()
         delete it->second;
     }
     _accssColl.clear();
-    for ( SRColMapType::iterator it = _srColl.begin(); it != _srColl.end(); ++it ) {
-        delete it->second;
-    }
-    _srColl.clear();
 }
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
