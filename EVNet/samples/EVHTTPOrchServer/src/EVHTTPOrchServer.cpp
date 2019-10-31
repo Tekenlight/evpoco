@@ -321,8 +321,6 @@ private:
 
 		waitForHTTPResponse(std::bind(&EVFormRequestHandler::part_three, this), (session), uresponse);
 
-
-
 		return PROCESSING;
 	}
 

@@ -304,12 +304,16 @@ void EVHTTPRequestProcessor::evrun()
 		{
 			DEBUGPOINT("Here\n");
 			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
+			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == e.code())
+				sendErrorResponse("HTTP/1.0", *session, *response, (HTTPResponse::HTTPStatus)e.code());
 			else sendErrorResponse(*session, *response, (HTTPResponse::HTTPStatus)e.code());
 			session->networkException()->rethrow();
 		}
 		else { 
 			DEBUGPOINT("Here %d\n", e.code());
 			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
+			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == (HTTPResponse::HTTPStatus)e.code())
+				sendErrorResponse("HTTP/1.0", *session, *response, (HTTPResponse::HTTPStatus)e.code());
 			else sendErrorResponse(*session, *response, (HTTPResponse::HTTPStatus)e.code());
 			throw e;
 		}
@@ -325,6 +329,17 @@ void EVHTTPRequestProcessor::evrun()
 void EVHTTPRequestProcessor::run()
 {
 	return evrun();
+}
+
+void EVHTTPRequestProcessor::sendErrorResponse(std::string http_version, EVHTTPServerSession& session,
+			EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status)
+{
+	response.setVersion(http_version);
+	response.setStatusAndReason(status);
+	response.setKeepAlive(false);
+	response.send() << std::flush;
+	session.getServer()->dataReadyForSend(session.socket().impl()->sockfd());
+	session.setKeepAlive(false);
 }
 
 void EVHTTPRequestProcessor::sendErrorResponse(EVHTTPServerSession& session,

@@ -1014,7 +1014,7 @@ void EVTCPServer::dataReadyForSend(int fd)
 													EVTCPServerNotification::DATA_FOR_SEND_READY));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	ev_async_send(_loop, this->stop_watcher_ptr2);
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	return;
 }
 
@@ -1025,7 +1025,7 @@ void EVTCPServer::receivedDataConsumed(int fd)
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	ev_async_send(_loop, this->stop_watcher_ptr2);
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	return;
 }
 
@@ -1041,7 +1041,7 @@ void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
 
 	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	ev_async_send(_loop, this->stop_watcher_ptr2);
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	//DEBUGPOINT("Here\n");
 	return;
 }
@@ -1058,7 +1058,7 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 
 	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	ev_async_send(_loop, this->stop_watcher_ptr2);
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	//DEBUGPOINT("Here\n");
 	return;
 }
@@ -1075,7 +1075,7 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 
 	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	ev_async_send(_loop, this->stop_watcher_ptr2);
+	ev_async_send(_loop, this->stop_watcher_ptr3);
 	//DEBUGPOINT("Here\n");
 	return;
 }
@@ -1404,16 +1404,20 @@ void EVTCPServer::run()
 	socket_watcher.data = (void*)&this->_cbStruct;
 
 	/* Making the server socket non-blocking. */
-
 	if (!_blocking) this->socket().impl()->setBlocking(_blocking);
-
 	/* Making the server socket non-blocking. */
-	ev_io_init (&(socket_watcher), new_connection, this->sockfd(), EV_READ);
-	ev_io_start (_loop, &(socket_watcher));
 
-	ev_async_init (&(stop_watcher_1), stop_the_loop);
-	ev_async_start (_loop, &(stop_watcher_1));
+	/* Async handler to wait for the command to stop the server. */
+	{
+		ev_io_init (&(socket_watcher), new_connection, this->sockfd(), EV_READ);
+		ev_io_start (_loop, &(socket_watcher));
 
+		ev_async_init (&(stop_watcher_1), stop_the_loop);
+		ev_async_start (_loop, &(stop_watcher_1));
+	}
+
+	/* Async handler to wait for a service request from worker threads
+	 * to deal with upstream connections */
 	{
 		/* When servicing of connected sockets is required, either to make new connection
 		 * or to send data or to receive data.
@@ -1423,11 +1427,14 @@ void EVTCPServer::run()
 		pc_cb_ptr->objPtr = this;
 		pc_cb_ptr->method = &EVTCPServer::handleServiceRequest;
 
-		stop_watcher_3.data = (void*)pc_cb_ptr;
-		ev_async_init (&(stop_watcher_3), process_service_request);
-		ev_async_start (_loop, &(stop_watcher_3));
+		stop_watcher_2.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_2), process_service_request);
+		ev_async_start (_loop, &(stop_watcher_2));
 	}
 
+	/* Async request to handle events occeuring from worker thread on the 
+	 * accepted socket.
+	 * */
 	{
 		/* When request processing either completes or more data is required
 		 * for processing. */
@@ -1436,9 +1443,9 @@ void EVTCPServer::run()
 		pc_cb_ptr->objPtr = this;
 		pc_cb_ptr->method = &EVTCPServer::somethingHappenedInAnotherThread;
 
-		stop_watcher_2.data = (void*)pc_cb_ptr;
-		ev_async_init (&(stop_watcher_2), event_notification_on_downstream_socket);
-		ev_async_start (_loop, &(stop_watcher_2));
+		stop_watcher_3.data = (void*)pc_cb_ptr;
+		ev_async_init (&(stop_watcher_3), event_notification_on_downstream_socket);
+		ev_async_start (_loop, &(stop_watcher_3));
 	}
 
 	{
@@ -1838,7 +1845,7 @@ long EVTCPServer::submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd
 										EVTCPServiceRequest::RECVDATA_REQUEST, acc_fd, css));
 
 	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->stop_watcher_ptr3);
+	ev_async_send(_loop, this->stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
@@ -1852,7 +1859,7 @@ long EVTCPServer::submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSock
 																						acc_fd, css));
 
 	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->stop_watcher_ptr3);
+	ev_async_send(_loop, this->stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
@@ -1866,7 +1873,7 @@ long EVTCPServer::submitRequestForConnection(int cb_evid_num, poco_socket_t acc_
 										EVTCPServiceRequest::CONNECTION_REQUEST, acc_fd, css, addr));
 
 	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->stop_watcher_ptr3);
+	ev_async_send(_loop, this->stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
@@ -1880,7 +1887,7 @@ long EVTCPServer::submitRequestForClose(poco_socket_t acc_fd, Net::StreamSocket&
 																										acc_fd, css));
 
 	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->stop_watcher_ptr3);
+	ev_async_send(_loop, this->stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
