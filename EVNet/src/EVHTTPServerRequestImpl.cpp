@@ -41,10 +41,14 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_reqType(HTTP_INVALID_TYPE),
 	_message_body_size(0)
 {
+	DEBUGPOINT("Here\n");
 	response.attachRequest(this);
+	DEBUGPOINT("Here\n");
 	// Now that we know socket is still connected, obtain addresses
 	_clientAddress = _session.clientAddress();;
-	_serverAddress = _session.clientAddress();
+	DEBUGPOINT("Here\n");
+	_serverAddress = _session.serverAddress();
+	DEBUGPOINT("Here\n");
 }
 
 void EVHTTPServerRequestImpl::formInputStream(chunked_memory_stream * mem_inp_stream)

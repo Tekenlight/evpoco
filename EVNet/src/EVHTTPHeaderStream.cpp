@@ -29,6 +29,7 @@ namespace EVNet {
 EVHTTPHeaderStreamBuf::EVHTTPHeaderStreamBuf(chunked_memory_stream *cms, openmode mode):
 	ev_buffered_stream(cms, 1024)
 {
+	set_mode(mode);
 }
 
 
@@ -98,7 +99,7 @@ EVHTTPHeaderInputStream::~EVHTTPHeaderInputStream()
 
 
 EVHTTPHeaderOutputStream::EVHTTPHeaderOutputStream(chunked_memory_stream *cms):
-	EVHTTPHeaderIOS(cms, std::ios::in),
+	EVHTTPHeaderIOS(cms, std::ios::out),
 	std::ostream(&_buf)
 {
 }

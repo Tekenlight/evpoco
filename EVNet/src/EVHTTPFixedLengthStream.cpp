@@ -28,6 +28,7 @@ namespace EVNet {
 EVHTTPFixedLengthStreamBuf::EVHTTPFixedLengthStreamBuf(chunked_memory_stream *cms, ContentLength length, openmode mode):
 	ev_buffered_stream(cms, 1024, length)
 {
+	set_mode(mode);
 }
 
 

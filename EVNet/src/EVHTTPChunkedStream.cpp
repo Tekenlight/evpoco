@@ -35,6 +35,7 @@ EVHTTPChunkedStreamBuf::EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openm
 	_chunk(0),
 	_closed_state(0)
 {
+	set_mode(mode);
 	set_prefix_len(5);
 	set_suffix_len(2);
 }
@@ -45,6 +46,7 @@ EVHTTPChunkedStreamBuf::EVHTTPChunkedStreamBuf(chunked_memory_stream *cms, openm
 	_chunk(0),
 	_closed_state(0)
 {
+	set_mode(mode);
 	set_prefix_len(5);
 	set_suffix_len(2);
 }

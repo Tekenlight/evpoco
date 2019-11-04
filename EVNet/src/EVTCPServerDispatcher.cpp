@@ -38,6 +38,7 @@ namespace EVNet {
 
 void tcpd_signal_handler(int signal)
 {
+	DEBUGPOINT("Here\n");
 	std::abort();
 	return ;
 }
@@ -162,8 +163,8 @@ void EVTCPServerDispatcher::run()
 					DEBUGPOINT("Here %d\n", pCNf->sockfd());
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
-				catch (Poco::Exception&) {
-					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+				catch (Poco::Exception& e) {
+					DEBUGPOINT("Here %d %s\n", pCNf->sockfd(), e.what());
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (...) {

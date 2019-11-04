@@ -517,6 +517,7 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 			bytes = cms->get_buffer_len(nodeptr);
 
 			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
+			DEBUGPOINT("SENDING_DATA ON CONN SOCK %d\n", cn->getStreamSocket().impl()->sockfd());
 			ret1 = sendData(cn->getStreamSocket(), buffer, bytes);
 			if (ret1 > 0) {
 				cms->erase(ret1);
@@ -636,6 +637,7 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 			bytes = cms->get_buffer_len(nodeptr);
 
 			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
+			DEBUGPOINT("SENDING_DATA ON ACCP SOCK %d\n", streamSocket.impl()->sockfd());
 			ret1 = sendData(streamSocket, buffer, bytes);
 			if (ret1 > 0) {
 				cms->erase(ret1);
@@ -1189,14 +1191,14 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServerNotification::REQDATA_CONSUMED:
-				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
+				DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
 				tn->setSockFree();
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
-					//DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
+					DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
 					tn->deleteState();
 					tn->setWaitingTobeEnqueued(false);
 				}
-				//else DEBUGPOINT("RETAINING STATE\n");
+				else DEBUGPOINT("RETAINING STATE\n");
 				sendDataOnAccSocket(tn);
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
 					tn->setSockBusy();
@@ -1212,18 +1214,18 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
-				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
+				DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				tn->setSockFree();
 				if (tn->pendingCSEvents()) {
-					//DEBUGPOINT("RETAINING  ACC SOCK\n");
+					DEBUGPOINT("RETAINING  ACC SOCK\n");
 					tn->setSockInError();
 				}
 				else {
-					//DEBUGPOINT("CLEARING ACC SOCK\n");
+					DEBUGPOINT("CLEARING ACC SOCK\n");
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -1234,15 +1236,15 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			 * */
 
 			case EVTCPServerNotification::ERROR_WHILE_SENDING:
-				//DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
+				DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
 			case EVTCPServerNotification::ERROR_WHILE_RECEIVING:
-				//DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
+				DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
 				if (!(tn->sockBusy()) && !(tn->pendingCSEvents())) {
-					//DEBUGPOINT("CLEARING ACC SOCK tn sock = %d, pcNf sock = %d\n", tn->getSockfd(), pcNf->sockfd());
+					DEBUGPOINT("CLEARING ACC SOCK tn sock = %d, pcNf sock = %d\n", tn->getSockfd(), pcNf->sockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
-					//DEBUGPOINT("RETAINING  ACC SOCK\n");
+					DEBUGPOINT("RETAINING  ACC SOCK\n");
 					tn->setSockInError();
 				}
 				break;
@@ -1805,19 +1807,19 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
-				//DEBUGPOINT("CONNECTION_REQUEST from %d\n", tn->getSockfd());
+				DEBUGPOINT("CONNECTION_REQUEST from %d\n", tn->getSockfd());
 				makeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::CLEANUP_REQUEST:
-				//DEBUGPOINT("CLEANUP_REQUEST from %d\n", tn->getSockfd());
+				DEBUGPOINT("CLEANUP_REQUEST from %d\n", tn->getSockfd());
 				closeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::SENDDATA_REQUEST:
-				//DEBUGPOINT("SENDDATA_REQUEST from %d\n", tn->getSockfd());
+				DEBUGPOINT("SENDDATA_REQUEST from %d\n", tn->getSockfd());
 				sendDataOnConnSocket(srNF);
 				break;
 			case EVTCPServiceRequest::RECVDATA_REQUEST:
-				//DEBUGPOINT("RECVDATA_REQUEST from %d\n", tn->getSockfd());
+				DEBUGPOINT("RECVDATA_REQUEST from %d\n", tn->getSockfd());
 				recvDataOnConnSocket(srNF);
 				break;
 			default:

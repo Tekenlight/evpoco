@@ -87,9 +87,6 @@ public:
 	void messageBegin();
 	void headerComplete();
 	void messageComplete();
-	void chunkComplete();
-	void chunkHeaderComplete();
-	void bodyStarted(char * ptr);
 	void setReqMemStream(chunked_memory_stream *);
 	void setResMemStream(chunked_memory_stream *);
 	chunked_memory_stream* getReqMemStream();
@@ -103,7 +100,6 @@ private:
 	void setReqProperties();
 
 	int							_state;
-	int							_subState;
 	int							_header_field_in_progress;
 	int							_header_value_in_progress;
 	EVHTTPServerRequestImpl*	_request;
@@ -114,11 +110,9 @@ private:
 	std::string					_value;
 	std::string					_method;
 	std::string					_uri;
-	std::string					_version;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
 	http_parser*				_parser;
-	char*						_bodyPosition;
 	int							_tr_encoding_present;
 	void*						_prev_node_ptr;
 };

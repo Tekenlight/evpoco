@@ -29,6 +29,7 @@ EVHTTPStreamBuf::EVHTTPStreamBuf(chunked_memory_stream *cms, openmode mode):
 	ev_buffered_stream(cms, 1024),
 	_mode(mode)
 {
+	set_mode(mode);
 }
 
 
@@ -80,7 +81,7 @@ EVHTTPStreamBuf* EVHTTPIOS::rdbuf()
 
 
 EVHTTPInputStream::EVHTTPInputStream(chunked_memory_stream *cms):
-	EVHTTPIOS(cms, 1024),
+	EVHTTPIOS(cms, std::ios::in),
 	std::istream(&_buf)
 {
 }

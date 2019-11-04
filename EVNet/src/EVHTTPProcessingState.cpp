@@ -53,7 +53,6 @@ EVHTTPProcessingState::EVHTTPProcessingState(EVServer * server):
 	_response(0),
 	_session(0),
 	_state(HEADER_NOT_READ),
-	_subState(READ_START),
 	_header_field_in_progress(0),
 	_parser(0),
 	_req_memory_stream(0),
@@ -159,8 +158,7 @@ void EVHTTPProcessingState::setMethod(const char *m)
 
 void EVHTTPProcessingState::setVersion(const char *v)
 {
-	_version.assign(v);
-	_request->setVersion(_version);
+	_request->setVersion(v);
 }
 
 void EVHTTPProcessingState::clearName()
@@ -173,22 +171,9 @@ void EVHTTPProcessingState::clearValue()
 	_value.erase();
 }
 
-void EVHTTPProcessingState::bodyStarted(char * ptr)
-{
-	if (_state < BODY_POSITION_MARKED) {
-		_bodyPosition = ptr;
-		_state = BODY_POSITION_MARKED;
-	}
-}
-
 void EVHTTPProcessingState::headerComplete()
 {
 	_state = HEADER_READ_COMPLETE;
-}
-
-void EVHTTPProcessingState::chunkHeaderComplete()
-{
-	_state = CHUNK_HEADER_COMPLETE;
 }
 
 void EVHTTPProcessingState::messageComplete()
@@ -196,15 +181,9 @@ void EVHTTPProcessingState::messageComplete()
 	_state = MESSAGE_COMPLETE;
 }
 
-void EVHTTPProcessingState::chunkComplete()
-{
-	_state = CHUNK_COMPLETE;
-}
-
 void EVHTTPProcessingState::messageBegin()
 {
 	_state = HEADER_NOT_READ;
-	_subState = READ_START;
 }
 
 static int message_begin_cb (http_parser *p)
@@ -271,8 +250,6 @@ static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted
 	void * ptr = (void*)buf;
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
-	e->bodyStarted((char*)ptr);
-
 	return 0;
 }
 
@@ -281,8 +258,6 @@ static int chunk_header_cb (http_parser *p)
 	//printf("chunk_header_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
 
-	//e->chunkHeaderComplete();
-	//http_parser_pause(p, 1);
 	return 0;
 }
 
@@ -290,9 +265,6 @@ static int chunk_complete_cb (http_parser *p)
 {
 	//printf("chunk_complete_cb\n");
 	EVHTTPProcessingState * e = (EVHTTPProcessingState *)(p->data);
-
-	//e->chunkComplete();
-	//http_parser_pause(p, 1);
 
 	return 0;
 }
@@ -416,7 +388,7 @@ int EVHTTPProcessingState::continueRead()
 			//DEBUGPOINT("Coming out of loop _prev_node_ptr = %p\n", _prev_node_ptr);
 			break;
 		}
-		//DEBUGPOINT("\n%s\n",buffer);
+		DEBUGPOINT("\n%s\n",buffer);
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
 			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
@@ -424,7 +396,7 @@ int EVHTTPProcessingState::continueRead()
 			return -1;
 			break;
 		}
-		//DEBUGPOINT("len2 = %zu\n", len2);
+		DEBUGPOINT("len2 = %zu\n", len2);
 		if (_state < HEADER_READ_COMPLETE) {
 			if (len2 < len1) { 
 				// Should not happen
@@ -432,6 +404,7 @@ int EVHTTPProcessingState::continueRead()
 				DEBUGPOINT("Should not happen %s \n", http_errno_description((enum http_errno)_parser->http_errno));
 				return -1;
 			}
+			DEBUGPOINT("Here\n");
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
 			_req_memory_stream->erase(len2);
@@ -509,18 +482,10 @@ int EVHTTPProcessingState::continueRead()
 	}
 	_request->setMessageBodySize(len2);
 	if (_state == MESSAGE_COMPLETE) {
-
-		{
-			size_t node_buffer_len = 0;
-			size_t xfr_size = 0;
-			_request->formInputStream(_req_memory_stream);
-			memset(_parser,0,sizeof(http_parser));
-			_parser->data = (void*)this;
-			http_parser_init(_parser,HTTP_REQUEST);
-		}
-		nodeptr = _req_memory_stream->get_next(0);
-		buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
-
+		_request->formInputStream(_req_memory_stream);
+		memset(_parser,0,sizeof(http_parser));
+		_parser->data = (void*)this;
+		http_parser_init(_parser,HTTP_REQUEST);
 	}
 
 	return _state;
