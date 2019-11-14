@@ -99,6 +99,10 @@ public:
 	chunked_memory_stream * getReqMemStream();
 	chunked_memory_stream * getResMemStream();
 	void deleteState();
+	void setClientAddress(Net::SocketAddress addr);
+	void setServerAddress(Net::SocketAddress addr);
+	Net::SocketAddress& clientAddress();
+	Net::SocketAddress& serverAddress();
 
 	void setEventLoop(struct ev_loop* loop);
 	struct ev_loop* getEventLoop();
@@ -122,6 +126,8 @@ private:
 	struct ev_loop*				_loop;
 	ev_io*						_socket_watcher;
 	StreamSocket				_streamSocket;
+	Net::SocketAddress			_clientAddress;
+	Net::SocketAddress			_serverAddress;
 	time_t						_timeOfLastUse;
 	EVAcceptedStreamSocket*		_prevPtr;
 	EVAcceptedStreamSocket*		_nextPtr;
@@ -215,6 +221,26 @@ inline void EVAcceptedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
 inline ev_io * EVAcceptedStreamSocket::getSocketWatcher()
 {
 	return this->_socket_watcher;
+}
+
+inline void EVAcceptedStreamSocket::setClientAddress(Net::SocketAddress addr)
+{
+	_clientAddress = addr;
+}
+
+inline void EVAcceptedStreamSocket::setServerAddress(Net::SocketAddress addr)
+{
+	_serverAddress = addr;
+}
+
+inline Net::SocketAddress& EVAcceptedStreamSocket::clientAddress()
+{
+	return _clientAddress;
+}
+
+inline Net::SocketAddress& EVAcceptedStreamSocket::serverAddress()
+{
+	return _serverAddress;
 }
 
 } } // namespace EVNet and Poco end.

@@ -150,25 +150,32 @@ void EVTCPServerDispatcher::run()
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
 					pCNf->socket()->getProcState()->setUpstreamEventQ(pCNf->socket()->getUpstreamIoEventQueue());
+					pCNf->socket()->getProcState()->setClientAddress(pCNf->socket()->clientAddress());
+					pCNf->socket()->getProcState()->setServerAddress(pCNf->socket()->serverAddress());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
+					//pConnection->start();
 					endConnection();
 					_server->receivedDataConsumed(pCNf->sockfd());
 				}
 				catch (NoMessageException&) {
 					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					endConnection();
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (MessageException&) {
 					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					endConnection();
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (Poco::Exception& e) {
 					DEBUGPOINT("Here %d %s\n", pCNf->sockfd(), e.what());
+					endConnection();
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 				catch (...) {
 					DEBUGPOINT("Here %d\n", pCNf->sockfd());
+					endConnection();
 					_server->errorInReceivedData(pCNf->sockfd(),true);
 				}
 			}

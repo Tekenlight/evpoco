@@ -102,50 +102,55 @@ void EVHTTPRequestProcessor::setProcState(EVProcessingState *s)
  * socket fd becomes readable. */
 void EVHTTPRequestProcessor::evrun()
 {
-	DEBUGPOINT("Here\n");
 	std::string server = _pParams->getSoftwareVersion();
 	EVHTTPServerSession * session = NULL;
 	if (_stopped) return ;
 
-	DEBUGPOINT("Here\n");
-
-	session = _reqProcState->getSession();
-	DEBUGPOINT("Here\n");
-	if (!session) {
-	DEBUGPOINT("Here\n");
-		session = new EVHTTPServerSession(socket(), _pParams);
-	DEBUGPOINT("Here\n");
-		session->setServer(_reqProcState->getServer());
-	DEBUGPOINT("Here\n");
-		_reqProcState->setSession(session);
-	}
-	DEBUGPOINT("Here\n");
-	session->setSockFdForReuse(true);
-	DEBUGPOINT("Here\n");
-
 	EVHTTPServerResponseImpl *response = 0;
 	EVHTTPServerRequestImpl *request = 0;
+
 	try {
-	DEBUGPOINT("Here\n");
 		Poco::FastMutex::ScopedLock lock(_mutex);
-		request = _reqProcState->getRequest();
-		response = _reqProcState->getResponse();
+		session = _reqProcState->getSession();
+		if (!session) {
+			session = new EVHTTPServerSession(socket(), _pParams);
+			session->setServer(_reqProcState->getServer());
+			_reqProcState->setSession(session);
+		}
+		session->setSockFdForReuse(true);
+
+	} catch (std::exception e) {
+		DEBUGPOINT("Here %s for %d\n", e.what(), socket().impl()->sockfd());
+		throw;
+	}
+
+	request = _reqProcState->getRequest();
+	response = _reqProcState->getResponse();
+	try {
 		if (!response) {
 			response = new EVHTTPServerResponseImpl(*session);
-			//DEBUGPOINT("Here mems = %p\n",_reqProcState->getResMemStream());
 			response->setMemoryStream(_reqProcState->getResMemStream());
 			_reqProcState->setResponse(response);
 		}
-	DEBUGPOINT("Here\n");
+	} catch (...) {
+		DEBUGPOINT("Here %p\n", _reqProcState->getResponse());
+		throw;
+	}
 
+	try {
 		if (!request) {
-	DEBUGPOINT("Here\n");
 			request = new EVHTTPServerRequestImpl(*response, *session, _pParams);
-	DEBUGPOINT("Here\n");
-			//response->attachRequest(request);
+			request->setClientAddress(_reqProcState->clientAddress());
+			request->setServerAddress(_reqProcState->serverAddress());
 			_reqProcState->setRequest(request);
 		}
-	DEBUGPOINT("Here\n");
+	} catch (...) {
+		DEBUGPOINT("Here %p\n", _reqProcState->getRequest());
+		throw;
+	}
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
 
 		/* REF: HTTP RFC
 		 * Request       =	Request-Line
@@ -160,7 +165,6 @@ void EVHTTPRequestProcessor::evrun()
 		 * request.
 		 * */
 		if (MESSAGE_COMPLETE > _reqProcState->getState()) {
-	DEBUGPOINT("Here\n");
 			/* TBD: 
 			 * Pass the state to reading process, in order to retain 
 			 * partially read name or value within the reading process.
@@ -190,7 +194,6 @@ void EVHTTPRequestProcessor::evrun()
 			}
 
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
-				DEBUGPOINT("Here %d\n",_reqProcState->getState());
 				return ;
 			}
 
@@ -202,7 +205,6 @@ void EVHTTPRequestProcessor::evrun()
 			}
 		}
 
-	DEBUGPOINT("Here\n");
 		try
 		{
 			/* The use case being solved here is:
@@ -212,7 +214,6 @@ void EVHTTPRequestProcessor::evrun()
 			 * upstream sockets those events will trigger handling of requests againa and
 			 * again until complete processing of request.
 			 * */
-	DEBUGPOINT("Here\n");
 			EVHTTPRequestHandler * pHandler = _reqProcState->getRequestHandler();
 			if (!pHandler) {
 				pHandler = _pFactory->createRequestHandler(*request);
@@ -250,7 +251,6 @@ void EVHTTPRequestProcessor::evrun()
 				else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 			}
 			else {
-	DEBUGPOINT("Here\n");
 				if (_reqProcState->getUpstreamEventQ() &&
 						!queue_empty(_reqProcState->getUpstreamEventQ())) {
 					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
@@ -283,12 +283,10 @@ void EVHTTPRequestProcessor::evrun()
 					}
 				}
 				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());
-	DEBUGPOINT("Here\n");
 			}
 		}
 		catch (Poco::Exception& e)
 		{
-				DEBUGPOINT("Here\n");
 			if (!response->sent()) {
 				try
 				{
@@ -323,7 +321,6 @@ void EVHTTPRequestProcessor::evrun()
 	}
 	catch (Poco::Exception& e)
 	{
-				DEBUGPOINT("Here\n");
 		if (session->networkException())
 		{
 			DEBUGPOINT("Here\n");
@@ -334,7 +331,7 @@ void EVHTTPRequestProcessor::evrun()
 			session->networkException()->rethrow();
 		}
 		else { 
-			DEBUGPOINT("Here %d\n", e.code());
+			DEBUGPOINT("Here %s %d\n", e.what(), e.code());
 			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == (HTTPResponse::HTTPStatus)e.code())
 				sendErrorResponse("HTTP/1.0", *session, *response, (HTTPResponse::HTTPStatus)e.code());

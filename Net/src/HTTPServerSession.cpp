@@ -20,6 +20,16 @@ namespace Poco {
 namespace Net {
 
 
+HTTPServerSession::HTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams, bool managedSocket):
+	HTTPSession(socket, pParams->getKeepAlive(), (managedSocket)?true:false),
+	_firstRequest(true),
+	_keepAliveTimeout(pParams->getKeepAliveTimeout()),
+	_maxKeepAliveRequests(pParams->getMaxKeepAliveRequests())
+{
+	setTimeout(pParams->getTimeout());
+	if (!managedSocket) this->socket().setReceiveTimeout(pParams->getTimeout());
+}
+
 HTTPServerSession::HTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams):
 	HTTPSession(socket, pParams->getKeepAlive()),
 	_firstRequest(true),
@@ -29,7 +39,6 @@ HTTPServerSession::HTTPServerSession(const StreamSocket& socket, HTTPServerParam
 	setTimeout(pParams->getTimeout());
 	this->socket().setReceiveTimeout(pParams->getTimeout());
 }
-
 
 HTTPServerSession::~HTTPServerSession()
 {
@@ -62,7 +71,6 @@ bool HTTPServerSession::hasMoreRequests()
 	}
 	else return false;
 }
-
 
 SocketAddress HTTPServerSession::clientAddress()
 {

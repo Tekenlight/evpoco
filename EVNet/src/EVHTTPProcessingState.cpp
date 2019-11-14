@@ -388,7 +388,7 @@ int EVHTTPProcessingState::continueRead()
 			//DEBUGPOINT("Coming out of loop _prev_node_ptr = %p\n", _prev_node_ptr);
 			break;
 		}
-		DEBUGPOINT("\n%s\n",buffer);
+		//DEBUGPOINT("\n%s\n",buffer);
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
 			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
@@ -396,7 +396,7 @@ int EVHTTPProcessingState::continueRead()
 			return -1;
 			break;
 		}
-		DEBUGPOINT("len2 = %zu\n", len2);
+		//DEBUGPOINT("len2 = %zu\n", len2);
 		if (_state < HEADER_READ_COMPLETE) {
 			if (len2 < len1) { 
 				// Should not happen
@@ -404,7 +404,6 @@ int EVHTTPProcessingState::continueRead()
 				DEBUGPOINT("Should not happen %s \n", http_errno_description((enum http_errno)_parser->http_errno));
 				return -1;
 			}
-			DEBUGPOINT("Here\n");
 			/* Have not completed reading the headers and the buffer is completely consumed
 			 * */
 			_req_memory_stream->erase(len2);

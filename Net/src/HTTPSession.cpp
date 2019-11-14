@@ -54,6 +54,20 @@ HTTPSession::HTTPSession(const StreamSocket& socket):
 }
 
 
+HTTPSession::HTTPSession(const StreamSocket& socket, bool keepAlive, bool sockFdForReuse):
+	_socket(socket),
+	_pBuffer(0),
+	_pCurrent(0),
+	_pEnd(0),
+	_keepAlive(keepAlive),
+	_connectionTimeout(HTTP_DEFAULT_CONNECTION_TIMEOUT),
+	_receiveTimeout(HTTP_DEFAULT_TIMEOUT),
+	_sendTimeout(HTTP_DEFAULT_TIMEOUT),
+	_pException(0),
+	_sockFdForReuse(sockFdForReuse)
+{
+}
+
 HTTPSession::HTTPSession(const StreamSocket& socket, bool keepAlive):
 	_socket(socket),
 	_pBuffer(0),

@@ -152,6 +152,7 @@ protected:
 		/// given socket. The session takes ownership
 		/// of the socket and closes it when it's no
 		/// longer used.
+	HTTPSession(const StreamSocket& socket, bool keepAlive, bool sockFdForReuse);
 
 	virtual ~HTTPSession();
 		/// Destroys the HTTPSession and closes the

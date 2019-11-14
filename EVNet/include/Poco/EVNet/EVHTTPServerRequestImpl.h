@@ -86,6 +86,9 @@ public:
 		/// object is destroyed.
 		//
 	
+	void setClientAddress(SocketAddress& addr);
+	void setServerAddress(SocketAddress& addr);
+
 	const SocketAddress& clientAddress() const;
 		/// Returns the client's address.
 
@@ -165,17 +168,25 @@ inline std::istream* EVHTTPServerRequestImpl::streamp()
 	return _pStream;
 }
 
+inline void EVHTTPServerRequestImpl::setClientAddress(SocketAddress& addr)
+{
+	_clientAddress = addr;
+}
+
+inline void EVHTTPServerRequestImpl::setServerAddress(SocketAddress& addr)
+{
+	_serverAddress = addr;
+}
+
 inline const SocketAddress& EVHTTPServerRequestImpl::clientAddress() const
 {
 	return _clientAddress;
 }
 
-
 inline const SocketAddress& EVHTTPServerRequestImpl::serverAddress() const
 {
 	return _serverAddress;
 }
-
 
 inline const HTTPServerParams& EVHTTPServerRequestImpl::serverParams() const
 {

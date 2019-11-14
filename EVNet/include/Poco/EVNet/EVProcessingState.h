@@ -58,13 +58,19 @@ public:
 	ev_queue_type getUpstreamEventQ();
 	void setUpstreamEventQ(ev_queue_type);
 	void eraseEVConnSock(int fd);
+	void setClientAddress(Net::SocketAddress addr);
+	void setServerAddress(Net::SocketAddress addr);
+	Net::SocketAddress& clientAddress();
+	Net::SocketAddress& serverAddress();
 
 private:
-	EVServer*		_server;
-	int				_no_new_data;
-	int				_need_more_data;
-	CSColMapType	_cssMap;
-	ev_queue_type	_upstream_io_event_queue;
+	EVServer*					_server;
+	int							_no_new_data;
+	int							_need_more_data;
+	CSColMapType				_cssMap;
+	ev_queue_type				_upstream_io_event_queue;
+	Net::SocketAddress			_clientAddress;
+	Net::SocketAddress			_serverAddress;
 };
 
 inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
@@ -103,6 +109,26 @@ inline void EVProcessingState::eraseEVConnSock(int fd)
 }
 inline ev_queue_type EVProcessingState::getUpstreamEventQ() { return _upstream_io_event_queue; }
 inline void EVProcessingState::setUpstreamEventQ(ev_queue_type  q) { _upstream_io_event_queue = q; }
+
+inline void EVProcessingState::setClientAddress(Net::SocketAddress addr)
+{
+	_clientAddress = addr;
+}
+
+inline void EVProcessingState::setServerAddress(Net::SocketAddress addr)
+{
+	_serverAddress = addr;
+}
+
+inline Net::SocketAddress& EVProcessingState::clientAddress()
+{
+	return _clientAddress;
+}
+
+inline Net::SocketAddress& EVProcessingState::serverAddress()
+{
+	return _serverAddress;
+}
 
 }
 } // End namespace Poco::EVNet

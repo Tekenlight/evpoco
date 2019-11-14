@@ -517,7 +517,7 @@ ssize_t EVTCPServer::handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const
 			bytes = cms->get_buffer_len(nodeptr);
 
 			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
-			DEBUGPOINT("SENDING_DATA ON CONN SOCK %d\n", cn->getStreamSocket().impl()->sockfd());
+			//DEBUGPOINT("SENDING_DATA ON CONN SOCK %d\n", cn->getStreamSocket().impl()->sockfd());
 			ret1 = sendData(cn->getStreamSocket(), buffer, bytes);
 			if (ret1 > 0) {
 				cms->erase(ret1);
@@ -637,7 +637,7 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 			bytes = cms->get_buffer_len(nodeptr);
 
 			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
-			DEBUGPOINT("SENDING_DATA ON ACCP SOCK %d\n", streamSocket.impl()->sockfd());
+			//DEBUGPOINT("SENDING_DATA ON ACCP SOCK %d\n", streamSocket.impl()->sockfd());
 			ret1 = sendData(streamSocket, buffer, bytes);
 			if (ret1 > 0) {
 				cms->erase(ret1);
@@ -882,14 +882,13 @@ handleConnSocketReadable_finally:
 	return ret;
 }
 
-ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & streamSocket, const bool& ev_occured)
+ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
-	EVAcceptedStreamSocket *tn = _accssColl[streamSocket.impl()->sockfd()];
+	EVAcceptedStreamSocket *tn = _accssColl[ss.impl()->sockfd()];
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
-
 
 	{
 		ssize_t ret1 = 0;
@@ -898,8 +897,8 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & streamSocket, const 
 			count ++;
 			void * buffer = malloc(TCP_BUFFER_SIZE);
 			memset(buffer,0,TCP_BUFFER_SIZE);
-			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
-			ret1 = receiveData(streamSocket, buffer, TCP_BUFFER_SIZE);
+			//ret1 = receiveData(ss.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
+			ret1 = receiveData(ss, buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
 				//printf("%zd\n", ret1);
 				tn->pushReqData(buffer, (size_t)ret1);
@@ -949,7 +948,7 @@ handleDataAvlblOnAccSock_finally:
 			 * */
 			//DEBUGPOINT("Did not enqueue and ret = %zd\n", ret);
 		}
-		//DEBUGPOINT("Here %d\n", streamSocket.impl()->sockfd());
+		//DEBUGPOINT("Here %d\n", ss.impl()->sockfd());
 	}
 
 
@@ -967,7 +966,7 @@ handleDataAvlblOnAccSock_finally:
 		else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
-			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, streamSocket.impl()->sockfd(), EV_WRITE);
+			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), EV_WRITE);
 			ev_io_start (_loop, socket_watcher_ptr);
 			tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 		}
@@ -980,26 +979,22 @@ handleDataAvlblOnAccSock_finally:
 	else if (ret < 0)  {
 		tn->setSockInError();
 		//DEBUGPOINT("%s ret = %zd ev_occured = %d\n", strerror(errno), ret, (int)ev_occured);
-		if (ev_occured) {
-			//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
-			//clearAcceptedSocket(streamSocket.impl()->sockfd());
-			{
-				ev_io * socket_watcher_ptr = 0;
-				socket_watcher_ptr = tn->getSocketWatcher();
-				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-					ev_io_stop(_loop, socket_watcher_ptr);
-					ev_clear_pending(_loop, socket_watcher_ptr);
-				}
+		//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", ss.impl()->sockfd());
+
+		// If handleAccSocketReadable is called not from event loop (ev_occured = true)
+		// Cleaning up of socket will lead to context being lost completely.
+		// It sould be marked as being in error and the housekeeping to be done at
+		// an approporiate time.
+		{
+			ev_io * socket_watcher_ptr = 0;
+			socket_watcher_ptr = tn->getSocketWatcher();
+			if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
+				ev_io_stop(_loop, socket_watcher_ptr);
+				ev_clear_pending(_loop, socket_watcher_ptr);
 			}
-			errorWhileReceiving(streamSocket.impl()->sockfd(), true);
-			//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
 		}
-		else {
-			// If handleAccSocketReadable is called not from event loop (ev_occured = true)
-			// Cleaning up of socket will lead to context being lost completely.
-			// It sould be marked as being in error and the housekeeping to be done at
-			// an approporiate time.
-		}
+		errorWhileReceiving(ss.impl()->sockfd(), true);
+		//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", ss.impl()->sockfd());
 	}
 
 	return ret;
@@ -1116,6 +1111,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * opportunity for optimization.
 		 * */
 		//DEBUGPOINT("MONITORING Here\n");
+		//usleep(100);
 		handleAccSocketReadable(ss, false);
 	}
 
@@ -1191,41 +1187,42 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServerNotification::REQDATA_CONSUMED:
-				DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
+				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
 				tn->setSockFree();
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
-					DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
+					//DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
 					tn->deleteState();
 					tn->setWaitingTobeEnqueued(false);
 				}
-				else DEBUGPOINT("RETAINING STATE\n");
+				//else DEBUGPOINT("RETAINING STATE\n");
 				sendDataOnAccSocket(tn);
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
 					tn->setSockBusy();
 					_pDispatcher->enqueue(tn);
 				}
-				else {
-					monitorDataOnAccSocket(tn);
+				if (!tn->getProcState() && tn->sockInError()) {
 					/* If processing state is present, another thread can still be processing
 					 * the request, hence cannot complete housekeeping.
 					 * */
-					if (!tn->getProcState() && tn->sockInError())
-						clearAcceptedSocket(pcNf->sockfd());
+					clearAcceptedSocket(pcNf->sockfd());
+				}
+				else {
+					monitorDataOnAccSocket(tn);
 				}
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
-				DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
+				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
 				sendDataOnAccSocket(tn);
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
-				DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
 				tn->setSockFree();
 				if (tn->pendingCSEvents()) {
-					DEBUGPOINT("RETAINING  ACC SOCK\n");
+					//DEBUGPOINT("RETAINING  ACC SOCK\n");
 					tn->setSockInError();
 				}
 				else {
-					DEBUGPOINT("CLEARING ACC SOCK\n");
+					//DEBUGPOINT("CLEARING ACC SOCK\n");
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -1236,15 +1233,15 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			 * */
 
 			case EVTCPServerNotification::ERROR_WHILE_SENDING:
-				DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_WHILE_SENDING on socket %d\n", pcNf->sockfd());
 			case EVTCPServerNotification::ERROR_WHILE_RECEIVING:
-				DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
 				if (!(tn->sockBusy()) && !(tn->pendingCSEvents())) {
-					DEBUGPOINT("CLEARING ACC SOCK tn sock = %d, pcNf sock = %d\n", tn->getSockfd(), pcNf->sockfd());
+					//DEBUGPOINT("CLEARING ACC SOCK tn sock = %d, pcNf sock = %d\n", tn->getSockfd(), pcNf->sockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
-					DEBUGPOINT("RETAINING  ACC SOCK\n");
+					//DEBUGPOINT("RETAINING  ACC SOCK\n");
 					tn->setSockInError();
 				}
 				break;
@@ -1301,6 +1298,8 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 			memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
 
 			EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
+			acceptedSock->setClientAddress(ss.peerAddress());
+			acceptedSock->setServerAddress(ss.address());
 			acceptedSock->setSocketWatcher(socket_watcher_ptr);
 			acceptedSock->setEventLoop(_loop);
 			fd = ss.impl()->sockfd();
@@ -1807,23 +1806,23 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
-				DEBUGPOINT("CONNECTION_REQUEST from %d\n", tn->getSockfd());
+				//DEBUGPOINT("CONNECTION_REQUEST from %d\n", tn->getSockfd());
 				makeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::CLEANUP_REQUEST:
-				DEBUGPOINT("CLEANUP_REQUEST from %d\n", tn->getSockfd());
+				//DEBUGPOINT("CLEANUP_REQUEST from %d\n", tn->getSockfd());
 				closeTCPConnection(srNF);
 				break;
 			case EVTCPServiceRequest::SENDDATA_REQUEST:
-				DEBUGPOINT("SENDDATA_REQUEST from %d\n", tn->getSockfd());
+				//DEBUGPOINT("SENDDATA_REQUEST from %d\n", tn->getSockfd());
 				sendDataOnConnSocket(srNF);
 				break;
 			case EVTCPServiceRequest::RECVDATA_REQUEST:
-				DEBUGPOINT("RECVDATA_REQUEST from %d\n", tn->getSockfd());
+				//DEBUGPOINT("RECVDATA_REQUEST from %d\n", tn->getSockfd());
 				recvDataOnConnSocket(srNF);
 				break;
 			default:
-				DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
+				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
 				break;
 		}

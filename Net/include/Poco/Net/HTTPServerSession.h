@@ -36,6 +36,7 @@ class Net_API HTTPServerSession: public HTTPSession
 	/// HTTPServer.
 {
 public:
+	HTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams, bool managedSocket);
 	HTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
 		/// Creates the HTTPServerSession.
 
