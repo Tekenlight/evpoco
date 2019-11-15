@@ -68,7 +68,6 @@ static void periodic_call_for_housekeeping(EV_P_ ev_timer *w, int revents)
 static void new_connection(EV_P_ ev_io *w, int revents)
 {
 	bool ev_occurred = true;
-	//DEBUGPOINT("CONN REQUEST\n");
 	srvrs_ic_cb_ptr_type cb_ptr = (srvrs_ic_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
 	 * with its corresponding stop function.
@@ -142,7 +141,6 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 // this callback is called when connected socket is writable
 static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 {
-	//DEBUGPOINT("Here\n");
 	strms_ic_cb_ptr_type cb_ptr = (strms_ic_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
 	 * with its corresponding stop function.
@@ -165,7 +163,6 @@ static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 // this callback is called when data is readable on a connected socket
 static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 {
-	//DEBUGPOINT("Here\n");
 	if (revents & EV_WRITE) async_stream_socket_cb_4(loop, w, revents);
 
 	if (revents & EV_READ) {
@@ -405,7 +402,6 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size)
 			}
 			else {
 				error_string = strerror(errno);
-				//DEBUGPOINT("%s\n",error_string);
 			}
 			return -1;
 		}
@@ -448,7 +444,6 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 
 	EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
 	tn->decrNumCSEvents();
-	//DEBUGPOINT("Here from %d\n", tn->getSockfd());
 
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
 
@@ -458,12 +453,8 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, cons
 	 * TBD: We may have to further make sure that the service request for which this notification
 	 * is being passed is in the same session as the current state.
 	 * */
-	//DEBUGPOINT("Here %p %d %lu\n", tn->getProcState(), (int)tn->srInSession(cb_ptr->sr_num), cb_ptr->sr_num);
-	//DEBUGPOINT("Here sr_num = %lu BASE = %lu, optval = %d, evid = %d\n", cb_ptr->sr_num, (unsigned long)std::atomic_load(&(this->_sr_srl_num)), optval, cb_ptr->cb_evid_num);
-	//DEBUGPOINT("SR IN session = %d sess = %p\n", (int) tn->srInSession(cb_ptr->sr_num), tn->getProcState());
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
 		EVUpstreamEventNotification * usN = 0;
-		//DEBUGPOINT("Calling CB = %d, optval %d sockfd %d\n", cb_ptr->cb_evid_num, optval, cn->getStreamSocket().impl()->sockfd());
 		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
 												EVUpstreamEventNotification::SOCKET_CONNECTED,
 												cb_ptr->cb_evid_num,
@@ -702,22 +693,6 @@ handleAccSocketWritable_finally:
 		 * At that time the socket will get disposed.
 		 * */
 		tn->setSockInError();
-		/*
-		if (ev_occured) {
-			//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
-			//clearAcceptedSocket(streamSocket.impl()->sockfd());
-			{
-				ev_io * socket_watcher_ptr = 0;
-				socket_watcher_ptr = tn->getSocketWatcher();
-				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
-					ev_io_stop(_loop, socket_watcher_ptr);
-					ev_clear_pending(_loop, socket_watcher_ptr);
-				}
-			}
-			errorWhileSending(streamSocket.impl()->sockfd(), true);
-			//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", streamSocket.impl()->sockfd());
-		}
-		*/
 	}
 
 	return ret;
@@ -729,11 +704,9 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 	errno = 0;
 
 	try {
-		//DEBUGPOINT("BEFORE SOCKET = %d\n", ss.impl()->sockfd());
 		ret = ss.receiveBytes(chptr, size );
 	}
 	catch (std::exception & e) {
-		//DEBUGPOINT("Exception %s ret = %zd\n", e.what(), ret);
 	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -742,7 +715,6 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 		else {
 			const char * error_string = NULL;
 			if (!errno) {
-				//DEBUGPOINT("ret = %zd\n", ret);
 				error_string = "Peer closed connection";
 			}
 			else {
@@ -819,13 +791,11 @@ handleConnSocketReadable_finally:
 		ev_io * socket_watcher_ptr = 0;
 		socket_watcher_ptr = cn->getSocketWatcher();
 		if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
-			//DEBUGPOINT("Here\n");
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 		}
 		else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
-			//DEBUGPOINT("Here\n");
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_clear_pending(_loop, socket_watcher_ptr);
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_3, cn->getSockfd(), EV_WRITE);
@@ -876,7 +846,6 @@ handleConnSocketReadable_finally:
 		}
 	}
 	else {
-			//DEBUGPOINT("Here\n");
 	}
 
 	return ret;
@@ -930,10 +899,6 @@ handleDataAvlblOnAccSock_finally:
 				/* Session starts when a new processing state is created. */
 				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
 				tn->setBaseSRSrlNum(sr_num);
-				//DEBUGPOINT("ret = %zd received_bytes=%zu NDP=%d %p\n",
-						//ret, received_bytes, (int)tn->getProcState()->newDataProcessed(), tn->getProcState());
-				//DEBUGPOINT("NMD=%d RDA=%d BASE NUM = %lu\n",
-						//(int)tn->getProcState()->needMoreData(), (int)tn->reqDataAvlbl(), sr_num);
 			}
 			tn->setSockBusy();
 			_pDispatcher->enqueue(tn);
@@ -948,9 +913,7 @@ handleDataAvlblOnAccSock_finally:
 			/* This is a case of receiving data that is not asked by the
 			 * server.
 			 * */
-			//DEBUGPOINT("Did not enqueue and ret = %zd\n", ret);
 		}
-		//DEBUGPOINT("Here %d\n", ss.impl()->sockfd());
 	}
 
 
@@ -980,8 +943,6 @@ handleDataAvlblOnAccSock_finally:
 	}
 	else if (ret < 0)  {
 		tn->setSockInError();
-		//DEBUGPOINT("%s ret = %zd ev_occured = %d\n", strerror(errno), ret, (int)ev_occured);
-		//DEBUGPOINT("LOSING INTEREST IN SOCKET %d\n", ss.impl()->sockfd());
 
 		// If handleAccSocketReadable is called not from event loop (ev_occured = true)
 		// Cleaning up of socket will lead to context being lost completely.
@@ -996,7 +957,6 @@ handleDataAvlblOnAccSock_finally:
 			}
 		}
 		errorWhileReceiving(ss.impl()->sockfd(), true);
-		//DEBUGPOINT("LOST INTEREST IN SOCKET %d\n", ss.impl()->sockfd());
 	}
 
 	return ret;
@@ -1034,10 +994,8 @@ void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::ERROR_WHILE_SENDING));
 
-	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr3);
-	//DEBUGPOINT("Here\n");
 	return;
 }
 
@@ -1051,10 +1009,8 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::ERROR_WHILE_RECEIVING));
 
-	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr3);
-	//DEBUGPOINT("Here\n");
 	return;
 }
 
@@ -1068,10 +1024,8 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
-	//DEBUGPOINT("Here %d\n", fd);
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	ev_async_send(_loop, this->stop_watcher_ptr3);
-	//DEBUGPOINT("Here\n");
 	return;
 }
 
@@ -1112,8 +1066,6 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * This can be a cause for unnecessary thread context switching
 		 * opportunity for optimization.
 		 * */
-		//DEBUGPOINT("MONITORING Here\n");
-		//usleep(100);
 		handleAccSocketReadable(ss, false);
 	}
 
@@ -1678,7 +1630,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 		optval = errno;
 		ret = -1;
 	}
-	//DEBUGPOINT("css RC = %d fd = %d\n", sr->getStreamSocket().impl()->referenceCount(), sr->getStreamSocket().impl()->sockfd());
 
 	if (ret < 0) {
 		DEBUGPOINT("Here from %d\n", tn->getSockfd());
@@ -1686,7 +1637,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 		// SO_ERROR probably works only in case of select system call.
 		// It is not returning the correct errno over here.
 		//getsockopt(sr->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
-		//DEBUGPOINT("Here errno = %d\n", optval);
 
 		/* Enqueue the notification only if the accepted socket is still being processed.
 		 * 
@@ -1715,7 +1665,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	memset(socket_watcher_ptr,0,sizeof(ev_io));
 
 	EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), sr->getStreamSocket());
-	//DEBUGPOINT("css RC = %d\n", sr->getStreamSocket().impl()->referenceCount());
 	connectedSock->setSocketWatcher(socket_watcher_ptr);
 	connectedSock->setEventLoop(_loop);
 
@@ -1733,7 +1682,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	cb_ptr->cn = connectedSock;
 	socket_watcher_ptr->data = (void*)cb_ptr;
 
-	//DEBUGPOINT("Here from %d\n", tn->getSockfd());
 	ev_io_init(socket_watcher_ptr, async_stream_socket_cb_3, sr->getStreamSocket().impl()->sockfd(), EV_WRITE);
 	ev_io_start (_loop, socket_watcher_ptr);
 	tn->incrNumCSEvents();
