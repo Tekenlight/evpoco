@@ -150,8 +150,6 @@ void EVTCPServerDispatcher::run()
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
 					pCNf->socket()->getProcState()->setUpstreamEventQ(pCNf->socket()->getUpstreamIoEventQueue());
-					pCNf->socket()->getProcState()->setClientAddress(pCNf->socket()->clientAddress());
-					pCNf->socket()->getProcState()->setServerAddress(pCNf->socket()->serverAddress());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					//pConnection->start();

@@ -925,6 +925,8 @@ handleDataAvlblOnAccSock_finally:
 			) {
 			if (!(tn->getProcState())) {
 				tn->setProcState(_pConnectionFactory->createReqProcState(this));
+				tn->getProcState()->setClientAddress(tn->clientAddress());
+				tn->getProcState()->setServerAddress(tn->serverAddress());
 				/* Session starts when a new processing state is created. */
 				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
 				tn->setBaseSRSrlNum(sr_num);
