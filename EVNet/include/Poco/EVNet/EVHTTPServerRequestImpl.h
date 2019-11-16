@@ -123,6 +123,8 @@ public:
 	HTTP_REQ_TYPE_ENUM getReqType();
 	void setMessageBodySize(size_t len);
 	size_t getMessageBodySize();
+	void setContinueProcessed();
+	bool continueProcessed();
 
 private:
 	EVHTTPServerResponseImpl&       _response;
@@ -135,6 +137,7 @@ private:
 	unsigned long					_contentLength;
 	HTTP_REQ_TYPE_ENUM				_reqType;
 	size_t							_message_body_size;
+	bool							_continue_processed;
 };
 
 
@@ -142,6 +145,17 @@ private:
 // inlines
 //
 //
+
+inline void EVHTTPServerRequestImpl::setContinueProcessed()
+{
+	_continue_processed = true;
+}
+
+inline bool EVHTTPServerRequestImpl::continueProcessed()
+{
+	return _continue_processed;
+}
+
 inline void EVHTTPServerRequestImpl::setReqType(HTTP_REQ_TYPE_ENUM t)
 {
 	if (HTTP_INVALID_TYPE == _reqType) {

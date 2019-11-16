@@ -191,18 +191,34 @@ void EVHTTPRequestProcessor::evrun()
 						throw NetException("Unsupported HTTP Request type");
 						return;
 				}
+
+				if ((request->getVersion().compare("HTTP/1.1"))) {
+					//sendErrorResponse(*session, *response, HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
+					DEBUGPOINT("Here\n");
+					throw Poco::Exception("Unsupported HTTP Version", HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
+					return ;
+				}
+
+				if (!request->continueProcessed()) {
+					Poco::Timestamp now;
+					response->setDate(now);
+					response->setVersion(request->getVersion());
+					response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
+					if (!server.empty())
+						response->set("Server", server);
+
+					if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK) {
+						//DEBUGPOINT("RESPONDING TO CONTINUE EXPECTATION\n");
+						response->sendContinue();
+					}
+					request->setContinueProcessed();
+				}
 			}
 
 			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
 				return ;
 			}
 
-			if ((request->getVersion().compare("HTTP/1.1"))) {
-				//sendErrorResponse(*session, *response, HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
-				DEBUGPOINT("Here\n");
-				throw Poco::Exception("Unsupported HTTP Version", HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
-				return ;
-			}
 		}
 
 		try
@@ -230,10 +246,6 @@ void EVHTTPRequestProcessor::evrun()
 				if (!server.empty())
 					response->set("Server", server);
 
-				if (request->getExpectContinue() && response->getStatus() == HTTPResponse::HTTP_OK) {
-					//DEBUGPOINT("RESPONDING TO CONTINUE EXPECTATION\n");
-					response->sendContinue();
-				}
 				if (pHandler) {
 					int ret = EVHTTPRequestHandler::PROCESSING;
 					ret = pHandler->handleRequestSurrogateInitial();
