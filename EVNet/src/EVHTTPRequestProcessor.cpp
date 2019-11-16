@@ -182,8 +182,8 @@ void EVHTTPRequestProcessor::evrun()
 					case HTTP_HEADER_ONLY:
 					case HTTP_FIXED_LENGTH:
 					case HTTP_CHUNKED:
-						break;
 					case HTTP_MULTI_PART:
+						break;
 					case HTTP_MESSAGE_TILL_EOF:
 					case HTTP_INVALID_TYPE:
 					default:
