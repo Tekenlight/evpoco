@@ -1116,10 +1116,11 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
+		EVTCPServerNotification::what event = pcNf->getEvent();
 		EVAcceptedStreamSocket *tn = _accssColl[pcNf->sockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			DEBUGPOINT("Did not find entry in _accssColl for %d\n", pcNf->sockfd());
+			DEBUGPOINT("Did not find entry in _accssColl for [%d] for event = [%d]\n", pcNf->sockfd(), event);
 
 			/* Multiple events can get queued for a socket from another thread.
 			 * In the meanwhile, it is possible that the socket gets into an error state
@@ -1132,7 +1133,6 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		socket_watcher_ptr = _accssColl[pcNf->sockfd()]->getSocketWatcher();
 		StreamSocket ss = tn->getStreamSocket();
 
-		EVTCPServerNotification::what event = pcNf->getEvent();
 		/* If some error has been noticed on this socket, dispose it off cleanly
 		 * over here
 		 * */
@@ -1731,10 +1731,11 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	EVTCPServiceRequest * srNF = 0;
 	for  (pNf = _service_request_queue.dequeueNotification(); pNf ; pNf = _service_request_queue.dequeueNotification()) {
 		EVTCPServiceRequest * srNF = dynamic_cast<EVTCPServiceRequest*>(pNf.get());
+		EVTCPServiceRequest::what event = srNF->getEvent();
 		EVAcceptedStreamSocket *tn = _accssColl[srNF->accSockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			DEBUGPOINT("Did not find entry in _accssColl for %d\n", srNF->sockfd());
+			DEBUGPOINT("Did not find entry in _accssColl for [%d] for event = [%d]\n", srNF->sockfd(), event);
 
 			/* Multiple events can get queued for a socket from another thread.
 			 * In the meanwhile, it is possible that the socket gets into an error state
@@ -1752,7 +1753,6 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			continue;
 		}
 
-		EVTCPServiceRequest::what event = srNF->getEvent();
 
 		switch (event) {
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
