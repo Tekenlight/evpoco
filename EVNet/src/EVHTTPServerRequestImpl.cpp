@@ -40,7 +40,7 @@ EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& respo
 	_contentLength(0),
 	_reqType(HTTP_INVALID_TYPE),
 	_message_body_size(0),
-	_continue_processed(false);
+	_continue_processed(false)
 {
 	response.attachRequest(this);
 }
