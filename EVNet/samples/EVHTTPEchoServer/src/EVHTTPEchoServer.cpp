@@ -138,7 +138,7 @@ public:
 		//DEBUGPOINT("REQUEST BODY\n%s\n", request_body);
 
 		std::ostream& ostr = response.send();
-		usleep(200000);
+		usleep(2000000);
 		ostr.write(request_body, strlen(request_body));
 
 		return PROCESSING_COMPLETE;
@@ -237,11 +237,22 @@ protected:
 		{
 			HTTPServerParams *p = new HTTPServerParams();
 			unsigned short port = (unsigned short) config().getInt("EVHTTPEchoServer.port", 9980);
+			bool IPV6 = (bool)config().getInt("EVHTTPEchoServer.IPV6", false);
 
 			p->setBlocking(config().getBool("EVHTTPEchoServer.blocking", false));
 			
 			// set-up a server socket
-			ServerSocket svs(port);
+			//ServerSocket svs(port);
+			ServerSocket svs;
+
+			if (IPV6) {
+				svs.bind6(port, true, false);
+				svs.listen();
+			}
+			else {
+				svs.bind(port, true);
+				svs.listen();
+			}
 			// set-up a HTTPServer instance
 			EVHTTPServer srv(new EVEcoRequestHandlerFactory, svs, p);
 			// start the HTTPServer

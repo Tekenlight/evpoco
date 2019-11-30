@@ -19,6 +19,7 @@
 
 
 #include "Poco/Net/Net.h"
+#include "Poco/Net/HostEntry.h"
 #include "Poco/Net/SocketAddressImpl.h"
 #include <ostream>
 
@@ -141,6 +142,13 @@ public:
 	SocketAddress(const struct sockaddr* addr, poco_socklen_t length);
 		/// Creates a SocketAddress from a native socket address.
 
+	SocketAddress(const std::string& hostAddress, HostEntry& he, Poco::UInt16 portNumber);
+		/// Creates a SocketAddress from an HostEntry and the
+		/// service name or port number.
+		///
+		/// The given port must either be a decimal port number, or
+		/// a service name.
+
 	~SocketAddress();
 		/// Destroys the SocketAddress.
 
@@ -191,6 +199,7 @@ protected:
 	void init(Family family, const std::string& hostAddress, Poco::UInt16 portNumber);
 	void init(Family family, const std::string& address);
 	void init(const std::string& hostAndPort);
+	void init(const std::string& hostAddress, HostEntry& he, Poco::UInt16 portNumber);
 	Poco::UInt16 resolveService(const std::string& service);
 
 private:

@@ -165,6 +165,10 @@ SocketAddress::SocketAddress(const struct sockaddr* sockAddr, poco_socklen_t len
 	else throw Poco::InvalidArgumentException("Invalid address length or family passed to SocketAddress()");
 }
 
+SocketAddress::SocketAddress(const std::string& hostAddress, HostEntry& he, Poco::UInt16 portNumber)
+{
+	init(hostAddress, he, portNumber);
+}
 
 SocketAddress::~SocketAddress()
 {
@@ -256,6 +260,20 @@ void SocketAddress::init(const IPAddress& hostAddress, Poco::UInt16 portNumber)
 	else throw Poco::NotImplementedException("unsupported IP address family");
 }
 
+
+void SocketAddress::init(const std::string& hostAddress, HostEntry& he, Poco::UInt16 portNumber)
+{
+	HostEntry::AddressList addresses = he.addresses();
+	if (addresses.size() > 0)
+	{
+#if defined(POCO_HAVE_IPv6) && defined(POCO_SOCKETADDRESS_PREFER_IPv4)
+		// if we get both IPv4 and IPv6 addresses, prefer IPv4
+		std::stable_sort(addresses.begin(), addresses.end(), AFLT());
+#endif
+		init(addresses[0], portNumber);
+	}
+	else throw HostNotFoundException("No address found for host", hostAddress);
+}
 
 void SocketAddress::init(const std::string& hostAddress, Poco::UInt16 portNumber)
 {

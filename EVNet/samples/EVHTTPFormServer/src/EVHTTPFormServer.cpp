@@ -115,11 +115,35 @@ class EVFormRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
 public:
+	struct addrinfo * addr_info = NULL;
 	EVFormRequestHandler() 
 	{
 	}
 	
-	int handleRequest()
+	void send_error_response(int line_no)
+	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
+
+
+		std::ostream& ostr = getResponse().getOStream();
+
+		ostr <<
+			"<html>\n"
+			"<head>\n"
+			"<title>EVHTTPFormServer getaddrinfo Processing ERROR</title>\n"
+			"</head>\n"
+			"<body>\n"
+			"<h1>EVHTTP Form Server Sample</h1>\n";
+
+		ostr << line_no << ":" << "COULD NOT RESOLVE HOST\n";
+
+		ostr << "</body>\n";
+		ostr << "</html>\n";
+		ostr.flush();
+	}
+
+	int handleRequest1()
 	{
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
@@ -139,8 +163,13 @@ public:
 		HTMLForm& form = *form1;
 		response.setChunkedTransferEncoding(true);
 		response.setContentType("text/html");
-
 		std::ostream& ostr = response.send();
+
+		Poco::EVNet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() != 0) {
+			send_error_response(__LINE__);
+			return -1;
+		}
 
 		ostr <<
 			"<html>\n"
@@ -165,6 +194,30 @@ public:
 			"<input type=\"submit\" value=\"Upload\">\n"
 			"</form>\n";
 			
+		if (!addr_info) ostr << "NO ADDRESS FOUND\n";
+		int i = 0;
+		struct addrinfo *p;
+		char host[256];
+
+		for (p = addr_info; p; p = p->ai_next) {
+			i++;
+			getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof (host), NULL, 0, NI_NUMERICHOST);
+			ostr << "<p>";
+			ostr << i << ".";
+			ostr << "&nbsp&nbsp" <<  host;
+			ostr << "&nbsp&nbsp" <<  p->ai_addrlen;
+			for (int i = 0; i < p->ai_addrlen; i++) {
+				char s[512];
+				unsigned char c = p->ai_addr->sa_data[i];
+				if (!i) sprintf(s,"&nbsp&nbsp%X", c);
+				else sprintf(s,":%X", c);
+				ostr << s;
+			}
+			if (p->ai_addr->sa_family == AF_INET) ostr << "&nbsp&nbspIPV4 ADDRESS";
+			else ostr << "&nbsp&nbspIPV6 ADDRESS";
+			ostr << "</p>";
+		}
+
 		ostr << "<h2>Request</h2><p>\n";
 		ostr << "Method: " << request.getMethod() << "<br>\n";
 		ostr << "URI: " << request.getURI() << "<br>\n";
@@ -202,6 +255,12 @@ public:
 
 		delete form1;
 		return PROCESSING_COMPLETE;
+	}
+
+	int handleRequest()
+	{
+		resolveHost(std::bind(&EVFormRequestHandler::handleRequest1, this), "localhost", NULL, &addr_info);
+		return PROCESSING;
 	}
 };
 

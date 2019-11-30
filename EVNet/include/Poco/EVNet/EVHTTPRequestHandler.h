@@ -21,6 +21,10 @@
 
 #include <functional>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPClientSession.h"
@@ -60,7 +64,8 @@ public:
 		virtual int operator ()() =0;
 	};
 	struct SRData {
-		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0) {}
+		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
+				  domain_name(0), serv_name(0), port_num(0) {}
 		~SRData() {}
 		Net::SocketAddress		addr;
 		EVHTTPClientSession*	session_ptr;
@@ -68,6 +73,10 @@ public:
 		EVHTTPResponse*			response;
 		EventHandler*			cb_handler;
 		TCallback				cb;
+		const char*				domain_name;
+		const char*				serv_name;
+		unsigned short			port_num;
+		struct addrinfo**       addr_info_ptr_ptr;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
 	static const int INITIAL = 0;
@@ -79,11 +88,18 @@ public:
 	static const int PROCESSING_COMPLETE = 1000;
 
 	static const int HTTPRH_INVALID_CB_NUM = -1;
-	static const int HTTPRH_CONNECT_SOCK_READY = -100;
-	static const int HTTPRH_CONNECT_PROXYSOCK_READY = -200;
-	static const int HTTPRH_CONNECT_RSP_FROM_PROXY = -300;
-	static const int HTTPRH_RESP_MSG_FROM_HOST = -400;
-	static const int HTTPRH_CALL_CB_HANDLER = -500;
+
+	static const int HTTPRH_DNSR_HOST_RESOLUTION_DONE = -100;
+
+	static const int HTTPRH_HTTPCONN_HOSTRESOLVED = -200;
+	static const int HTTPRH_HTTPCONN_PROXYSOCK_READY = -210;
+	static const int HTTPRH_HTTPCONN_PROXY_RESPONSE = -220;
+	static const int HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED = -230;
+
+	static const int HTTPRH_HTTPRESP_MSG_FROM_HOST = -300;
+
+
+	static const int HTTPRH_CALL_CB_HANDLER = -10000;
 
 	EVHTTPRequestHandler();
 		/// Creates the EVHTTPRequestHandler.
@@ -113,20 +129,29 @@ public:
 	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
 
+	/*
 	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession& sess, EVHTTPResponse &req);
 	long waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession& sess, EVHTTPResponse& res);
-	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 
 	long makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css);
 	long makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
 
-	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
 	long makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession& sess);
 	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess);
+	 *
+	 */
+	long resolveHost(TCallback cb, const char* domain_name, const char* serv_name, struct addrinfo ** addr_info_ptr_ptr);
+
+	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const char * serv_name, EVHTTPClientSession& sess);
+	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess);
+	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
+
+	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
 
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
+
+	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 

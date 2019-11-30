@@ -431,13 +431,9 @@ public:
 	int handleRequest()
 	{
 		init();
-		SocketAddress address("127.0.0.1", 9980);
-		StreamSocket ss;
-		session.setSS(ss);
-		session.setAddr(address);
 		//This is the event handler (functor) mechanism
 		//if (0 > makeNewHTTPConnection(two, &session)) 
-		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), session)) {
+		if (0 > makeNewHTTPConnection(std::bind(&EVFormRequestHandler::part_two, this), "localhost", 9980, session)) {
 			send_error_response(__LINE__);
 			return -1;
 		}

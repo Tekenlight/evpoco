@@ -22,6 +22,10 @@
 #include <ev.h>
 #include <map>
 
+#include <ev_queue.h>
+#include <chunked_memory_stream.h>
+#include <thread_pool.h>
+
 #include "Poco/Net/Net.h"
 #include "Poco/Net/ServerSocket.h"
 #include "Poco/EVNet/EVTCPServerConnectionFactory.h"
@@ -39,6 +43,9 @@
 #include "Poco/EVNet/EVStreamSocketLRUList.h"
 #include "Poco/EVNet/EVServer.h"
 #include "Poco/EVNet/EVTCPServiceRequest.h"
+#include "Poco/EVNet/EVUpstreamEventNotification.h"
+
+#define DEFAULT_NUM_AUXJOB_THREADS 4
 
 namespace Poco { namespace Net {
 	class StreamSocket;
@@ -65,7 +72,7 @@ typedef void (EVTCPServer::*connArrivedMethod)(const bool& );
 typedef struct {
 	EVTCPServer *objPtr;
 	connArrivedMethod connArrived;
-} srvrs_io_cb_struct_type , *srvrs_ic_cb_ptr_type;
+} srvrs_io_cb_struct_type , *srvrs_io_cb_ptr_type;
 
 typedef void (EVTCPServer::*sockReAcquireMethod)(const bool&);
 typedef struct {
@@ -75,10 +82,10 @@ typedef struct {
 
 struct _strms_io_struct_type;
 typedef struct _strms_io_struct_type strms_io_cb_struct_type;
-typedef struct _strms_io_struct_type * strms_ic_cb_ptr_type;
+typedef struct _strms_io_struct_type * strms_io_cb_ptr_type;
 
 typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
-typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_ic_cb_ptr_type, const bool& );
+typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_io_cb_ptr_type, const bool& );
 
 struct _strms_io_struct_type {
 	long sr_num; // The identifier of service request, to be used in case of requests from worker threads
@@ -91,6 +98,38 @@ struct _strms_io_struct_type {
 	StreamSocket *ssPtr;
 	EVConnectedStreamSocket *cn;
 };
+
+typedef struct _dns_ref_data {
+	_dns_ref_data() : _instance(0), _usN(0) {}
+	EVTCPServer* _instance;
+	EVUpstreamEventNotification *_usN;
+} dns_ref_data_type, * dns_ref_data_ptr_type;
+
+struct _dns_io_struct {
+	struct _input {
+		_input():_acc_fd(-1), _host_name(0), _serv_name(0), _ref_data(0) { memset(&_hints, 0, sizeof(struct addrinfo)); }
+		poco_socket_t _acc_fd;
+		const char* _host_name;
+		const char* _serv_name;
+		struct addrinfo _hints;
+		void *_ref_data;
+	} _in;
+	struct _output {
+		_output(): _result(0), _return_value(0), _errno(0) {}
+		struct addrinfo* _result;
+		int _return_value;
+		int _errno;
+	} _out;
+};
+
+typedef struct _dns_io_struct dns_io_struct_type;
+typedef struct _dns_io_struct* dns_io_ptr_type;
+
+class EVAuxTCNotification : public _dns_io_struct, public Notification
+{
+	virtual ~EVAuxTCNotification() { }
+};
+
 
 class Net_API EVTCPServer: public Poco::Runnable, public EVServer
 	/// This class implements a multithreaded TCP server.
@@ -237,6 +276,8 @@ public:
 
 	virtual long submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
 								Net::SocketAddress& addr, Net::StreamSocket & css);
+	virtual long submitRequestForHostResolution(int cb_evid_num, poco_socket_t acc_fd,
+								const char* domain_name, const char* serv_name);
 		/// To be called whenever another thread wants to make a new connection.
 
 	virtual long submitRequestForClose(poco_socket_t acc_fd, Net::StreamSocket& css);
@@ -248,6 +289,9 @@ public:
 	virtual long submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css);
 		/// To be called whenver a worker thread wants to recv data
 		/// to a server it has opened connection with.
+	void postHostResolution(dns_io_ptr_type dio_ptr);
+		/// To handle result of host resolution in the context of EVTCPServer
+
 protected:
 	void run();
 		/// Runs the server. The server will run until
@@ -262,11 +306,15 @@ protected:
 		/// Returns the underlying server socket file descriptor
 
 private:
+	void init();
 	void clearAcceptedSocket(poco_socket_t);
-	ssize_t handleConnSocketReadable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
-	ssize_t handleConnSocketWritable(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
-	ssize_t handleConnSocketConnected(strms_ic_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketWritable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	void handleHostResolved(const bool& ev_occured);
+	ssize_t handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	int makeTCPConnection(EVTCPServiceRequest *);
+	int resolveHost(EVTCPServiceRequest * sr);
+	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
 	int closeTCPConnection(EVTCPServiceRequest * sr);
@@ -277,6 +325,7 @@ private:
 	static const std::string NUM_THREADS_CFG_NAME;
 	static const std::string RECV_TIME_OUT_NAME;
 	static const std::string NUM_CONNECTIONS_CFG_NAME;
+	static const std::string USE_IPV6_FOR_CONN;
 	static const std::string SERVER_PREFIX_CFG_NAME;
 
 	static const int TCP_BUFFER_SIZE = 4096;
@@ -328,14 +377,16 @@ private:
 
 	srvrs_io_cb_struct_type				_cbStruct;
 	struct ev_loop*						_loop;
-	ev_async*							stop_watcher_ptr1;
-	ev_async*							stop_watcher_ptr2;;
-	ev_async*							stop_watcher_ptr3;;
+	ev_async*							_stop_watcher_ptr1;
+	ev_async*							_stop_watcher_ptr2;;
+	ev_async*							_stop_watcher_ptr3;;
+	ev_async*							_dns_watcher_ptr;
 
 	ASColMapType						_accssColl;
 
 	NotificationQueue					_queue;
 	NotificationQueue					_service_request_queue;
+	ev_queue_type						_aux_tc_queue; // Auxillary task completion queue
 
 	EVStreamSocketLRUList				_ssLRUList;
 	int									_numThreads;
@@ -345,7 +396,8 @@ private:
 	time_t								_receiveTimeOut;
 
 	std::atomic_ulong					_sr_srl_num;
-
+	thread_pool_type					_thread_pool;
+	bool								_use_ipv6_for_conn;
 };
 
 //
