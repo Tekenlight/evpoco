@@ -65,6 +65,10 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 
 EVUpstreamEventNotification::~EVUpstreamEventNotification()
 {
+	if (_addr_info) {
+		freeaddrinfo(_addr_info);
+		_addr_info = NULL;
+	}
 }
 
 poco_socket_t EVUpstreamEventNotification::sockfd()
