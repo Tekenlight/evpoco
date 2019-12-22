@@ -57,6 +57,7 @@ class Net_API EVHTTPRequestHandler
 {
 public:
 	typedef std::function<int ()> TCallback;
+	typedef std::function<void ()> VTCallback;
 
 	class EventHandler {
 		public:

@@ -14,6 +14,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include <thread_pool.h>
+
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/NotificationQueue.h"
@@ -33,6 +35,7 @@ public:
 		,SENDDATA_REQUEST
 		,RECVDATA_REQUEST
 		,CLEANUP_REQUEST
+		,GENERIC_TASK
 	} what;
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
 	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
@@ -70,9 +73,11 @@ private:
 	poco_socket_t			_acc_fd; // fd of the accepted(listen) socket
 	Net::StreamSocket		_ss; // Connected StreamSocket
 	Net::SocketAddress		_addr; // Optional address needed only in the connect request
+	//struct addrinfo*		_hints;
 	const char*				_domain_name; // Either socket address or domain name can be passed
 	const char*				_serv_name; // Either socket address or domain name can be passed
-	struct addrinfo*		_hints;
+	task_func_type			_task_func;
+	void*					_task_inout_data; // Input output data for generic task
 };
 
 
@@ -101,10 +106,12 @@ inline const char* EVTCPServiceRequest::getDomainName()
 	return _domain_name;
 }
 
+/*
 inline struct addrinfo* EVTCPServiceRequest::getHints()
 {
 	return _hints;
 }
+*/
 
 } } // namespace EVNet and Poco end.
 

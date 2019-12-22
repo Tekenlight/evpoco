@@ -1071,6 +1071,14 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 	socket_watcher_ptr = tn->getSocketWatcher();
 	StreamSocket ss = tn->getStreamSocket();
 
+	/*
+	{
+		struct timeval tv;
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
+		setsockopt(ss.impl()->sockfd(), SOL_SOCKET,  SO_RCVTIMEO, &tv, sizeof(struct timeval));
+	}
+	*/
 	{
 		/* If socket is not readable make it readable*/
 		if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
@@ -1099,6 +1107,9 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * opportunity for optimization.
 		 * */
 		handleAccSocketReadable(ss, false);
+	}
+	else {
+		// TBD TO ADD SOCKET TO TIME OUT MONITORING LIST
 	}
 
 	return;
@@ -1615,6 +1626,7 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 			tn->incrNumCSEvents();
 		}
 	}
+	// TBD TO ADD SOCKET TO TIME OUT MONITORING LIST
 
 	return ret;
 }
