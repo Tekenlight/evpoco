@@ -111,12 +111,13 @@ private:
 
 
 class EVFormRequestHandler: public EVLHTTPRequestHandler
-	/// Return a HTML document with the current date and time.
 {
 public:
 	virtual std::string getMappingScript(const Poco::Net::HTTPServerRequest& request)
 	{
-		return std::string("mapper.lua");
+		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
+
+		return config.getString("LUAEVServer.requestMappingScript", "mapper.lua");
 	}
 };
 

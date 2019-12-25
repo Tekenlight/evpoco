@@ -161,12 +161,12 @@ int EVLHTTPRequestHandler::handleRequest()
 			send_error_response(__LINE__, lua_tostring(_L1, -1));
 			return PROCESSING_ERROR;
 		}
-	}
-	lua_getglobal(_L1, "handle_request");
-	if (lua_isnil(_L1, -1)) {
-		DEBUGPOINT("Here\n");
-		send_error_response(__LINE__, "handle_request: function not found");
-		return PROCESSING_ERROR;
+		lua_getglobal(_L1, "handle_request");
+		if (lua_isnil(_L1, -1)) {
+			DEBUGPOINT("Here\n");
+			send_error_response(__LINE__, "handle_request: function not found");
+			return PROCESSING_ERROR;
+		}
 	}
 	status = lua_resume(_L1, NULL, 0);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
@@ -177,9 +177,16 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING;
 	}
 	else {
-		std::string output = lua_tostring(_L1, -1);
-		lua_pop(_L1, 1);
-		DEBUGPOINT("HELLO %s\n", output.c_str());
+		if (!lua_isnil(_L1, -1) && lua_isstring(_L1, -1)) {
+			std::string output = lua_tostring(_L1, -1);
+			lua_pop(_L1, 1);
+			DEBUGPOINT("HELLO %s\n", output.c_str());
+			send_error_response(__LINE__, output.c_str());
+		}
+		else {
+			send_error_response(__LINE__, "handle_request: did notreturn any string");
+		}
+		DEBUGPOINT("Here\n");
 		return PROCESSING_COMPLETE;
 	}
 }
