@@ -342,11 +342,10 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			break;
 		case HTTPRH_HTTPCONN_PROXY_RESPONSE:
 			break;
-		case HTTPRH_CALL_CB_HANDLER:
-			break;
 		case HTTPRH_DNSR_HOST_RESOLUTION_DONE:
 			*(_srColl[sr_num]->addr_info_ptr_ptr) = _usN->getAddrInfo();
 			break;
+		case HTTPRH_CALL_CB_HANDLER:
 		default:
 			break;
 	}

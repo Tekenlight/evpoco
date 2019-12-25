@@ -251,12 +251,13 @@ void EVHTTPRequestProcessor::evrun()
 					ret = pHandler->handleRequestSurrogateInitial();
 					if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
 					switch (ret) {
+						case EVHTTPRequestHandler::PROCESSING:
+							_reqProcState->setState(REQUEST_PROCESSING);
+							break;
 						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 						case EVHTTPRequestHandler::PROCESSING_ERROR:
-							_reqProcState->setState(PROCESS_COMPLETE);
-							break;
 						default:
-							_reqProcState->setState(REQUEST_PROCESSING);
+							_reqProcState->setState(PROCESS_COMPLETE);
 							break;
 					}
 				}
@@ -277,12 +278,13 @@ void EVHTTPRequestProcessor::evrun()
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
 								switch (ret) {
+									case EVHTTPRequestHandler::PROCESSING:
+										_reqProcState->setState(REQUEST_PROCESSING);
+										break;
 									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 									case EVHTTPRequestHandler::PROCESSING_ERROR:
-										_reqProcState->setState(PROCESS_COMPLETE);
-										break;
 									default:
-										_reqProcState->setState(REQUEST_PROCESSING);
+										_reqProcState->setState(PROCESS_COMPLETE);
 										break;
 								}
 							}

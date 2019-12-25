@@ -149,10 +149,10 @@ public:
 
 	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
 
+	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
+
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);
-
-	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 
