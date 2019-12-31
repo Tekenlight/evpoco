@@ -123,6 +123,12 @@ public:
 			abort();
 		}
 	}
+
+	std::map<std::string, PartData*>& getParts()
+	{
+		return _parts;
+	}
+
 private:
 	std::map<std::string, PartData*>	_parts;
 };
@@ -168,6 +174,82 @@ static int evpoco_parse_form(lua_State* L)
 		void * ptr = lua_newuserdata(L, sizeof(Net::HTMLForm*));
 		*((Net::HTMLForm**)ptr) = form;
 		luaL_setmetatable(L, _html_form_type_name);
+	}
+
+	return 1;
+}
+
+static int evpoco_get_request_part_names(lua_State* L)
+{
+	//DEBUGPOINT("Here\n");
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+	}
+	else {
+		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+		lua_newtable(L);
+		EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
+		int i = 1;
+		auto parts = ph->getParts();
+		for (auto it = parts.begin(); it != parts.end(); ++it, i++) {
+			lua_pushstring(L, it->first.c_str());
+			lua_seti(L, -2, i);
+		}
+	}
+
+	return 1;
+}
+
+static int evpoco_get_request_part(lua_State* L)
+{
+	//DEBUGPOINT("Here\n");
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+		lua_pushnil(L);
+	}
+	else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+	}
+	else {
+		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -2));
+		EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
+		std::string s = lua_tostring(L, -1);
+	
+		auto parts = ph->getParts();
+		PartData * pd = parts[s];
+
+		lua_newtable(L);
+
+		lua_pushstring(L, "length");
+		lua_pushinteger(L, pd->_length);
+		lua_settable(L, -3);
+
+		lua_pushstring(L, "type");
+		lua_pushstring(L, pd->_type.c_str());
+		lua_settable(L, -3);
+
+		lua_pushstring(L, "name");
+		lua_pushstring(L, pd->_name.c_str());
+		lua_settable(L, -3);
+
+		lua_pushstring(L, "data");
+		lua_pushlightuserdata(L, &(pd->_cms));
+		lua_settable(L, -3);
+
+		lua_pushstring(L, "params");
+		lua_newtable(L);
+		for (auto it = pd->_params.begin(); it != pd->_params.end(); ++it) {
+			lua_pushstring(L, it->first.c_str());
+			lua_pushstring(L, it->second.c_str());
+			lua_settable(L, -3);
+		}
+		lua_settable(L, -3);
 	}
 
 	return 1;
@@ -405,6 +487,8 @@ static int evpoco_open_lua_lib(lua_State* L)
 		{ "get_http_uri", &evpoco_get_http_uri },
 		{ "get_http_host", &evpoco_get_http_host },
 		{ "parse_http_req_form", &evpoco_parse_form },
+		{ "get_part_names", &evpoco_get_request_part_names },
+		{ "get_part", &evpoco_get_request_part},
 		{ NULL, NULL }
 	};
 
