@@ -44,7 +44,8 @@ class Net_API EVLHTTPRequestHandler : public EVHTTPRequestHandler
 {
 public:
 	typedef enum {
-		html_form
+		 html_form
+		,part_handler
 	} mapped_item_type;
 	EVLHTTPRequestHandler();
 		/// Creates the EVLHTTPRequestHandler.
@@ -57,8 +58,8 @@ public:
 
 	virtual std::string getMappingScript(const Net::HTTPServerRequest& request) = 0;
 
-	void addToReqComponents(mapped_item_type, void*);
-	void* getFromReqComponents(mapped_item_type);
+	void addToComponents(mapped_item_type, void*);
+	void* getFromComponents(mapped_item_type);
 
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);
@@ -74,17 +75,17 @@ private:
 	lua_State*								_L1;
 	std::string								_mapping_script;
 	std::string								_request_handler;
-	std::map<mapped_item_type, void*>		_req_components;
+	std::map<mapped_item_type, void*>		_components;
 };
 
-inline void EVLHTTPRequestHandler::addToReqComponents(mapped_item_type t, void* p)
+inline void EVLHTTPRequestHandler::addToComponents(mapped_item_type t, void* p)
 {
-	_req_components[t] = p;
+	_components[t] = p;
 }
 
-inline void* EVLHTTPRequestHandler::getFromReqComponents(mapped_item_type t)
+inline void* EVLHTTPRequestHandler::getFromComponents(mapped_item_type t)
 {
-	return _req_components[t];
+	return _components[t];
 }
 
 

@@ -8,15 +8,124 @@
 // Copyright (c) 2019-2020, Tekenlight Solutions Pvt Ltd
 //
 
+#include <chunked_memory_stream.h>
 
 #include "Poco/EVNet/EVLHTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTMLForm.h"
+#include "Poco/Net/PartHandler.h"
+#include "Poco/Net/MessageHeader.h"
+#include "Poco/CountingStream.h"
+#include "Poco/NullStream.h"
+#include "Poco/StreamCopier.h"
 
 
 namespace Poco {
 namespace EVNet {
+
+#define PART_BUFFER_ALOC_SIZE 4096
+
+class PartData {
+public:
+	PartData():_length(0)
+	{
+	}
+
+	~PartData()
+	{
+	}
+
+	void debug()
+	{
+		DEBUGPOINT("Length = %d\n", _length);
+		DEBUGPOINT("Type = %s\n", _type.c_str());
+		DEBUGPOINT("Name = %s\n", _name.c_str());
+		Poco::Net::NameValueCollection::ConstIterator it = _params.begin();
+		for (; it != _params.end(); ++it) {
+			DEBUGPOINT("%s=%s\n", it->first.c_str(), it->second.c_str());
+		}
+	}
+
+	int								_length;
+	std::string						_type;
+	std::string						_name;
+	Poco::Net::NameValueCollection	_params;
+	chunked_memory_stream			_cms;
+};
+
+class EVLHTTPPartHandler: public Poco::Net::PartHandler
+{
+public:
+	EVLHTTPPartHandler()
+	{
+	}
+
+	~EVLHTTPPartHandler()
+	{
+		for ( std::map<std::string, PartData*>::iterator it = _parts.begin(); it != _parts.end(); ++it ) {
+			delete it->second;
+		}
+		_parts.clear();
+	}
+
+	void handlePart(const Net::MessageHeader& header, std::istream& stream)
+	{
+		try {
+			std::string fileName;
+			PartData * p = new PartData();
+			p->_type = header.get("Content-Type", "(unspecified)");
+			if (header.has("Content-Disposition")) {
+				std::string disp;
+				Net::MessageHeader::splitParameters(header["Content-Disposition"], disp, p->_params);
+				p->_name = p->_params.get("name", "(unnamed)");
+				fileName = p->_params.get("filename", "(unnamed)");
+			}
+
+			/*
+			CountingInputStream istr(stream);
+			NullOutputStream ostr;
+			StreamCopier::copyStream(istr, ostr);
+			*/
+
+			char * buffer = NULL;
+			while (!stream.eof()) {
+				buffer = (char*)malloc(PART_BUFFER_ALOC_SIZE);
+
+				stream.read(buffer, PART_BUFFER_ALOC_SIZE);
+				std::streamsize size = stream.gcount();
+
+				p->_cms.push(buffer, size);
+				p->_length += size;
+
+				buffer = NULL;
+			}
+			_parts[fileName] = p;
+
+#ifdef MULTI_PART_TESTING
+			{
+				FILE * fp = fopen(fileName.c_str(), "w");
+				if (!fp) { DEBUGPOINT("BAD\n"); abort(); }
+				buffer = (char*)malloc(PART_BUFFER_ALOC_SIZE);
+				size_t s;
+				s = p->_cms.read(buffer, PART_BUFFER_ALOC_SIZE);
+				while (s) {
+					fwrite(buffer, s, 1, fp);
+					s = p->_cms.read(buffer, PART_BUFFER_ALOC_SIZE);
+				}
+				free(buffer);
+				fclose(fp);
+			}
+#endif
+
+		} catch (std::exception& ex) {
+			DEBUGPOINT("EXCEPTION HERE %s\n", ex.what());
+			abort();
+		}
+	}
+private:
+	std::map<std::string, PartData*>	_parts;
+};
 
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_req_type_name = "httpreq";
@@ -45,15 +154,16 @@ static int evpoco_parse_form(lua_State* L)
 	}
 	else {
 		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+		EVLHTTPPartHandler* partHandler = new EVLHTTPPartHandler();
 		Net::HTMLForm *form = NULL;
 		try {
-			//form1 = new Net::HTMLForm(request, request.stream(), partHandler);
-			form = new Net::HTMLForm(request, request.stream());
+			form = new Net::HTMLForm(request, request.stream(), *partHandler);
 		} catch (std::exception& ex) {
 			DEBUGPOINT("CHA %s\n",ex.what());
 			throw(ex);
 		}
-		reqHandler->addToReqComponents(EVLHTTPRequestHandler::html_form, form);
+		reqHandler->addToComponents(EVLHTTPRequestHandler::html_form, form);
+		reqHandler->addToComponents(EVLHTTPRequestHandler::part_handler, partHandler);
 
 		void * ptr = lua_newuserdata(L, sizeof(Net::HTMLForm*));
 		*((Net::HTMLForm**)ptr) = form;
@@ -267,6 +377,18 @@ static int evpoco_get_request(lua_State* L)
 	return 1;
 }
 
+static int evpoco_get_response(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Net::HTTPServerResponse& response = reqHandler->getResponse();
+
+	void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerResponse*));
+	*(Net::HTTPServerResponse**)ptr = &response;
+	luaL_setmetatable(L, _http_resp_type_name);
+
+	return 1;
+}
+
 static int evpoco_open_lua_lib(lua_State* L)
 {
 	static const luaL_Reg form_lib[] = {
@@ -288,6 +410,7 @@ static int evpoco_open_lua_lib(lua_State* L)
 
 	static const luaL_Reg evpoco_lib[] = {
 		{ "get_request", &evpoco_get_request },
+		{ "get_response", &evpoco_get_response },
 		{ NULL, NULL }
 	};
 
@@ -332,7 +455,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler()
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
 	lua_close(_L);
-    for ( std::map<mapped_item_type, void*>::iterator it = _req_components.begin(); it != _req_components.end(); ++it ) {
+    for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
 				{
@@ -340,11 +463,17 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 					delete form;
 				}
 				break;
+			case part_handler:
+				{
+					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)it->second;
+					delete ph;
+				}
+				break;
 			default:
 				break;
 		}
     }
-    _req_components.clear();
+    _components.clear();
 }
 
 void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
