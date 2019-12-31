@@ -43,6 +43,9 @@ class Net_API EVLHTTPRequestHandler : public EVHTTPRequestHandler
 	///
 {
 public:
+	typedef enum {
+		html_form
+	} mapped_item_type;
 	EVLHTTPRequestHandler();
 		/// Creates the EVLHTTPRequestHandler.
 
@@ -53,20 +56,37 @@ public:
 		/// Handles the given request.
 
 	virtual std::string getMappingScript(const Net::HTTPServerRequest& request) = 0;
+
+	void addToReqComponents(mapped_item_type, void*);
+	void* getFromReqComponents(mapped_item_type);
+
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);
 	EVLHTTPRequestHandler& operator = (const EVLHTTPRequestHandler&);
 
-	void send_error_response(int line_no, const char * msg);
+	void send_string_response(int line_no, const char * msg);
 	int deduceReqHandler();
 	int loadReqHandler();
 	int loadReqMapper();
+	Poco::EVNet::EVHTTPClientSession session;
 
-	lua_State*		_L;
-	lua_State*		_L1;
-	std::string		_mapping_script;
-	std::string		_request_handler;
+	lua_State*								_L;
+	lua_State*								_L1;
+	std::string								_mapping_script;
+	std::string								_request_handler;
+	std::map<mapped_item_type, void*>		_req_components;
 };
+
+inline void EVLHTTPRequestHandler::addToReqComponents(mapped_item_type t, void* p)
+{
+	_req_components[t] = p;
+}
+
+inline void* EVLHTTPRequestHandler::getFromReqComponents(mapped_item_type t)
+{
+	return _req_components[t];
+}
+
 
 } } // namespace Poco::EVNet
 
