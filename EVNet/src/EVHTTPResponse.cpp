@@ -61,7 +61,7 @@ void EVHTTPResponse::formInputStream(chunked_memory_stream * mem_inp_stream)
 #if defined(POCO_HAVE_INT64)
 			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength64());
 #else
-			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, getContentLength());
+			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, getEVContentLength());
 #endif
 			break;
 		default:

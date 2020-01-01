@@ -59,8 +59,8 @@ public:
 	void initParseState();
 	void clear();
 
-	void setContentLength(unsigned long l);
-	unsigned long getContentLength();
+	void setEVContentLength(unsigned long l);
+	unsigned long getEVContentLength();
 	void setParseState(int state);
 	int getParseState();
 	void setMessageBodySize(size_t size);
@@ -112,14 +112,14 @@ inline HTTP_REQ_TYPE_ENUM EVHTTPResponse::getRespType()
 	return _msg_parse_state->_resp_type;
 }
 
-inline void EVHTTPResponse::setContentLength(unsigned long l)
+inline void EVHTTPResponse::setEVContentLength(unsigned long l)
 {
 	if ((l != 0) && (l != ULLONG_MAX)) {
 		_msg_parse_state->_content_length = l;
 	}
 }
 
-inline unsigned long EVHTTPResponse::getContentLength()
+inline unsigned long EVHTTPResponse::getEVContentLength()
 {
 	return _msg_parse_state->_content_length;
 }

@@ -71,8 +71,8 @@ private:
 	int loadReqMapper();
 	Poco::EVNet::EVHTTPClientSession session;
 
+	lua_State*								_L0;
 	lua_State*								_L;
-	lua_State*								_L1;
 	std::string								_mapping_script;
 	std::string								_request_handler;
 	std::map<mapped_item_type, void*>		_components;

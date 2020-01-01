@@ -296,7 +296,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			len2 = 0;
 			http_parser_pause(_parser, 0);
 			response.setParseState(POST_HEADER_READ_COMPLETE);
-			response.setContentLength(_parser->header_content_length);
+			response.setEVContentLength(_parser->header_content_length);
 			setRespProperties(response);
 			if (response.trEncodingPresent() && !(_parser->flags & F_CHUNKED)) {
 			/* CONDITION AS PER RFC 7230 3.3.3 point 3. */

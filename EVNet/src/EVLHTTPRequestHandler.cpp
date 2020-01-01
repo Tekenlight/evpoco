@@ -19,6 +19,9 @@
 #include "Poco/CountingStream.h"
 #include "Poco/NullStream.h"
 #include "Poco/StreamCopier.h"
+#include "Poco/DateTimeParser.h"
+#include "Poco/DateTime.h"
+#include "Poco/URI.h"
 
 
 namespace Poco {
@@ -82,12 +85,6 @@ public:
 				fileName = p->_params.get("filename", "(unnamed)");
 			}
 
-			/*
-			CountingInputStream istr(stream);
-			NullOutputStream ostr;
-			StreamCopier::copyStream(istr, ostr);
-			*/
-
 			char * buffer = NULL;
 			while (!stream.eof()) {
 				buffer = (char*)malloc(PART_BUFFER_ALOC_SIZE);
@@ -133,368 +130,841 @@ private:
 	std::map<std::string, PartData*>	_parts;
 };
 
+const static char *_resp_output_stream = "respostr";
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_req_type_name = "httpreq";
 const static char *_http_resp_type_name = "httpresp";
 const static char *_platform_name = "context";
-
-static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L)
-{
-	lua_getglobal(L, "EVLHTTPRequestHandler*");
-	EVLHTTPRequestHandler * req_h = (EVLHTTPRequestHandler*)lua_touserdata(L, -1);
-	lua_pop(L, 1);
-	return req_h;
-}
 
 static int obj__gc(lua_State *L)
 {
 	return 0;
 }
 
-static int evpoco_parse_form(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
+namespace evpoco {
+	static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L)
+	{
+		lua_getglobal(L, "EVLHTTPRequestHandler*");
+		EVLHTTPRequestHandler * req_h = (EVLHTTPRequestHandler*)lua_touserdata(L, -1);
+		lua_pop(L, 1);
+		return req_h;
 	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		EVLHTTPPartHandler* partHandler = new EVLHTTPPartHandler();
-		Net::HTMLForm *form = NULL;
-		try {
-			form = new Net::HTMLForm(request, request.stream(), *partHandler);
-		} catch (std::exception& ex) {
-			DEBUGPOINT("CHA %s\n",ex.what());
-			throw(ex);
+
+	static int evpoco_yield(lua_State* L)
+	{
+		//DEBUGPOINT("Here\n");
+		return lua_yield(L, 0);
+	}
+
+	static int get_http_request(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		Net::HTTPServerRequest& request = reqHandler->getRequest();
+
+		void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerRequest*));
+		*(Net::HTTPServerRequest**)ptr = &request;
+		luaL_setmetatable(L, _http_req_type_name);
+
+		return 1;
+	}
+
+	static int get_http_response(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		Net::HTTPServerResponse& response = reqHandler->getResponse();
+
+		void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerResponse*));
+		*(Net::HTTPServerResponse**)ptr = &response;
+		luaL_setmetatable(L, _http_resp_type_name);
+
+		return 1;
+	}
+
+	namespace httpmessage {
+		static int set_version(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_version: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_version: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				const char* value = lua_tostring(L, -1);
+				if (!(*value)) {
+					DEBUGPOINT("Here Invalid  value =%s\n", value);
+					luaL_error(L, "set_version: Invalid value=%s", value);
+					return 0;
+				}
+				message.setVersion(value);
+			}
+			return 0;
 		}
-		reqHandler->addToComponents(EVLHTTPRequestHandler::html_form, form);
-		reqHandler->addToComponents(EVLHTTPRequestHandler::part_handler, partHandler);
 
-		void * ptr = lua_newuserdata(L, sizeof(Net::HTMLForm*));
-		*((Net::HTMLForm**)ptr) = form;
-		luaL_setmetatable(L, _html_form_type_name);
-	}
+		static int get_version(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				luaL_error(L, "get_version: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				std::string hdr_fld_value = message.getVersion();
+				lua_pushstring(L, hdr_fld_value.c_str());
+			}
+			return 1;
+		}
 
-	return 1;
-}
+		static int set_chunked_trfencoding(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_chunked_trfencoding: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isboolean(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_chunked_trfencoding: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				const int value = lua_toboolean(L, -1);
+				message.setChunkedTransferEncoding(value);
+			}
+			return 0;
+		}
 
-static int evpoco_get_request_part_names(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		static int get_chunked_trfencoding(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_chunked_trfencoding: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				int hdr_fld_value = message.getChunkedTransferEncoding();
+				lua_pushboolean(L, hdr_fld_value);
+			}
+			return 1;
+		}
 
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		lua_newtable(L);
-		EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
-		int i = 1;
-		auto parts = ph->getParts();
-		for (auto it = parts.begin(); it != parts.end(); ++it, i++) {
-			lua_pushstring(L, it->first.c_str());
-			lua_seti(L, -2, i);
+		static int set_content_length(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_content_length: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isinteger(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_content_length: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
+				message.setContentLength(value);
+			}
+			return 0;
+		}
+
+		static int get_content_length(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_content_length: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				int hdr_fld_value = message.getContentLength();
+				lua_pushinteger(L, hdr_fld_value);
+			}
+			return 1;
+		}
+
+		static int set_trf_encoding(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_trf_encoding: inalid first argumet %s", lua_typename(L, lua_type(L, -3)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_trf_encoding: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				const char* value = lua_tostring(L, -1);
+				if (!(*value)) {
+					DEBUGPOINT("Here Invalid value=%s\n", value);
+					luaL_error(L, "set_trf_encoding: Invalid value=%s", value);
+					return 0;
+				}
+				message.setTransferEncoding(value);
+			}
+
+			return 0;
+		}
+
+		static int get_trf_encoding(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_trf_encoding: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				lua_pushstring(L, message.getTransferEncoding().c_str());
+			}
+
+			return 1;
+		}
+
+		static int set_content_type(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_content_type: inalid first argumet %s", lua_typename(L, lua_type(L, -3)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_content_type: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				const char* value = lua_tostring(L, -1);
+				if (!(*value)) {
+					DEBUGPOINT("Here Invalid value=%s\n", value);
+					luaL_error(L, "set_content_type: Invalid value=%s", value);
+					return 0;
+				}
+				message.setContentType(value);
+			}
+
+			return 0;
+		}
+
+		static int get_content_type(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_content_type: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				lua_pushstring(L, message.getContentType().c_str());
+			}
+
+			return 1;
+		}
+
+		static int set_keep_alive(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_keep_alive: inalid first argumet %s", lua_typename(L, lua_type(L, -3)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isboolean(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_keep_alive: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				const int value = lua_tointeger(L, -1);
+				message.setKeepAlive(value);
+			}
+
+			return 0;
+		}
+
+		static int get_keep_alive(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_keep_alive: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				lua_pushboolean(L, message.getKeepAlive());
+			}
+
+			return 1;
+		}
+
+		static int set_hdr_field(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -3) || !lua_isuserdata(L, -3)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -3)));
+				luaL_error(L, "set_hdr_field: inalid first argumet %s", lua_typename(L, lua_type(L, -3)));
+				return 0;
+			}
+			else if (lua_isnil(L, -2) || !lua_isstring(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "set_hdr_field: inalid second argumet %s", lua_typename(L, lua_type(L, -2)));
+				return 0;
+			}
+			else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "set_hdr_field: inalid third argumet %s", lua_typename(L, lua_type(L, -1)));
+				return 0;
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -3));
+				const char* name = lua_tostring(L, -2);
+				const char* value = lua_tostring(L, -1);
+				if (!(*name) || !(*value)) {
+					DEBUGPOINT("Here Invalid (name=%s, value =%s)\n", name, value);
+					luaL_error(L, "set_hdr_field: Invalid (name=%s, value=%s)", name, value);
+					return 0;
+				}
+				message.set(name, value);
+			}
+
+			return 0;
+		}
+
+		static int get_hdr_field(lua_State* L)
+		{
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+			if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_hdr_field: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+				luaL_error(L, "get_hdr_field: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+				lua_pushnil(L);
+			}
+			else {
+				const char* hdr_fld_name = lua_tostring(L, -1);
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
+				std::string hdr_fld_value = message.get(hdr_fld_name, "");
+				lua_pushstring(L, hdr_fld_value.c_str());
+			}
+
+			return 1;
+		}
+
+		static int get_hdr_fields(lua_State* L)
+		{
+			//DEBUGPOINT("Here\n");
+			EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+			if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+				DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+				luaL_error(L, "get_hdr_fields: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+				lua_pushnil(L);
+			}
+			else {
+				Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -1));
+				lua_newtable (L);
+				Poco::Net::NameValueCollection::ConstIterator it = message.begin();
+				Poco::Net::NameValueCollection::ConstIterator end = message.end();
+				for (; it != end; ++it) {
+					lua_pushstring(L, it->second.c_str());
+					lua_setfield(L, -2, it->first.c_str());
+				}
+			}
+
+			return 1;
+		}
+
+		namespace httpreq {
+			static int parse_form(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "parse_form: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					EVLHTTPPartHandler* partHandler = new EVLHTTPPartHandler();
+					Net::HTMLForm *form = NULL;
+					try {
+						form = new Net::HTMLForm(request, request.stream(), *partHandler);
+					} catch (std::exception& ex) {
+						DEBUGPOINT("CHA %s\n",ex.what());
+						throw(ex);
+					}
+					reqHandler->addToComponents(EVLHTTPRequestHandler::html_form, form);
+					reqHandler->addToComponents(EVLHTTPRequestHandler::part_handler, partHandler);
+
+					void * ptr = lua_newuserdata(L, sizeof(Net::HTMLForm*));
+					*((Net::HTMLForm**)ptr) = form;
+					luaL_setmetatable(L, _html_form_type_name);
+				}
+
+				return 1;
+			}
+
+			static int get_part_names(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_part_names: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					lua_newtable(L);
+					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
+					int i = 1;
+					auto parts = ph->getParts();
+					for (auto it = parts.begin(); it != parts.end(); ++it, i++) {
+						lua_pushstring(L, it->first.c_str());
+						lua_seti(L, -2, i);
+					}
+				}
+
+				return 1;
+			}
+
+			static int get_part(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+				if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+					luaL_error(L, "get_part: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+					lua_pushnil(L);
+				}
+				else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_part: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -2));
+					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
+					std::string s = lua_tostring(L, -1);
+				
+					auto parts = ph->getParts();
+					PartData * pd = parts[s];
+
+					lua_newtable(L);
+
+					lua_pushstring(L, "length");
+					lua_pushinteger(L, pd->_length);
+					lua_settable(L, -3);
+
+					lua_pushstring(L, "type");
+					lua_pushstring(L, pd->_type.c_str());
+					lua_settable(L, -3);
+
+					lua_pushstring(L, "name");
+					lua_pushstring(L, pd->_name.c_str());
+					lua_settable(L, -3);
+
+					lua_pushstring(L, "data");
+					lua_pushlightuserdata(L, &(pd->_cms));
+					lua_settable(L, -3);
+
+					lua_pushstring(L, "params");
+					lua_newtable(L);
+					for (auto it = pd->_params.begin(); it != pd->_params.end(); ++it) {
+						lua_pushstring(L, it->first.c_str());
+						lua_pushstring(L, it->second.c_str());
+						lua_settable(L, -3);
+					}
+					lua_settable(L, -3);
+				}
+
+				return 1;
+			}
+
+			static int get_host(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_host: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					std::string host = request.getHost();
+					lua_pushstring(L, host.c_str());
+				}
+
+				return 1;
+			}
+
+			static int get_query_parameters(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_query_parameters: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					URI::QueryParameters qp;
+					try {
+						URI uri(request.getURI());
+						qp = uri.getQueryParameters();
+					} catch (std::exception ex) {
+						luaL_error(L, "%s", ex.what());
+						return 0;
+					}
+					lua_newtable(L);
+					for (auto it = qp.begin(); it != qp.end(); ++it) {
+						lua_pushstring(L, it->first.c_str());
+						lua_pushstring(L, it->second.c_str());
+						lua_settable(L, -3);
+					}
+				}
+
+				return 1;
+			}
+
+			static int get_uri(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_uri: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					std::string uri = request.getURI();
+					lua_pushstring(L, uri.c_str());
+				}
+
+				return 1;
+			}
+
+			static int get_method(lua_State* L)
+			{
+				//DEBUGPOINT("Here\n");
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "get_method: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					lua_pushnil(L);
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
+					std::string method = request.getMethod();
+					lua_pushstring(L, method.c_str());
+				}
+
+				return 1;
+			}
+
+			namespace htmlform {
+				static int get_form_field(lua_State* L)
+				{
+					//DEBUGPOINT("Here\n");
+					EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+					Net::HTTPServerRequest& request = reqHandler->getRequest();
+					//DEBUGPOINT("Here\n");
+					if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+						DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+						luaL_error(L, "get_form_field: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+						lua_pushnil(L);
+					}
+					else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+						DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+						luaL_error(L, "get_form_field: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+						lua_pushnil(L);
+					}
+					else {
+						const char* fld_name = lua_tostring(L, -1);
+						Net::HTMLForm* form = NULL;
+						form =  *((Net::HTMLForm**)lua_touserdata(L, -2));
+						std::string fld_value = form->get(fld_name, "");
+						lua_pushstring(L, fld_value.c_str());
+					}
+
+					return 1;
+				}
+
+				struct form_iterator {
+					Poco::Net::NameValueCollection::ConstIterator it;
+					Poco::Net::NameValueCollection::ConstIterator last;
+				};
+
+				static int begin_iteration(lua_State* L)
+				{
+					EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+					if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+						luaL_error(L, "begin_iteration: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+						lua_pushnil(L);
+						lua_pushnil(L);
+						lua_pushnil(L);
+					}
+					else {
+						Net::HTMLForm* form = NULL;
+						form = *((Net::HTMLForm**)lua_touserdata(L, -1));
+						struct form_iterator * iter_ptr = (struct form_iterator *)lua_newuserdata(L, sizeof(struct form_iterator));
+
+						iter_ptr->it = form->begin();
+						iter_ptr->last = form->end();
+						if (iter_ptr->it == iter_ptr->last) {
+							lua_pop(L, 1);
+							lua_pushnil(L);
+							lua_pushnil(L);
+							lua_pushnil(L);
+						}
+						else {
+							lua_pushstring(L, iter_ptr->it->first.c_str());
+							lua_pushstring(L, iter_ptr->it->second.c_str());
+						}
+					}
+
+					return 3;
+				}
+
+				static int next_iteration(lua_State* L)
+				{
+					EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+					if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+						luaL_error(L, "next_iteration: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+						lua_pushnil(L);
+						lua_pushnil(L);
+					}
+					else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+						luaL_error(L, "next_iteration: inalid first argumet %s", lua_typename(L, lua_type(L, -1)));
+						lua_pushnil(L);
+						lua_pushnil(L);
+					}
+					else {
+						Net::HTMLForm* form = NULL;
+
+						form = *(Net::HTMLForm**)lua_touserdata(L, -2);
+						struct form_iterator * iter_ptr = (struct form_iterator *)lua_touserdata(L, -1);
+
+						++(iter_ptr->it);
+						if (iter_ptr->it == iter_ptr->last) {
+							lua_pushnil(L);
+							lua_pushnil(L);
+						}
+						else {
+							lua_pushstring(L, iter_ptr->it->first.c_str());
+							lua_pushstring(L, iter_ptr->it->second.c_str());
+						}
+					}
+
+					return 2;
+				}
+
+				static int empty(lua_State* L)
+				{
+					EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+					if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+						luaL_error(L, "begin_iteration: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+						lua_pushnil(L);
+					}
+					else {
+						Net::HTMLForm* form = NULL;
+						form = *((Net::HTMLForm**)lua_touserdata(L, -1));
+						lua_pushboolean(L, form->empty());
+					}
+					return 1;
+				}
+			}
+		}
+
+		namespace httpresp {
+			static int set_status(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				Net::HTTPServerResponse& response = reqHandler->getResponse();
+				if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+					luaL_error(L, "set_status: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+					return 0;
+				}
+				else if (lua_isnil(L, -1) || !lua_isinteger(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "set_status: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+					return 0;
+				}
+				else {
+					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, -2));
+					int value = 100; lua_numbertointeger(lua_tonumber(L, -1), &value);
+					response.setStatusAndReason((Net::HTTPResponse::HTTPStatus)value);
+				}
+
+				return 0;
+			}
+
+			static int set_date(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				Net::HTTPServerResponse& response = reqHandler->getResponse();
+				if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+					luaL_error(L, "set_date: inalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+					return 0;
+				}
+				else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "set_date: inalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+					return 0;
+				}
+				else {
+					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, -2));
+					const char * value = lua_tostring(L, -1);
+					if (!(*value)) {
+						luaL_error(L, "set_date: inalid second argumet %s", lua_typename(L, lua_type(L, -2)));
+						return 0;
+					}
+					try {
+						int tzd;
+						DateTime dt = DateTimeParser::parse(value, tzd);
+						response.setDate(dt.timestamp());
+					} catch (std::exception ex) {
+						luaL_error(L, ex.what());
+						return 0;
+					}
+				}
+
+				return 0;
+			}
+
+			static int send(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+					luaL_error(L, "set_date: inalid argumet %s", lua_typename(L, lua_type(L, -1)));
+					return 0;
+				}
+				else {
+					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, -1));
+					std::ostream& ostr = response.send();
+				}
+				return 0;
+			}
+
+			static int write(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "ostream:write: inalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+					luaL_error(L, "ostream:write: inalid third argumet %s", lua_typename(L, lua_type(L, 2)));
+				}
+				else {
+					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
+					std::ostream& ostr = response.getOStream();
+					ostr << lua_tostring(L, 2);
+				}
+				return 0;
+			}
 		}
 	}
-
-	return 1;
-}
-
-static int evpoco_get_request_part(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-
-	if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
-		lua_pushnil(L);
-	}
-	else if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -2));
-		EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)reqHandler->getFromComponents(EVLHTTPRequestHandler::part_handler);
-		std::string s = lua_tostring(L, -1);
-	
-		auto parts = ph->getParts();
-		PartData * pd = parts[s];
-
-		lua_newtable(L);
-
-		lua_pushstring(L, "length");
-		lua_pushinteger(L, pd->_length);
-		lua_settable(L, -3);
-
-		lua_pushstring(L, "type");
-		lua_pushstring(L, pd->_type.c_str());
-		lua_settable(L, -3);
-
-		lua_pushstring(L, "name");
-		lua_pushstring(L, pd->_name.c_str());
-		lua_settable(L, -3);
-
-		lua_pushstring(L, "data");
-		lua_pushlightuserdata(L, &(pd->_cms));
-		lua_settable(L, -3);
-
-		lua_pushstring(L, "params");
-		lua_newtable(L);
-		for (auto it = pd->_params.begin(); it != pd->_params.end(); ++it) {
-			lua_pushstring(L, it->first.c_str());
-			lua_pushstring(L, it->second.c_str());
-			lua_settable(L, -3);
-		}
-		lua_settable(L, -3);
-	}
-
-	return 1;
-}
-
-static int evpoco_get_http_host(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		std::string host = request.getHost();
-		lua_pushstring(L, host.c_str());
-	}
-
-	return 1;
-}
-
-static int evpoco_get_http_uri(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		std::string uri = request.getURI();
-		lua_pushstring(L, uri.c_str());
-	}
-
-	return 1;
-}
-
-static int evpoco_get_http_method(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		std::string method = request.getMethod();
-		lua_pushstring(L, method.c_str());
-	}
-
-	return 1;
-}
-
-static int evpoco_get_request_header(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
-		lua_pushnil(L);
-	}
-	else {
-		const char* hdr_fld_name = lua_tostring(L, -1);
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -2));
-		std::string hdr_fld_value = request.get(hdr_fld_name, "");
-		lua_pushstring(L, hdr_fld_value.c_str());
-	}
-
-	return 1;
-}
-
-static int evpoco_get_request_headers(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, -1));
-		lua_newtable (L);
-		Poco::Net::NameValueCollection::ConstIterator it = request.begin();
-		Poco::Net::NameValueCollection::ConstIterator end = request.end();
-		for (; it != end; ++it) {
-			lua_pushstring(L, it->second.c_str());
-			lua_setfield(L, -2, it->first.c_str());
-		}
-	}
-
-	return 1;
-}
-
-static int evpoco_yield(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	return lua_yield(L, 0);
-}
-
-static int evpoco_get_form_field(lua_State* L)
-{
-	//DEBUGPOINT("Here\n");
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerRequest& request = reqHandler->getRequest();
-	//DEBUGPOINT("Here\n");
-	if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		lua_pushnil(L);
-	}
-	else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
-		lua_pushnil(L);
-	}
-	else {
-		const char* fld_name = lua_tostring(L, -1);
-		Net::HTMLForm* form = NULL;
-		form =  *((Net::HTMLForm**)lua_touserdata(L, -2));
-		std::string fld_value = form->get(fld_name, "");
-		lua_pushstring(L, fld_value.c_str());
-	}
-
-	return 1;
-}
-
-struct form_iterator {
-	Poco::Net::NameValueCollection::ConstIterator it;
-	Poco::Net::NameValueCollection::ConstIterator last;
-};
-
-static int evpoco_begin_iteration(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		lua_pushnil(L);
-		lua_pushnil(L);
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTMLForm* form = NULL;
-		form = *((Net::HTMLForm**)lua_touserdata(L, -1));
-		struct form_iterator * iter_ptr = (struct form_iterator *)lua_newuserdata(L, sizeof(struct form_iterator));
-
-		iter_ptr->it = form->begin();
-		iter_ptr->last = form->end();
-		if (iter_ptr->it == iter_ptr->last) {
-			lua_pop(L, 1);
-			lua_pushnil(L);
-			lua_pushnil(L);
-			lua_pushnil(L);
-		}
-		else {
-			lua_pushstring(L, iter_ptr->it->first.c_str());
-			lua_pushstring(L, iter_ptr->it->second.c_str());
-		}
-	}
-
-	return 3;
-}
-
-static int evpoco_next_iteration(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		lua_pushnil(L);
-		lua_pushnil(L);
-	}
-	else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-		lua_pushnil(L);
-		lua_pushnil(L);
-	}
-	else {
-		Net::HTMLForm* form = NULL;
-
-		form = *(Net::HTMLForm**)lua_touserdata(L, -2);
-		struct form_iterator * iter_ptr = (struct form_iterator *)lua_touserdata(L, -1);
-
-		++(iter_ptr->it);
-		if (iter_ptr->it == iter_ptr->last) {
-			lua_pushnil(L);
-			lua_pushnil(L);
-		}
-		else {
-			lua_pushstring(L, iter_ptr->it->first.c_str());
-			lua_pushstring(L, iter_ptr->it->second.c_str());
-		}
-	}
-
-	return 2;
-}
-
-static int evpoco_get_request(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerRequest& request = reqHandler->getRequest();
-
-	void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerRequest*));
-	*(Net::HTTPServerRequest**)ptr = &request;
-	luaL_setmetatable(L, _http_req_type_name);
-
-	return 1;
-}
-
-static int evpoco_get_response(lua_State* L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerResponse& response = reqHandler->getResponse();
-
-	void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerResponse*));
-	*(Net::HTTPServerResponse**)ptr = &response;
-	luaL_setmetatable(L, _http_resp_type_name);
-
-	return 1;
 }
 
 static int evpoco_open_lua_lib(lua_State* L)
 {
 	static const luaL_Reg form_lib[] = {
-		{ "get_form_field", &evpoco_get_form_field },
-		{ "begin_iteration", &evpoco_begin_iteration},
-		{ "next_iteration", &evpoco_next_iteration},
+		{ "get_form_field", &evpoco::httpmessage::httpreq::htmlform::get_form_field },
+		{ "begin_iteration", &evpoco::httpmessage::httpreq::htmlform::begin_iteration},
+		{ "next_iteration", &evpoco::httpmessage::httpreq::htmlform::next_iteration},
+		{ "empty", &evpoco::httpmessage::httpreq::htmlform::empty},
 		{ NULL, NULL }
 	};
 
-	static const luaL_Reg evpoco_http_req_lib[] = {
-		{ "get_http_hdr_field", &evpoco_get_request_header },
-		{ "get_http_hdr_fields", &evpoco_get_request_headers },
-		{ "get_http_method", &evpoco_get_http_method },
-		{ "get_http_uri", &evpoco_get_http_uri },
-		{ "get_http_host", &evpoco_get_http_host },
-		{ "parse_http_req_form", &evpoco_parse_form },
-		{ "get_part_names", &evpoco_get_request_part_names },
-		{ "get_part", &evpoco_get_request_part},
+	static const luaL_Reg evpoco_httpreq_lib[] = {
+		{ "set_version", &evpoco::httpmessage::set_version },
+		{ "get_version", &evpoco::httpmessage::get_version },
+		{ "set_chunked_trfencoding", &evpoco::httpmessage::set_chunked_trfencoding },
+		{ "get_chunked_trfencoding", &evpoco::httpmessage::get_chunked_trfencoding },
+		{ "set_content_length", &evpoco::httpmessage::set_content_length },
+		{ "get_content_length", &evpoco::httpmessage::get_content_length },
+		{ "set_trf_encoding", &evpoco::httpmessage::set_trf_encoding },
+		{ "get_trf_encoding", &evpoco::httpmessage::get_trf_encoding },
+		{ "set_content_type", &evpoco::httpmessage::set_content_type },
+		{ "get_content_type", &evpoco::httpmessage::get_content_type },
+		{ "set_keep_alive", &evpoco::httpmessage::set_keep_alive },
+		{ "get_keep_alive", &evpoco::httpmessage::get_keep_alive },
+		{ "get_hdr_fields", &evpoco::httpmessage::get_hdr_fields },
+		{ "set_hdr_field", &evpoco::httpmessage::set_hdr_field },
+		{ "get_hdr_field", &evpoco::httpmessage::get_hdr_field },
+		{ "get_method", &evpoco::httpmessage::httpreq::get_method },
+		{ "get_uri", &evpoco::httpmessage::httpreq::get_uri },
+		{ "get_query_parameters", &evpoco::httpmessage::httpreq::get_query_parameters },
+		{ "get_host", &evpoco::httpmessage::httpreq::get_host },
+		{ "parse_req_form", &evpoco::httpmessage::httpreq::parse_form },
+		{ "get_part_names", &evpoco::httpmessage::httpreq::get_part_names },
+		{ "get_part", &evpoco::httpmessage::httpreq::get_part},
+		{ NULL, NULL }
+	};
+
+	static const luaL_Reg evpoco_httpresp_lib[] = {
+		{ "set_version", &evpoco::httpmessage::set_version },
+		{ "get_version", &evpoco::httpmessage::get_version },
+		{ "set_chunked_trfencoding", &evpoco::httpmessage::set_chunked_trfencoding },
+		{ "get_chunked_trfencoding", &evpoco::httpmessage::get_chunked_trfencoding },
+		{ "set_content_length", &evpoco::httpmessage::set_content_length },
+		{ "get_content_length", &evpoco::httpmessage::get_content_length },
+		{ "set_trf_encoding", &evpoco::httpmessage::set_trf_encoding },
+		{ "get_trf_encoding", &evpoco::httpmessage::get_trf_encoding },
+		{ "set_content_type", &evpoco::httpmessage::set_content_type },
+		{ "get_content_type", &evpoco::httpmessage::get_content_type },
+		{ "set_keep_alive", &evpoco::httpmessage::set_keep_alive },
+		{ "get_keep_alive", &evpoco::httpmessage::get_keep_alive },
+		{ "set_hdr_field", &evpoco::httpmessage::set_hdr_field },
+		{ "get_hdr_field", &evpoco::httpmessage::get_hdr_field },
+		{ "get_hdr_fields", &evpoco::httpmessage::get_hdr_fields },
+		{ "set_status", &evpoco::httpmessage::httpresp::set_status },
+		{ "set_date", &evpoco::httpmessage::httpresp::set_date },
+		{ "send", &evpoco::httpmessage::httpresp::send },
+		{ "write", &evpoco::httpmessage::httpresp::write },
 		{ NULL, NULL }
 	};
 
 	static const luaL_Reg evpoco_lib[] = {
-		{ "get_request", &evpoco_get_request },
-		{ "get_response", &evpoco_get_response },
+		{ "get_http_request", &evpoco::get_http_request },
+		{ "get_http_response", &evpoco::get_http_response },
 		{ NULL, NULL }
 	};
 
@@ -502,7 +972,16 @@ static int evpoco_open_lua_lib(lua_State* L)
 
 	// Stack: context
 	luaL_newmetatable(L, _http_req_type_name); // Stack: context meta
-	luaL_newlib(L, evpoco_http_req_lib); // Stack: context meta http_req
+	luaL_newlib(L, evpoco_httpreq_lib); // Stack: context meta httpreq
+	lua_setfield(L, -2, "__index"); // Stack: context meta
+	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
+	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
+	lua_settable(L, -3); // Stack: context meta
+	lua_pop(L, 1); // Stack: context
+
+	// Stack: context
+	luaL_newmetatable(L, _http_resp_type_name); // Stack: context meta
+	luaL_newlib(L, evpoco_httpresp_lib); // Stack: context meta httpresp
 	lua_setfield(L, -2, "__index"); // Stack: context meta
 	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
@@ -523,22 +1002,22 @@ static int evpoco_open_lua_lib(lua_State* L)
 
 EVLHTTPRequestHandler::EVLHTTPRequestHandler()
 {
-	_L = luaL_newstate();
+	_L0 = luaL_newstate();
+	luaL_openlibs(_L0);
+
+	_L = lua_newthread(_L0);
 	luaL_openlibs(_L);
 
-	_L1 = lua_newthread(_L);
-	luaL_openlibs(_L1);
+	lua_register(_L, "ev_yield", evpoco::evpoco_yield);
+	luaL_requiref(_L, _platform_name, &evpoco_open_lua_lib, 1);
 
-	lua_register(_L1, "ev_yield", evpoco_yield);
-	luaL_requiref(_L1, _platform_name, &evpoco_open_lua_lib, 1);
-
-	lua_pushlightuserdata(_L1, (void*) this);
-	lua_setglobal(_L1, "EVLHTTPRequestHandler*");
+	lua_pushlightuserdata(_L, (void*) this);
+	lua_setglobal(_L, "EVLHTTPRequestHandler*");
 }
 
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
-	lua_close(_L);
+	lua_close(_L0);
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -577,22 +1056,22 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 int EVLHTTPRequestHandler::deduceReqHandler()
 {
 	int status = 0;
-	lua_getglobal(_L1, "map_request_to_handler");
-	if (lua_isnil(_L1, -1)) {
+	lua_getglobal(_L, "map_request_to_handler");
+	if (lua_isnil(_L, -1)) {
 		send_string_response(__LINE__, "map_request_to_handler: function not found");
 		return -1;
 	}
-	status = lua_pcall(_L1, 0, 1, 0); 
+	status = lua_pcall(_L, 0, 1, 0); 
 	if (LUA_OK != status) {
-		DEBUGPOINT("Here %s\n", lua_tostring(_L1, -1));
+		DEBUGPOINT("Here %s\n", lua_tostring(_L, -1));
 		return -1;
 	}
-	if (lua_isnil(_L1, -1) || !lua_isstring(_L1, -1)) {
+	if (lua_isnil(_L, -1) || !lua_isstring(_L, -1)) {
 		send_string_response(__LINE__, "map_request_to_handler: function did not return request handler");
 		return -1;
 	}
-	_request_handler = lua_tostring(_L1, -1);
-	lua_pop(_L1, 1);
+	_request_handler = lua_tostring(_L, -1);
+	lua_pop(_L, 1);
 	return 0;
 }
 
@@ -604,7 +1083,7 @@ int EVLHTTPRequestHandler::loadReqMapper()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	return luaL_dofile(_L1, _mapping_script.c_str());
+	return luaL_dofile(_L, _mapping_script.c_str());
 }
 
 int EVLHTTPRequestHandler::loadReqHandler()
@@ -615,7 +1094,7 @@ int EVLHTTPRequestHandler::loadReqHandler()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	return luaL_dofile(_L1, _request_handler.c_str());
+	return luaL_dofile(_L, _request_handler.c_str());
 }
 
 int EVLHTTPRequestHandler::handleRequest()
@@ -629,7 +1108,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		_mapping_script = getMappingScript(getRequest());
 		if (0 != loadReqMapper()) {
 			DEBUGPOINT("Here\n");
-			send_string_response(__LINE__, lua_tostring(_L1, -1));
+			send_string_response(__LINE__, lua_tostring(_L, -1));
 			return PROCESSING_ERROR;
 		}
 		if (0 != deduceReqHandler()) {
@@ -638,37 +1117,41 @@ int EVLHTTPRequestHandler::handleRequest()
 		}
 		if (0 != loadReqHandler()) {
 			DEBUGPOINT("Here\n");
-			send_string_response(__LINE__, lua_tostring(_L1, -1));
+			send_string_response(__LINE__, lua_tostring(_L, -1));
 			return PROCESSING_ERROR;
 		}
-		lua_getglobal(_L1, "handle_request");
-		if (lua_isnil(_L1, -1)) {
+		lua_getglobal(_L, "handle_request");
+		if (lua_isnil(_L, -1)) {
 			DEBUGPOINT("Here\n");
 			send_string_response(__LINE__, "handle_request: function not found");
 			return PROCESSING_ERROR;
 		}
 	}
-	status = lua_resume(_L1, NULL, 0);
+	status = lua_resume(_L, NULL, 0);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
-		send_string_response(__LINE__, lua_tostring(_L1, -1));
+		DEBUGPOINT("HERE\n");
+		std::ostream& ostr = getResponse().getOStream();
+		ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\r\n\r\n";
+		ostr.flush();
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
-		if (0 > makeNewHTTPConnection(std::bind(&EVLHTTPRequestHandler::handleRequest, this), "localhost", 9980, session)) {
-			send_string_response(__LINE__,"Could not connect to echo server");
-			return PROCESSING_ERROR;
-		}
+		DEBUGPOINT("HERE\n");
 		return PROCESSING;
 	}
 	else {
-		if (!lua_isnil(_L1, -1) && lua_isstring(_L1, -1)) {
-			std::string output = lua_tostring(_L1, -1);
-			lua_pop(_L1, 1);
-			send_string_response(__LINE__, output.c_str());
+		if (!lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
+			std::string output = lua_tostring(_L, -1);
+			lua_pop(_L, 1);
+			std::ostream& ostr = getResponse().getOStream();
+			ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
+			ostr.flush();
 		}
+		/*
 		else {
 			send_string_response(__LINE__, "handle_request: did not return any string");
 		}
+		*/
 		return PROCESSING_COMPLETE;
 	}
 }
