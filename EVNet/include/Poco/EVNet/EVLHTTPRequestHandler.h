@@ -75,6 +75,7 @@ private:
 	lua_State*								_L;
 	std::string								_mapping_script;
 	std::string								_request_handler;
+	std::string								_request_handler_func;
 	std::map<mapped_item_type, void*>		_components;
 };
 

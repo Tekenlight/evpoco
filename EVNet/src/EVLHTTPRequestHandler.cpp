@@ -1061,17 +1061,27 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 		send_string_response(__LINE__, "map_request_to_handler: function not found");
 		return -1;
 	}
-	status = lua_pcall(_L, 0, 1, 0); 
+	status = lua_pcall(_L, 0, 2, 0); 
 	if (LUA_OK != status) {
 		DEBUGPOINT("Here %s\n", lua_tostring(_L, -1));
 		return -1;
 	}
-	if (lua_isnil(_L, -1) || !lua_isstring(_L, -1)) {
-		send_string_response(__LINE__, "map_request_to_handler: function did not return request handler");
+	if (3 != lua_gettop(_L)) {
+		DEBUGPOINT("Here number of return values%d\n", lua_gettop(_L));
+		send_string_response(__LINE__, "map_request_to_handler: did not return values not OK");
 		return -1;
 	}
-	_request_handler = lua_tostring(_L, -1);
-	lua_pop(_L, 1);
+	if (lua_isnil(_L, -1) || !lua_isstring(_L, -1)) {
+		send_string_response(__LINE__, "map_request_to_handler: did not return request handler function");
+		return -1;
+	}
+	_request_handler_func = lua_tostring(_L, -1);
+	if (lua_isnil(_L, -2) || !lua_isstring(_L, -2)) {
+		send_string_response(__LINE__, "map_request_to_handler: did not return request handler");
+		return -1;
+	}
+	_request_handler = lua_tostring(_L, -2);
+	lua_pop(_L, 2);
 	return 0;
 }
 
@@ -1083,7 +1093,10 @@ int EVLHTTPRequestHandler::loadReqMapper()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	return luaL_dofile(_L, _mapping_script.c_str());
+	int ret = luaL_dofile(_L, _mapping_script.c_str());
+	if (0 != ret)
+		send_string_response(__LINE__, lua_tostring(_L, -1));
+	return ret;
 }
 
 int EVLHTTPRequestHandler::loadReqHandler()
@@ -1094,7 +1107,10 @@ int EVLHTTPRequestHandler::loadReqHandler()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	return luaL_dofile(_L, _request_handler.c_str());
+	int ret = luaL_dofile(_L, _request_handler.c_str());
+	if (0 != ret)
+		send_string_response(__LINE__, lua_tostring(_L, -1));
+	return ret;
 }
 
 int EVLHTTPRequestHandler::handleRequest()
@@ -1108,31 +1124,36 @@ int EVLHTTPRequestHandler::handleRequest()
 		_mapping_script = getMappingScript(getRequest());
 		if (0 != loadReqMapper()) {
 			DEBUGPOINT("Here\n");
-			send_string_response(__LINE__, lua_tostring(_L, -1));
 			return PROCESSING_ERROR;
 		}
 		if (0 != deduceReqHandler()) {
-			DEBUGPOINT("Here\n");
+			//DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
 		if (0 != loadReqHandler()) {
 			DEBUGPOINT("Here\n");
-			send_string_response(__LINE__, lua_tostring(_L, -1));
 			return PROCESSING_ERROR;
 		}
-		lua_getglobal(_L, "handle_request");
+		lua_getglobal(_L, _request_handler_func.c_str());
 		if (lua_isnil(_L, -1)) {
 			DEBUGPOINT("Here\n");
-			send_string_response(__LINE__, "handle_request: function not found");
+			char s[100] = {};
+			sprintf(s, "%s: function not found", _request_handler_func.c_str());
+			send_string_response(__LINE__, s);
 			return PROCESSING_ERROR;
 		}
 	}
 	status = lua_resume(_L, NULL, 0);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
 		DEBUGPOINT("HERE\n");
-		std::ostream& ostr = getResponse().getOStream();
-		ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\r\n\r\n";
-		ostr.flush();
+		if (getResponse().sent()) {
+			std::ostream& ostr = getResponse().getOStream();
+			ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
+			ostr.flush();
+		}
+		else {
+			send_string_response(__LINE__, "handle_request: processing errorg");
+		}
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
@@ -1143,9 +1164,14 @@ int EVLHTTPRequestHandler::handleRequest()
 		if (!lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
 			std::string output = lua_tostring(_L, -1);
 			lua_pop(_L, 1);
-			std::ostream& ostr = getResponse().getOStream();
-			ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
-			ostr.flush();
+			if (getResponse().sent()) {
+				std::ostream& ostr = getResponse().getOStream();
+				ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
+				ostr.flush();
+			}
+			else {
+				send_string_response(__LINE__, output.c_str());
+			}
 		}
 		/*
 		else {
