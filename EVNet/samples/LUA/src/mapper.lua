@@ -25,7 +25,7 @@ function map_request_to_handler()
 		url_parts[i] = string.sub(w, 2);
 	end
 
-	print(table.unpack(url_parts));
+	--print(table.unpack(url_parts));
 	if (isempty(url_parts[1])) then url_parts[1] = 'default_handler.lua'; end
 	if (isempty(url_parts[2])) then url_parts[1] = 'handle_request'; end
 	return url_parts[1], url_parts[2];
