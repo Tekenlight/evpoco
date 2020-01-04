@@ -14,7 +14,8 @@ function handle_request()
 	--for n,v in pairs(u['__index']) do
 		--print(n, v);
 	--end
-	echo_request:set_uri('http://localhost:9980/echo');
+	print('ECHO Server processing request');
+	echo_request:set_uri('http://localhost:9980/echoserver.lua/handle_request');
 	echo_request:set_method('GET');
 	echo_request:set_host('localhost:9980');
 	local s = 'this is a random request body';

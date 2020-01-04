@@ -8,6 +8,7 @@
 // Copyright (c) 2019-2020, Tekenlight Solutions Pvt Ltd
 //
 
+#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -38,7 +39,6 @@ const static char *_platform_name = "context";
 
 namespace evpoco {
 	static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L);
-	static int evpoco_yield(lua_State* L);
 	static int get_http_request(lua_State* L);
 	static int get_http_response(lua_State* L);
 	static int resolve_host_address_complete(lua_State* L, int status, lua_KContext ctx);
@@ -82,6 +82,7 @@ namespace evpoco {
 			static int set_expect_continue(lua_State* L);
 			static int get_expect_continue(lua_State* L);
 			static int write(lua_State* L);
+			static int read(lua_State* L);
 			namespace htmlform {
 				static int get_form_field(lua_State* L);
 				struct form_iterator {
@@ -144,6 +145,7 @@ static const luaL_Reg evpoco_httpreq_lib[] = {
 	{ "get_part_names", &evpoco::httpmessage::httpreq::get_part_names },
 	{ "get_part", &evpoco::httpmessage::httpreq::get_part},
 	{ "write", &evpoco::httpmessage::httpreq::write},
+	{ "read", &evpoco::httpmessage::httpreq::read},
 	{ NULL, NULL }
 };
 
@@ -179,7 +181,6 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
 	{ "new_request", &evpoco::new_request},
-	//{ "new_response", &evpoco::new_response},
 	{ "send_request_header", &evpoco::send_request_header },
 	{ "send_request_body", &evpoco::send_request_body },
 	{ "receive_http_response", &evpoco::receive_http_response_initiate },
@@ -200,10 +201,18 @@ namespace evpoco {
 		return req_h;
 	}
 
-	static int evpoco_yield(lua_State* L)
+	static int evpoco_sleep(lua_State* L)
 	{
 		//DEBUGPOINT("Here\n");
-		return lua_yield(L, 0);
+		useconds_t duration = 0;
+		if ((0 != lua_gettop(L)) && (lua_isinteger(L, 1))) {
+			lua_numbertointeger(lua_tonumber(L, 1), &duration);
+		}
+		//DEBUGPOINT("Here %d\n", duration);
+
+		usleep(duration);
+
+		return 0;
 	}
 
 	static int get_http_request(lua_State* L)
@@ -305,7 +314,6 @@ namespace evpoco {
 			reqHandler->resolveHost(NULL, domain_name, service_name, addr_info_ptr_ptr);
 		}
 
-		DEBUGPOINT("HERE %p\n",addr_info_ptr_ptr);
 		return lua_yieldk(L, 0, (lua_KContext)addr_info_ptr_ptr, resolve_host_address_complete);
 	}
 
@@ -1183,6 +1191,26 @@ namespace evpoco {
 				return 0;
 			}
 
+			static int read(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "istream:read: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, 1));
+					std::istream& istr = request.stream();
+					memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
+					istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE-1);
+					size_t size = istr.gcount();
+					if (size) lua_pushstring(L, reqHandler->getEphemeralBuf());
+					else lua_pushnil(L);
+				}
+				return 1;
+			}
+
 			namespace htmlform {
 				static int get_form_field(lua_State* L)
 				{
@@ -1456,7 +1484,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_L = lua_newthread(_L0);
 	luaL_openlibs(_L);
 
-	lua_register(_L, "ev_yield", evpoco::evpoco_yield);
+	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
 	luaL_requiref(_L, _platform_name, &evpoco_open_lua_lib, 1);
 
 	lua_pushlightuserdata(_L, (void*) this);

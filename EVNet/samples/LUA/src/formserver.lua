@@ -6,6 +6,7 @@ function handle_request()
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
 	response:send();
+	--ev_sleep(3000000);
 	response:write('<html>\n');
 	response:write('<head>\n');
 	response:write('<title>EVLUA Form Server Sample</title>\n');

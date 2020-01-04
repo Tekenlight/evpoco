@@ -20,9 +20,24 @@ function map_request_to_handler()
 	--print('Referer:', referer);
 	local url_parts = {};
 	local i = 0;
+	local j = 0;
+	local first_url_char = uri:sub(1,1);
+	--print(uri);
 	for w in (string.gmatch(uri, '(/[^/?]*)')) do
 		i = i+1;
-		url_parts[i] = string.sub(w, 2);
+		if first_url_char ~= "/" then
+			-- Ignore the first 3 url parts
+			-- http://....../...
+			if i>=3 then
+				j=j+1;
+				--print(w);
+				url_parts[j] = string.sub(w, 2);
+			end
+		else
+			-- It is ony a path
+			j=j+1;
+			url_parts[j] = string.sub(w, 2);
+		end
 	end
 
 	--print(table.unpack(url_parts));
