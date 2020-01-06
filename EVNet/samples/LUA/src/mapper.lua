@@ -25,10 +25,10 @@ function map_request_to_handler()
 	--print(uri);
 	for w in (string.gmatch(uri, '(/[^/?]*)')) do
 		i = i+1;
-		if first_url_char ~= "/" then
+		if (first_url_char ~= "/") then
 			-- Ignore the first 3 url parts
 			-- http://....../...
-			if i>=3 then
+			if (i>=3) then
 				j=j+1;
 				--print(w);
 				url_parts[j] = string.sub(w, 2);

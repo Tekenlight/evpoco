@@ -13,7 +13,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <pthread.h>
 
+#include <ev_rwlock.h>
 #include <chunked_memory_stream.h>
 
 #include "Poco/EVNet/EVLHTTPRequestHandler.h"
@@ -187,12 +189,140 @@ static const luaL_Reg evpoco_lib[] = {
 	{ NULL, NULL }
 };
 
+typedef struct LoadS {
+	chunked_memory_stream *_cms;
+	void *_buffer_node;
+	size_t _size;
+} LoadS;
+
+class LUAFileCache {
+public:
+	std::map<std::string, chunked_memory_stream*> cached_files;
+	std::map<std::string, std::string> cached_filepaths;
+	ev_rwlock_type lock;
+	ev_rwlock_type cached_files_lock;
+	ev_rwlock_type cached_filepaths_lock;
+	LUAFileCache() {
+		//DEBUGPOINT("Here\n");
+		cached_files_lock = ev_rwlock_init();
+		cached_filepaths_lock = ev_rwlock_init();
+	}
+	~LUAFileCache() {
+		ev_rwlock_destroy(cached_files_lock);
+		ev_rwlock_destroy(cached_filepaths_lock);
+	}
+};
+
+static LUAFileCache sg_file_cache;
+
+static const char *getCB (lua_State *L, void *ud, size_t *size)
+{
+	LoadS *ls = (LoadS *)ud;
+	(void)L;  /* not used */
+	if (ls->_cms == NULL) return NULL;
+	ls->_buffer_node = ls->_cms->get_next(ls->_buffer_node);
+	*size = ls->_cms->get_buffer_len(ls->_buffer_node);
+
+	return (char*)(ls->_cms->get_buffer(ls->_buffer_node));
+}
+
+static int cacheCB(lua_State *L, void * p, size_t sz, void* ud)
+{
+	LoadS *ls = (LoadS *)ud;
+	(void)L;  /* not used */
+	if (ls->_cms == NULL) LUA_ERRRUN;
+	void * buffer = malloc(sz+1);
+	memset(buffer, 0, (sz+1));
+	memcpy(buffer, p, sz);
+	ls->_cms->push(buffer, sz);
+
+	return LUA_OK;
+}
+
+static int luaL_checkfilecacheexists(lua_State *L, const char *name)
+{
+	ev_rwlock_rdlock(sg_file_cache.cached_files_lock);
+	chunked_memory_stream *cms = sg_file_cache.cached_files[name];
+	ev_rwlock_rdunlock(sg_file_cache.cached_files_lock);
+	if (!cms) {
+		DEBUGPOINT("CH_FILE:Here no %s\n", name);
+		return 0;
+	}
+	DEBUGPOINT("CH_FILE:Here yes %s\n", name);
+	return 1;
+}
+
+static int luaL_cacheloadedfile(lua_State *L, const char *name)
+{
+	if (luaL_checkfilecacheexists(L, name)) {
+		DEBUGPOINT("CHACHE_REQ:Already cached %s\n", name);
+		return LUA_OK;
+	}
+	chunked_memory_stream * cms = new chunked_memory_stream();
+	LoadS ls ;
+	ls._cms = cms;
+	ls._buffer_node = NULL;
+	ls._size=0;
+	lua_dump(L, (lua_Writer)cacheCB, (void*)&ls, 0);
+
+	ev_rwlock_wrlock(sg_file_cache.cached_files_lock);
+	if (!sg_file_cache.cached_files[name]) {
+		sg_file_cache.cached_files[name] = cms;
+	}
+	else {
+		DEBUGPOINT("CHACHE_REQ:Here deleting cms due to concurrency !!!\n");
+		delete cms;
+	}
+	ev_rwlock_wrunlock(sg_file_cache.cached_files_lock);
+	DEBUGPOINT("CACHE_REQ:Here now cached %s\n", name);
+	return LUA_OK;
+}
+
+static const char * luaL_getcachedpath(lua_State *L, const char *name)
+{
+	const char *filename = NULL;
+	try {
+		ev_rwlock_rdlock(sg_file_cache.cached_filepaths_lock);
+		std::string &filepath = sg_file_cache.cached_filepaths.at(name);
+		ev_rwlock_rdunlock(sg_file_cache.cached_filepaths_lock);
+		lua_pushstring(L, filepath.c_str());
+		filename = lua_tostring(L, -1);
+	} catch (std::exception & e) {
+		ev_rwlock_rdunlock(sg_file_cache.cached_filepaths_lock);
+		lua_pushfstring(L, "\n\tno file '%s'", name);
+	}
+	return filename;
+}
+
+static int luaL_addfilepathtocache(lua_State *L, const char *name, const char * path)
+{
+	ev_rwlock_wrlock(sg_file_cache.cached_filepaths_lock);
+	sg_file_cache.cached_filepaths[name] = std::string(path);
+	ev_rwlock_wrunlock(sg_file_cache.cached_filepaths_lock);
+
+	return LUA_OK;
+}
+
+static int luaL_loadcachedbufferx(lua_State *L, const char *name, const char *mode)
+{
+	LoadS ls;
+	ev_rwlock_rdlock(sg_file_cache.cached_files_lock);
+	ls._cms = sg_file_cache.cached_files[name];
+	ev_rwlock_rdunlock(sg_file_cache.cached_files_lock);
+	if (!ls._cms) return LUA_ERRRUN;
+	ls._buffer_node = NULL;
+	ls._size = 0;
+	DEBUGPOINT("LOAD_REQ:Here for %s\n", name);
+	return lua_load(L, getCB, &ls, name, mode);
+}
+
 static int obj__gc(lua_State *L)
 {
 	return 0;
 }
 
 namespace evpoco {
+
 	static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L)
 	{
 		lua_getglobal(L, "EVLHTTPRequestHandler*");
@@ -244,7 +374,7 @@ namespace evpoco {
 		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 		struct addrinfo** addr_info_ptr_ptr = (struct addrinfo**)ctx;
 
-		DEBUGPOINT("HERE\n");
+		//DEBUGPOINT("HERE\n");
 
 		Poco::EVNet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
 		if (usN.getRet() != 0) {
@@ -1478,10 +1608,15 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_variable_instance_count(0)
 {
 	*_ephemeral_buffer = 0;
+	/*
+	It is really not required to have _L0 and a new thread _L
 	_L0 = luaL_newstate();
 	luaL_openlibs(_L0);
 
 	_L = lua_newthread(_L0);
+	luaL_openlibs(_L);
+	*/
+	_L = luaL_newstate();
 	luaL_openlibs(_L);
 
 	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
@@ -1489,11 +1624,28 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 	lua_pushlightuserdata(_L, (void*) this);
 	lua_setglobal(_L, "EVLHTTPRequestHandler*");
+
+	lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
+	lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
+
+	lua_pushlightuserdata(_L, (void*)luaL_cacheloadedfile);
+	lua_setglobal(_L, LUA_FILE_CACHING_FUNCTION);
+
+	lua_pushlightuserdata(_L, (void*)luaL_checkfilecacheexists);
+	lua_setglobal(_L, LUA_CACHED_FILE_EXISTS_FUNCTION);
+
+	lua_pushlightuserdata(_L, (void*)luaL_getcachedpath);
+	lua_setglobal(_L, LUA_CACHED_PATH_FUNCTION);
+
+	lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
+	lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
+
 }
 
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
-	lua_close(_L0);
+	//lua_close(_L0);
+	lua_close(_L);
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -1637,7 +1789,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
-		DEBUGPOINT("HERE\n");
+		//DEBUGPOINT("HERE\n");
 		return PROCESSING;
 	}
 	else {
