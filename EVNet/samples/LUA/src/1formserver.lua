@@ -5,7 +5,6 @@ function handle_request()
 	local response = context.get_http_response();
 
 
-	print('BEFORE');
 	local addresses = context.resolve_host_address('localhost', 'https');
 	print('AFTER');
 	response:set_chunked_trfencoding(true);

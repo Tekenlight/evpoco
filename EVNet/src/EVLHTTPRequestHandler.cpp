@@ -245,17 +245,17 @@ static int luaL_checkfilecacheexists(lua_State *L, const char *name)
 	chunked_memory_stream *cms = sg_file_cache.cached_files[name];
 	ev_rwlock_rdunlock(sg_file_cache.cached_files_lock);
 	if (!cms) {
-		DEBUGPOINT("CH_FILE:Here no %s\n", name);
+		//DEBUGPOINT("CH_FILE:Here no %s\n", name);
 		return 0;
 	}
-	DEBUGPOINT("CH_FILE:Here yes %s\n", name);
+	//DEBUGPOINT("CH_FILE:Here yes %s\n", name);
 	return 1;
 }
 
 static int luaL_cacheloadedfile(lua_State *L, const char *name)
 {
 	if (luaL_checkfilecacheexists(L, name)) {
-		DEBUGPOINT("CHACHE_REQ:Already cached %s\n", name);
+		//DEBUGPOINT("CHACHE_REQ:Already cached %s\n", name);
 		return LUA_OK;
 	}
 	chunked_memory_stream * cms = new chunked_memory_stream();
@@ -270,11 +270,11 @@ static int luaL_cacheloadedfile(lua_State *L, const char *name)
 		sg_file_cache.cached_files[name] = cms;
 	}
 	else {
-		DEBUGPOINT("CHACHE_REQ:Here deleting cms due to concurrency !!!\n");
+		//DEBUGPOINT("CHACHE_REQ:Here deleting cms due to concurrency !!!\n");
 		delete cms;
 	}
 	ev_rwlock_wrunlock(sg_file_cache.cached_files_lock);
-	DEBUGPOINT("CACHE_REQ:Here now cached %s\n", name);
+	//DEBUGPOINT("CACHE_REQ:Here now cached %s\n", name);
 	return LUA_OK;
 }
 
@@ -312,7 +312,7 @@ static int luaL_loadcachedbufferx(lua_State *L, const char *name, const char *mo
 	if (!ls._cms) return LUA_ERRRUN;
 	ls._buffer_node = NULL;
 	ls._size = 0;
-	DEBUGPOINT("LOAD_REQ:Here for %s\n", name);
+	//DEBUGPOINT("LOAD_REQ:Here for %s\n", name);
 	return lua_load(L, getCB, &ls, name, mode);
 }
 
