@@ -49,7 +49,6 @@ namespace evpoco {
 	static int make_http_connection_initiate(lua_State* L);
 	static int close_http_connection(lua_State* L);
 	static int new_request(lua_State* L);
-	static int new_response(lua_State* L);
 	static int send_request_header(lua_State* L);
 	static int send_request_body(lua_State* L);
 	static int receive_http_response_initiate(lua_State* L);
@@ -85,6 +84,7 @@ namespace evpoco {
 			static int get_expect_continue(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int get_cookies(lua_State* L);
 			namespace htmlform {
 				static int get_form_field(lua_State* L);
 				struct form_iterator {
@@ -102,6 +102,7 @@ namespace evpoco {
 			static int send(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int get_cookies(lua_State* L);
 		}
 	}
 }
@@ -148,6 +149,7 @@ static const luaL_Reg evpoco_httpreq_lib[] = {
 	{ "get_part", &evpoco::httpmessage::httpreq::get_part},
 	{ "write", &evpoco::httpmessage::httpreq::write},
 	{ "read", &evpoco::httpmessage::httpreq::read},
+	{ "get_cookies", &evpoco::httpmessage::httpreq::get_cookies},
 	{ NULL, NULL }
 };
 
@@ -172,6 +174,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 	{ "send", &evpoco::httpmessage::httpresp::send },
 	{ "write", &evpoco::httpmessage::httpresp::write },
 	{ "read", &evpoco::httpmessage::httpresp::read },
+	{ "get_cookies", &evpoco::httpmessage::httpresp::get_cookies },
 	{ NULL, NULL }
 };
 
@@ -267,6 +270,7 @@ static int luaL_cacheloadedfile(lua_State *L, const char *name)
 
 	ev_rwlock_wrlock(sg_file_cache.cached_files_lock);
 	if (!sg_file_cache.cached_files[name]) {
+		//DEBUGPOINT("CHACHE_REQ:Here caching %s\n", name);
 		sg_file_cache.cached_files[name] = cms;
 	}
 	else {
@@ -379,6 +383,9 @@ namespace evpoco {
 		Poco::EVNet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
 		if (usN.getRet() != 0) {
 			luaL_error(L, "resolve_host_address: address resolution could not happen: %s", strerror(usN.getErrNo()));
+			if (usN.getAddrInfo()) {
+				freeaddrinfo(usN.getAddrInfo());
+			}
 			free(addr_info_ptr_ptr);
 			return 0;
 		}
@@ -411,6 +418,7 @@ namespace evpoco {
 			lua_seti(L, -2, i);
 		}
 
+		freeaddrinfo(*(addr_info_ptr_ptr));
 		free(addr_info_ptr_ptr);
 
 		return 1;
@@ -1341,6 +1349,27 @@ namespace evpoco {
 				return 1;
 			}
 
+			static int get_cookies(lua_State* L) {
+				Poco::Net::NameValueCollection nvset;
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "istream:read: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else {
+					Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, 1));
+					request.getCookies(nvset);
+					lua_newtable (L);
+					for (auto it = nvset.begin(); it != nvset.end(); ++it) {
+						lua_pushstring(L, it->first.c_str());
+						lua_pushstring(L, it->second.c_str());
+						lua_settable(L, -3);
+					}
+				}
+				return 1;
+			}
+
 			namespace htmlform {
 				static int get_form_field(lua_State* L)
 				{
@@ -1563,6 +1592,56 @@ namespace evpoco {
 				}
 				return 1;
 			}
+
+			static int get_cookies(lua_State* L) {
+				std::vector<Net::HTTPCookie> cookies;
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "istream:read: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else {
+					EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
+					int i = 0;
+					response.getCookies(cookies);
+					lua_newtable (L);
+					for (auto it = cookies.begin(); it != cookies.end(); ++it) {
+						i++;
+						lua_newtable(L);
+						lua_pushstring(L, "version");
+						lua_pushinteger(L, it->getVersion());
+						lua_settable(L, -3);
+						lua_pushstring(L, "name");
+						lua_pushstring(L, it->getName().c_str());
+						lua_settable(L, -3);
+						lua_pushstring(L, "comment");
+						lua_pushstring(L, it->getComment().c_str());
+						lua_settable(L, -3);
+						lua_pushstring(L, "domain");
+						lua_pushstring(L, it->getDomain().c_str());
+						lua_settable(L, -3);
+						lua_pushstring(L, "path");
+						lua_pushstring(L, it->getPath().c_str());
+						lua_settable(L, -3);
+						lua_pushstring(L, "priority");
+						lua_pushstring(L, it->getPriority().c_str());
+						lua_settable(L, -3);
+						lua_pushstring(L, "secure");
+						lua_pushboolean(L, it->getSecure());
+						lua_settable(L, -3);
+						lua_pushstring(L, "maxage");
+						lua_pushinteger(L, it->getMaxAge());
+						lua_settable(L, -3);
+						lua_pushstring(L, "httponly");
+						lua_pushboolean(L, it->getHttpOnly());
+						lua_settable(L, -3);
+						lua_seti(L, -2, i);
+					}
+				}
+				return 1;
+			}
+
 		}
 	}
 }

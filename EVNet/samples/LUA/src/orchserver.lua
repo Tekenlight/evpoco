@@ -25,6 +25,12 @@ function handle_request()
 	context.send_request_body(client_session, echo_request);
 	local echo_response = context.receive_http_response(client_session);
 
+	--for n,v in pairs(request:get_cookies()) do
+		--print(n, v);
+	--end
+	--local c = request:get_hdr_field('Cookie');
+	--print (c);
+
 	response:write('<html>\n');
 	response:write('<head>\n');
 	response:write('<title>EVLUA Form Server Sample</title>\n');
