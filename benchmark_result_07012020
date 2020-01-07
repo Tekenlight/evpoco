@@ -21,12 +21,12 @@ Results are as follows
  ---------------------------------- 
 
 
-We can conculde from theis that LUA server is taking an additional 2ms of CPU time per request
-It is evident that LUA server will take more time, the aim of this experiment is to find out
-how much is the degradation due to usage of an interpreted language.
+We can conculde from this, that LUA server is taking an additional 2ms of CPU time per request
+It is obvious that LUA server will take more time, howver the aim of this experiment is to find
+out how much is the degradation due to usage of an interpreted language.
 
-The conclusion is that it is not much in the case of serving HTTP requests and LUA can be used
-as the language for expressing business logic.
+The conclusion is degradation is not much in the case of serving HTTP requests and LUA can be
+used as the language for expressing business logic.
 
 Care can be taken to express all common functionality and algorithns using C/C++ and use them as
 hooks from within LUA than to have all the processing done in LUA iteself.
