@@ -1646,7 +1646,7 @@ namespace evpoco {
 	}
 }
 
-static int evpoco_open_lua_lib(lua_State* L)
+static int luaopen_evpoco(lua_State* L)
 {
 	luaL_newlib(L, evpoco_lib); //Stack: context
 
@@ -1699,7 +1699,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	luaL_openlibs(_L);
 
 	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
-	luaL_requiref(_L, _platform_name, &evpoco_open_lua_lib, 1);
+	luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
 
 	lua_pushlightuserdata(_L, (void*) this);
 	lua_setglobal(_L, "EVLHTTPRequestHandler*");
@@ -1757,6 +1757,8 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 
 	response.setChunkedTransferEncoding(true);
 	response.setContentType("text/plain");
+	response.setContentType("text/plain");
+	response.setStatus(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 	std::ostream& ostr = getResponse().send();
 
 	ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
