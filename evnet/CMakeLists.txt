@@ -1,10 +1,8 @@
-set(LIBNAME "evdata")
+set(LIBNAME "evnet")
 set(POCO_LIBNAME "${LIBNAME}")
 
 # Sources
 file(GLOB SRCS_G "src/*.cpp")
-POCO_SOURCES_AUTO( SRCS ${SRCS_G})
-file(GLOB SRCS_G "src/*.c")
 POCO_SOURCES_AUTO( SRCS ${SRCS_G})
 
 # Headers
@@ -25,14 +23,12 @@ if(WIN32)
 endif(WIN32)
 
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
-#add_library( "${LIBNAME}" STATIC ${SRCS} )
 #add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
-
 set_target_properties( "${LIBNAME}"
     PROPERTIES
     VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
-    DEFINE_SYMBOL evdata_EXPORTS
+    DEFINE_SYMBOL evnet_EXPORTS
     )
 
 foreach(lib ${ADD_LIBRARY_PATH})
@@ -42,7 +38,7 @@ endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 #message(STATUS "Here ${LTF}")
-target_link_libraries( "${LIBNAME}" "${LTF}" evnet lua)
+target_link_libraries( "${LIBNAME}" "${LTF}" Foundation Net Util ${SYSLIBS} ev evds evthrpool evsync http_parser lua)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -62,7 +58,7 @@ POCO_INSTALL("${LIBNAME}")
 
 POCO_GENERATE_PACKAGE("${LIBNAME}")
 
-if (ENABLE_SQLITE)
-    add_subdirectory(evsqlite)
+if (ENABLE_TESTS)
+    add_subdirectory(samples)
 #	add_subdirectory(testsuite)
 endif ()

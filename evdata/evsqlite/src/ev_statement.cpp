@@ -10,7 +10,8 @@ int try_end_transaction(connection_t *conn);
 /*
  * Converts SQLite types to Lua types
  */
-static lua_push_type_t sqlite_to_lua_push(unsigned int sqlite_type) {
+static lua_push_type_t sqlite_to_lua_push(unsigned int sqlite_type)
+{
     lua_push_type_t lua_type;
 
     switch(sqlite_type) {
@@ -36,7 +37,8 @@ static lua_push_type_t sqlite_to_lua_push(unsigned int sqlite_type) {
 /*
  * runs sqlite3_step on a statement handle
  */
-static int step(statement_t *statement) {
+static int step(statement_t *statement)
+{
     int res = sqlite3_step(statement->stmt);
 
     if (res == SQLITE_DONE) {
@@ -53,7 +55,8 @@ static int step(statement_t *statement) {
 /*
  * num_affected_rows = statement:affected()
  */
-static int statement_affected(lua_State *L) {
+static int statement_affected(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
 
     if (!statement->stmt) {
@@ -68,7 +71,8 @@ static int statement_affected(lua_State *L) {
 /*
  * success = statement:close()
  */
-static int statement_close(lua_State *L) {
+static int statement_close(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
     int ok = 0;
 
@@ -87,7 +91,8 @@ static int statement_close(lua_State *L) {
 /*
  * column_names = statement:columns()
  */
-static int statement_columns(lua_State *L) {
+static int statement_columns(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
 
     int i;
@@ -113,7 +118,8 @@ static int statement_columns(lua_State *L) {
 /*
  * success,err = statement:execute(...)
  */
-static int statement_execute(lua_State *L) {
+static int statement_execute(lua_State *L)
+{
     int n = lua_gettop(L);
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
     int p;
@@ -224,7 +230,8 @@ static int statement_execute(lua_State *L) {
 /*
  * must be called after an execute
  */
-static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns) {
+static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
+{
     int num_columns;
 
     if (!statement->stmt) {
@@ -314,7 +321,8 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
     return 1;    
 }
 
-static int next_iterator(lua_State *L) {
+static int next_iterator(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
@@ -324,7 +332,8 @@ static int next_iterator(lua_State *L) {
 /*
  * table = statement:fetch(named_indexes)
  */
-static int statement_fetch(lua_State *L) {
+static int statement_fetch(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, 2);
 
@@ -334,7 +343,8 @@ static int statement_fetch(lua_State *L) {
 /*
  * iterfunc = statement:rows(named_indexes)
  */
-static int statement_rows(lua_State *L) {
+static int statement_rows(lua_State *L)
+{
     if (lua_gettop(L) == 1) {
         lua_pushvalue(L, 1);
         lua_pushboolean(L, 0);
@@ -350,7 +360,8 @@ static int statement_rows(lua_State *L) {
 /*
  * num_rows = statement:rowcount()
  */
-static int statement_rowcount(lua_State *L) {
+static int statement_rowcount(lua_State *L)
+{
     luaL_error(L, EV_SQL_ERR_NOT_IMPLEMENTED, EV_SQLITE_STATEMENT, "rowcount");
     return 0;
 }
@@ -358,7 +369,8 @@ static int statement_rowcount(lua_State *L) {
 /*
  * __gc
  */
-static int statement_gc(lua_State *L) {
+static int statement_gc(lua_State *L)
+{
     /* always free the handle */
     statement_close(L);
 
@@ -368,7 +380,8 @@ static int statement_gc(lua_State *L) {
 /*
  * __tostring
  */
-static int statement_tostring(lua_State *L) {
+static int statement_tostring(lua_State *L)
+{
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
 
     lua_pushfstring(L, "%s: %p", EV_SQLITE_STATEMENT, statement);
@@ -376,7 +389,8 @@ static int statement_tostring(lua_State *L) {
     return 1;
 }
 
-int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query) { 
+int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
+{ 
     statement_t *statement = NULL;
 
     statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
@@ -396,7 +410,8 @@ int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sq
     return 1;
 } 
 
-int ev_sqlite3_statement(lua_State *L) {
+int ev_sqlite3_statement(lua_State *L)
+{
     static const luaL_Reg statement_methods[] = {
 	{"affected", statement_affected},
 	{"close", statement_close},

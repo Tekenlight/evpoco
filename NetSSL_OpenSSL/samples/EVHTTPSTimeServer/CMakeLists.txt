@@ -15,7 +15,7 @@ aux_source_directory(src LOCAL_SRCS)
 
 message(STATUS "= ${LTF}")
 add_executable( ${SAMPLE_NAME} ${LOCAL_SRCS} )
-target_link_libraries( ${SAMPLE_NAME} "${LTF}" PocoNetSSL PocoCrypto PocoUtil PocoNet PocoEVNet PocoXML PocoFoundation )
+target_link_libraries( ${SAMPLE_NAME} "${LTF}" PocoNetSSL PocoCrypto PocoUtil PocoNet evnet PocoXML PocoFoundation )
 
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	string(APPEND INC_DIRS " -I${dir} ")

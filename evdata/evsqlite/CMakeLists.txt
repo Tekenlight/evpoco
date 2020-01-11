@@ -1,5 +1,5 @@
 set(LIBNAME "evsqlite")
-set(POCO_LIBNAME "Poco${LIBNAME}")
+set(POCO_LIBNAME "${LIBNAME}")
 
 # Sources
 set(SRCS "")
@@ -28,12 +28,12 @@ if(WIN32)
 endif(WIN32)
 
 add_library( "${LIBNAME}" MODULE ${SRCS} )
-add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
+#add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 #set_target_properties( "${LIBNAME}"
 #    PROPERTIES
 #    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
 #    OUTPUT_NAME ${POCO_LIBNAME}
-#    DEFINE_SYMBOL EVNet_EXPORTS
+#    DEFINE_SYMBOL evnet_EXPORTS
 #    )
 
 #VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
@@ -42,7 +42,7 @@ add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 set_target_properties( "${LIBNAME}"
     PROPERTIES
     OUTPUT_NAME ${POCO_LIBNAME}
-    DEFINE_SYMBOL EVNet_EXPORTS
+    DEFINE_SYMBOL evsqlite_EXPORTS
     )
 
 foreach(lib ${ADD_LIBRARY_PATH})
@@ -53,7 +53,7 @@ endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 #message(STATUS "Here ${LTF}")
-target_link_libraries( "${LIBNAME}" "${LTF}" EVNet lua evdata sqlite3)
+target_link_libraries( "${LIBNAME}" "${LTF}" evnet lua evdata sqlite3)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -6,18 +6,21 @@ namespace evsqlite {
 
 int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
 
-static int run(connection_t *conn, const char *command) {
+static int run(connection_t *conn, const char *command)
+{
     int res = sqlite3_exec(conn->sqlite, command, NULL, NULL, NULL);
 
     return res != SQLITE_OK;
 }
 
-static int commit(connection_t *conn) {
+static int commit(connection_t *conn)
+{
     return run(conn, "COMMIT TRANSACTION");
 }
 
 
-static int begin(connection_t *conn) {
+static int begin(connection_t *conn)
+{
     int err = 0;
 
     if (sqlite3_get_autocommit(conn->sqlite)) {
@@ -29,11 +32,13 @@ static int begin(connection_t *conn) {
     return err;
 }
 
-static int rollback(connection_t *conn) {
+static int rollback(connection_t *conn)
+{
     return run(conn, "ROLLBACK TRANSACTION");
 }
 
-int try_begin_transaction(connection_t *conn) {
+int try_begin_transaction(connection_t *conn)
+{
     if (conn->autocommit) {
         return 1;
     }
@@ -44,7 +49,8 @@ int try_begin_transaction(connection_t *conn) {
 /* 
  * connection,err = evrdbms.sqlite3(dbfile)
  */
-static int connection_new(lua_State *L) {
+static int connection_new(lua_State *L)
+{
     int n = lua_gettop(L);
 
     const char *db = NULL;
@@ -84,7 +90,8 @@ static int connection_new(lua_State *L) {
 /*
  * success = connection:autocommit(on)
  */
-static int connection_autocommit(lua_State *L) {
+static int connection_autocommit(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     int on = lua_toboolean(L, 2); 
     int err = 1;
@@ -105,7 +112,8 @@ static int connection_autocommit(lua_State *L) {
 /*
  * success = connection:close()
  */
-static int connection_close(lua_State *L) {
+static int connection_close(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     int disconnect = 0;   
 
@@ -123,7 +131,8 @@ static int connection_close(lua_State *L) {
 /*
  * success = connection:commit()
  */
-static int connection_commit(lua_State *L) {
+static int connection_commit(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     int err = 1;
 
@@ -138,7 +147,8 @@ static int connection_commit(lua_State *L) {
 /*
  * ok = connection:ping()
  */
-static int connection_ping(lua_State *L) {
+static int connection_ping(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     int ok = 0;   
 
@@ -153,7 +163,8 @@ static int connection_ping(lua_State *L) {
 /*
  * statement,err = connection:prepare(sql_str)
  */
-static int connection_prepare(lua_State *L) {
+static int connection_prepare(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
 
     if (conn->sqlite) {
@@ -168,7 +179,8 @@ static int connection_prepare(lua_State *L) {
 /*
  * quoted = connection:quote(str)
  */
-static int connection_quote(lua_State *L) {
+static int connection_quote(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     size_t len;
     const char *from = luaL_checklstring(L, 2, &len);
@@ -189,7 +201,8 @@ static int connection_quote(lua_State *L) {
 /*
  * success = connection:rollback()
  */
-static int connection_rollback(lua_State *L) {
+static int connection_rollback(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     int err = 1;
 
@@ -204,7 +217,8 @@ static int connection_rollback(lua_State *L) {
 /*
  * last_id = connection:last_id()
  */
-static int connection_lastid(lua_State *L) {
+static int connection_lastid(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
 
     lua_pushinteger(L, sqlite3_last_insert_rowid(conn->sqlite));
@@ -214,7 +228,8 @@ static int connection_lastid(lua_State *L) {
 /*
  * __gc 
  */
-static int connection_gc(lua_State *L) {
+static int connection_gc(lua_State *L)
+{
     /* always close the connection */
     connection_close(L);
 
@@ -224,7 +239,8 @@ static int connection_gc(lua_State *L) {
 /*
  * __tostring
  */
-static int connection_tostring(lua_State *L) {
+static int connection_tostring(lua_State *L)
+{
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
 
     lua_pushfstring(L, "%s: %p", EV_SQLITE_CONNECTION, conn);
@@ -232,7 +248,8 @@ static int connection_tostring(lua_State *L) {
     return 1;
 }
 
-int ev_sqlite3_connection(lua_State *L) {
+int ev_sqlite3_connection(lua_State *L)
+{
     /*
      * instance methods
      */

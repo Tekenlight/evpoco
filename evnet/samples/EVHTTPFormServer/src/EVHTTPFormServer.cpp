@@ -1,5 +1,5 @@
 //
-// EVHTTPSFormServer.cpp
+// EVHTTPFormServer.cpp
 //
 // This sample demonstrates the HTTPServer and HTMLForm classes.
 //
@@ -11,7 +11,6 @@
 
 
 #include "Poco/evnet/EVHTTPServer.h"
-#include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
@@ -19,10 +18,9 @@
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTMLForm.h"
-#include "Poco/Net/SecureServerSocket.h"
-#include "Poco/Net/X509Certificate.h"
 #include "Poco/Net/PartHandler.h"
 #include "Poco/Net/MessageHeader.h"
+#include "Poco/Net/ServerSocket.h"
 #include "Poco/CountingStream.h"
 #include "Poco/NullStream.h"
 #include "Poco/StreamCopier.h"
@@ -34,9 +32,7 @@
 #include <iostream>
 
 
-using Poco::Net::SecureServerSocket;
-using Poco::Net::X509Certificate;
-using Poco::Net::HTTPRequestHandler;
+using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
 using Poco::evnet::EVHTTPRequestHandlerFactory;
 using Poco::evnet::EVHTTPServer;
@@ -66,6 +62,7 @@ public:
 	
 	void handlePart(const MessageHeader& header, std::istream& stream)
 	{
+		try {
 		_type = header.get("Content-Type", "(unspecified)");
 		if (header.has("Content-Disposition"))
 		{
@@ -80,6 +77,10 @@ public:
 		NullOutputStream ostr;
 		StreamCopier::copyStream(istr, ostr);
 		_length = istr.chars();
+		} catch (std::exception& ex) {
+			DEBUGPOINT("EXCEPTION HERE %s\n", ex.what());
+			abort();
+		}
 	}
 
 	int length() const
@@ -114,11 +115,35 @@ class EVFormRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
 public:
+	struct addrinfo * addr_info = NULL;
 	EVFormRequestHandler() 
 	{
 	}
 	
-	int handleRequest()
+	void send_error_response(int line_no)
+	{
+		HTTPServerRequest& request = (getRequest());
+		HTTPServerResponse& response = (getResponse());
+
+
+		std::ostream& ostr = getResponse().getOStream();
+
+		ostr <<
+			"<html>\n"
+			"<head>\n"
+			"<title>EVHTTPFormServer getaddrinfo Processing ERROR</title>\n"
+			"</head>\n"
+			"<body>\n"
+			"<h1>EVHTTP Form Server Sample</h1>\n";
+
+		ostr << line_no << ":" << "COULD NOT RESOLVE HOST\n";
+
+		ostr << "</body>\n";
+		ostr << "</html>\n";
+		ostr.flush();
+	}
+
+	int handleRequest1()
 	{
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
@@ -126,13 +151,26 @@ public:
 		app.logger().information("Request from " + request.clientAddress().toString());
 
 		EVMyPartHandler partHandler;
-		HTMLForm form(request, request.stream(), partHandler);
+		HTMLForm *form1 = NULL;
+		try {
+		form1 = new HTMLForm(request, request.stream(), partHandler);
+		} catch (std::exception& ex) {
+			DEBUGPOINT("CHA %s\n",ex.what());
+			throw(ex);
+		}
 
+		//HTMLForm form(request, request.stream(), partHandler);
+		HTMLForm& form = *form1;
 		response.setChunkedTransferEncoding(true);
 		response.setContentType("text/html");
-
 		std::ostream& ostr = response.send();
-		
+
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() != 0) {
+			send_error_response(__LINE__);
+			return -1;
+		}
+
 		ostr <<
 			"<html>\n"
 			"<head>\n"
@@ -156,6 +194,30 @@ public:
 			"<input type=\"submit\" value=\"Upload\">\n"
 			"</form>\n";
 			
+		if (!addr_info) ostr << "NO ADDRESS FOUND\n";
+		int i = 0;
+		struct addrinfo *p;
+		char host[256];
+
+		for (p = addr_info; p; p = p->ai_next) {
+			i++;
+			getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof (host), NULL, 0, NI_NUMERICHOST);
+			ostr << "<p>";
+			ostr << i << ".";
+			ostr << "&nbsp&nbsp" <<  host;
+			ostr << "&nbsp&nbsp" <<  p->ai_addrlen;
+			for (int i = 0; i < p->ai_addrlen; i++) {
+				char s[512];
+				unsigned char c = p->ai_addr->sa_data[i];
+				if (!i) sprintf(s,"&nbsp&nbsp%X", c);
+				else sprintf(s,":%X", c);
+				ostr << s;
+			}
+			if (p->ai_addr->sa_family == AF_INET) ostr << "&nbsp&nbspIPV4 ADDRESS";
+			else ostr << "&nbsp&nbspIPV6 ADDRESS";
+			ostr << "</p>";
+		}
+
 		ostr << "<h2>Request</h2><p>\n";
 		ostr << "Method: " << request.getMethod() << "<br>\n";
 		ostr << "URI: " << request.getURI() << "<br>\n";
@@ -189,8 +251,16 @@ public:
 			ostr << "</p>";
 		}
 		ostr << "</body>\n";
+		ostr.flush();
 
-		return Poco::evnet::EVHTTPRequestHandler::PROCESSING_COMPLETE;
+		delete form1;
+		return PROCESSING_COMPLETE;
+	}
+
+	int handleRequest()
+	{
+		resolveHost(std::bind(&EVFormRequestHandler::handleRequest1, this), "localhost", NULL, &addr_info);
+		return PROCESSING;
 	}
 };
 
@@ -209,31 +279,31 @@ public:
 };
 
 
-class EVHTTPSFormServer: public Poco::Util::ServerApplication
+class EVHTTPFormServer: public Poco::Util::ServerApplication
 	/// The main application class.
 	///
 	/// This class handles command-line arguments and
 	/// configuration files.
-	/// Start the EVHTTPSFormServer executable with the help
+	/// Start the EVHTTPFormServer executable with the help
 	/// option (/help on Windows, --help on Unix) for
 	/// the available command line options.
 	///
-	/// To use the sample configuration file (EVHTTPSFormServer.properties),
-	/// copy the file to the directory where the EVHTTPSFormServer executable
-	/// resides. If you start the debug version of the EVHTTPSFormServer
-	/// (EVHTTPSFormServerd[.exe]), you must also create a copy of the configuration
-	/// file named EVHTTPSFormServerd.properties. In the configuration file, you
+	/// To use the sample configuration file (EVHTTPFormServer.properties),
+	/// copy the file to the directory where the EVHTTPFormServer executable
+	/// resides. If you start the debug version of the EVHTTPFormServer
+	/// (EVHTTPFormServerd[.exe]), you must also create a copy of the configuration
+	/// file named EVHTTPFormServerd.properties. In the configuration file, you
 	/// can specify the port on which the server is listening (default
 	/// 9980) and the format of the date/Form string sent back to the client.
 	///
 	/// To test the FormServer you can use any web browser (http://localhost:9980/).
 {
 public:
-	EVHTTPSFormServer(): _helpRequested(false)
+	EVHTTPFormServer(): _helpRequested(false)
 	{
 	}
 	
-	~EVHTTPSFormServer()
+	~EVHTTPFormServer()
 	{
 	}
 
@@ -285,12 +355,12 @@ protected:
 		else
 		{
 			HTTPServerParams *p = new HTTPServerParams();
-			unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 9443);
-			//unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 443);
+			unsigned short port = (unsigned short) config().getInt("EVHTTPFormServer.port", 9980);
+
+			p->setBlocking(config().getBool("EVHTTPFormServer.blocking", false));
 			
-			p->setBlocking(config().getBool("EVHTTPSFormServer.blocking", false));
 			// set-up a server socket
-			SecureServerSocket svs(port);
+			ServerSocket svs(port);
 			// set-up a HTTPServer instance
 			EVHTTPServer srv(new EVFormRequestHandlerFactory, svs, p);
 			// start the HTTPServer
@@ -307,9 +377,19 @@ private:
 	bool _helpRequested;
 };
 
+int func(int argc, char ** argv)
+{
+	int ret = 0;
+	EVHTTPFormServer app;
+	ret =  app.run(argc, argv);
+	return ret;
+}
 
 int main(int argc, char** argv)
 {
-	EVHTTPSFormServer app;
-	return app.run(argc, argv);
+	int ret = 0;
+
+	ret = func(argc,argv);
+
+	return ret;
 }

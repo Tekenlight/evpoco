@@ -1,5 +1,5 @@
 //
-// EVHTTPSFormServer.cpp
+// EVHTTPEchoServer.cpp
 //
 // This sample demonstrates the HTTPServer and HTMLForm classes.
 //
@@ -11,7 +11,6 @@
 
 
 #include "Poco/evnet/EVHTTPServer.h"
-#include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
@@ -19,10 +18,9 @@
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTMLForm.h"
-#include "Poco/Net/SecureServerSocket.h"
-#include "Poco/Net/X509Certificate.h"
 #include "Poco/Net/PartHandler.h"
 #include "Poco/Net/MessageHeader.h"
+#include "Poco/Net/ServerSocket.h"
 #include "Poco/CountingStream.h"
 #include "Poco/NullStream.h"
 #include "Poco/StreamCopier.h"
@@ -34,9 +32,7 @@
 #include <iostream>
 
 
-using Poco::Net::SecureServerSocket;
-using Poco::Net::X509Certificate;
-using Poco::Net::HTTPRequestHandler;
+using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
 using Poco::evnet::EVHTTPRequestHandlerFactory;
 using Poco::evnet::EVHTTPServer;
@@ -66,6 +62,7 @@ public:
 	
 	void handlePart(const MessageHeader& header, std::istream& stream)
 	{
+		try {
 		_type = header.get("Content-Type", "(unspecified)");
 		if (header.has("Content-Disposition"))
 		{
@@ -80,6 +77,10 @@ public:
 		NullOutputStream ostr;
 		StreamCopier::copyStream(istr, ostr);
 		_length = istr.chars();
+		} catch (std::exception& ex) {
+			DEBUGPOINT("EXCEPTION HERE %s\n", ex.what());
+			abort();
+		}
 	}
 
 	int length() const
@@ -110,130 +111,80 @@ private:
 };
 
 
-class EVFormRequestHandler: public EVHTTPRequestHandler
+class EVEcoRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
 {
 public:
-	EVFormRequestHandler() 
+	EVEcoRequestHandler() 
 	{
 	}
 	
 	int handleRequest()
 	{
+		char request_body[1024+1];
 		HTTPServerRequest& request = (getRequest());
 		HTTPServerResponse& response = (getResponse());
 		Application& app = Application::instance();
 		app.logger().information("Request from " + request.clientAddress().toString());
 
-		EVMyPartHandler partHandler;
-		HTMLForm form(request, request.stream(), partHandler);
+		memset(request_body, 0, 1025);
+		std::istream & is = request.stream();
+		is.get(request_body, 1024);
 
+		//response.setVersion("HTTP/1.0");
 		response.setChunkedTransferEncoding(true);
-		response.setContentType("text/html");
+		response.setContentType("text/plain");
+
+		//DEBUGPOINT("REQUEST BODY\n%s\n", request_body);
 
 		std::ostream& ostr = response.send();
-		
-		ostr <<
-			"<html>\n"
-			"<head>\n"
-			"<title>POCO Form Server Sample</title>\n"
-			"</head>\n"
-			"<body>\n"
-			"<h1>POCO Form Server Sample</h1>\n"
-			"<h2>GET Form</h2>\n"
-			"<form method=\"GET\" action=\"/form\">\n"
-			"<input type=\"text\" name=\"text\" size=\"31\">\n"
-			"<input type=\"submit\" value=\"GET\">\n"
-			"</form>\n"
-			"<h2>POST Form</h2>\n"
-			"<form method=\"POST\" action=\"/form\">\n"
-			"<input type=\"text\" name=\"text\" size=\"31\">\n"
-			"<input type=\"submit\" value=\"POST\">\n"
-			"</form>\n"
-			"<h2>File Upload</h2>\n"
-			"<form method=\"POST\" action=\"/form\" enctype=\"multipart/form-data\">\n"
-			"<input type=\"file\" name=\"file\" size=\"31\"> \n"
-			"<input type=\"submit\" value=\"Upload\">\n"
-			"</form>\n";
-			
-		ostr << "<h2>Request</h2><p>\n";
-		ostr << "Method: " << request.getMethod() << "<br>\n";
-		ostr << "URI: " << request.getURI() << "<br>\n";
-		NameValueCollection::ConstIterator it = request.begin();
-		NameValueCollection::ConstIterator end = request.end();
-		for (; it != end; ++it)
-		{
-			ostr << it->first << ": " << it->second << "<br>\n";
-		}
-		ostr << "</p>";
+		usleep(2000000);
+		ostr.write(request_body, strlen(request_body));
 
-		if (!form.empty())
-		{
-			ostr << "<h2>Form</h2><p>\n";
-			it = form.begin();
-			end = form.end();
-			for (; it != end; ++it)
-			{
-				ostr << it->first << ": " << it->second << "<br>\n";
-			}
-			ostr << "</p>";
-		}
-		
-		if (!partHandler.name().empty())
-		{
-			ostr << "<h2>Upload</h2><p>\n";
-			ostr << "Name: " << partHandler.name() << "<br>\n";
-			ostr << "File Name: " << partHandler.fileName() << "<br>\n";
-			ostr << "Type: " << partHandler.contentType() << "<br>\n";
-			ostr << "Size: " << partHandler.length() << "<br>\n";
-			ostr << "</p>";
-		}
-		ostr << "</body>\n";
-
-		return Poco::evnet::EVHTTPRequestHandler::PROCESSING_COMPLETE;
+		return PROCESSING_COMPLETE;
 	}
 };
 
 
-class EVFormRequestHandlerFactory: public EVHTTPRequestHandlerFactory
+class EVEcoRequestHandlerFactory: public EVHTTPRequestHandlerFactory
 {
 public:
-	EVFormRequestHandlerFactory()
+	EVEcoRequestHandlerFactory()
 	{
 	}
 
 	EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
 	{
-		return new EVFormRequestHandler;
+		return new EVEcoRequestHandler;
 	}
 };
 
 
-class EVHTTPSFormServer: public Poco::Util::ServerApplication
+class EVHTTPEchoServer: public Poco::Util::ServerApplication
 	/// The main application class.
 	///
 	/// This class handles command-line arguments and
 	/// configuration files.
-	/// Start the EVHTTPSFormServer executable with the help
+	/// Start the EVHTTPEchoServer executable with the help
 	/// option (/help on Windows, --help on Unix) for
 	/// the available command line options.
 	///
-	/// To use the sample configuration file (EVHTTPSFormServer.properties),
-	/// copy the file to the directory where the EVHTTPSFormServer executable
-	/// resides. If you start the debug version of the EVHTTPSFormServer
-	/// (EVHTTPSFormServerd[.exe]), you must also create a copy of the configuration
-	/// file named EVHTTPSFormServerd.properties. In the configuration file, you
+	/// To use the sample configuration file (EVHTTPEchoServer.properties),
+	/// copy the file to the directory where the EVHTTPEchoServer executable
+	/// resides. If you start the debug version of the EVHTTPEchoServer
+	/// (EVHTTPEchoServerd[.exe]), you must also create a copy of the configuration
+	/// file named EVHTTPEchoServerd.properties. In the configuration file, you
 	/// can specify the port on which the server is listening (default
 	/// 9980) and the format of the date/Form string sent back to the client.
 	///
 	/// To test the FormServer you can use any web browser (http://localhost:9980/).
 {
 public:
-	EVHTTPSFormServer(): _helpRequested(false)
+	EVHTTPEchoServer(): _helpRequested(false)
 	{
 	}
 	
-	~EVHTTPSFormServer()
+	~EVHTTPEchoServer()
 	{
 	}
 
@@ -285,14 +236,25 @@ protected:
 		else
 		{
 			HTTPServerParams *p = new HTTPServerParams();
-			unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 9443);
-			//unsigned short port = (unsigned short) config().getInt("EVHTTPSFormServer.port", 443);
+			unsigned short port = (unsigned short) config().getInt("EVHTTPEchoServer.port", 9980);
+			bool IPV6 = (bool)config().getInt("EVHTTPEchoServer.IPV6", false);
+
+			p->setBlocking(config().getBool("EVHTTPEchoServer.blocking", false));
 			
-			p->setBlocking(config().getBool("EVHTTPSFormServer.blocking", false));
 			// set-up a server socket
-			SecureServerSocket svs(port);
+			//ServerSocket svs(port);
+			ServerSocket svs;
+
+			if (IPV6) {
+				svs.bind6(port, true, false);
+				svs.listen();
+			}
+			else {
+				svs.bind(port, true);
+				svs.listen();
+			}
 			// set-up a HTTPServer instance
-			EVHTTPServer srv(new EVFormRequestHandlerFactory, svs, p);
+			EVHTTPServer srv(new EVEcoRequestHandlerFactory, svs, p);
 			// start the HTTPServer
 			srv.start();
 			// wait for CTRL-C or kill
@@ -307,9 +269,19 @@ private:
 	bool _helpRequested;
 };
 
+int func(int argc, char ** argv)
+{
+	int ret = 0;
+	EVHTTPEchoServer app;
+	ret =  app.run(argc, argv);
+	return ret;
+}
 
 int main(int argc, char** argv)
 {
-	EVHTTPSFormServer app;
-	return app.run(argc, argv);
+	int ret = 0;
+
+	ret = func(argc,argv);
+
+	return ret;
 }

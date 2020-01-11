@@ -10,10 +10,10 @@
 //
 
 
-#include "Poco/EVNet/EVHTTPServer.h"
+#include "Poco/evnet/EVHTTPServer.h"
 #include "Poco/Net/HTTPRequestHandler.h"
-#include "Poco/EVNet/EVHTTPRequestHandler.h"
-#include "Poco/EVNet/EVHTTPRequestHandlerFactory.h"
+#include "Poco/evnet/EVHTTPRequestHandler.h"
+#include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTTPServerRequestImpl.h"
 #include "Poco/Net/HTTPServerResponse.h"
@@ -38,9 +38,9 @@
 
 using Poco::Net::SecureServerSocket;
 using Poco::Net::SecureStreamSocket;
-using Poco::EVNet::EVHTTPRequestHandler;
-using Poco::EVNet::EVHTTPRequestHandlerFactory;
-using Poco::EVNet::EVHTTPServer;
+using Poco::evnet::EVHTTPRequestHandler;
+using Poco::evnet::EVHTTPRequestHandlerFactory;
+using Poco::evnet::EVHTTPServer;
 using Poco::Net::HTTPServerRequest;
 using Poco::Net::HTTPServerRequestImpl;
 using Poco::Net::X509Certificate;
