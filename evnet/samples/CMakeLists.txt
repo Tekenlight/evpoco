@@ -1,5 +1,4 @@
 add_subdirectory(EVHTTPFormServer)
-add_subdirectory(LUAEVServer)
 add_subdirectory(EVHTTPEchoServer)
 add_subdirectory(EVHTTPOrchServer)
 

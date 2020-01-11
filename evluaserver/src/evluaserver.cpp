@@ -1,5 +1,5 @@
 //
-// LUAEVServer.cpp
+// evluaserver.cpp
 //
 // This sample demonstrates the HTTPServer and HTMLForm classes.
 //
@@ -117,7 +117,7 @@ public:
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
-		return config.getString("LUAEVServer.requestMappingScript", "mapper.lua");
+		return config.getString("evluaserver.requestMappingScript", "mapper.lua");
 	}
 };
 
@@ -136,32 +136,32 @@ public:
 };
 
 
-class LUAEVServer: public Poco::Util::ServerApplication
+class evluaserver: public Poco::Util::ServerApplication
 	/// The main application class to start a LUA
 	/// based EVHTTP Server.
 	///
 	/// This class handles command-line arguments and
 	/// configuration files.
-	/// Start the LUAEVServer executable with the help
+	/// Start the evluaserver executable with the help
 	/// option (/help on Windows, --help on Unix) for
 	/// the available command line options.
 	///
-	/// To use the sample configuration file (LUAEVServer.properties),
-	/// copy the file to the directory where the LUAEVServer executable
-	/// resides. If you start the debug version of the LUAEVServer
-	/// (LUAEVServerd[.exe]), you must also create a copy of the configuration
-	/// file named LUAEVServerd.properties. In the configuration file, you
+	/// To use the sample configuration file (evluaserver.properties),
+	/// copy the file to the directory where the evluaserver executable
+	/// resides. If you start the debug version of the evluaserver
+	/// (evluaserverd[.exe]), you must also create a copy of the configuration
+	/// file named evluaserverd.properties. In the configuration file, you
 	/// can specify the port on which the server is listening (default
 	/// 9980) and the format of the date/Form string sent back to the client.
 	///
 	/// To test the FormServer you can use any web browser (http://localhost:9980/).
 {
 public:
-	LUAEVServer(): _helpRequested(false)
+	evluaserver(): _helpRequested(false)
 	{
 	}
 	
-	~LUAEVServer()
+	~evluaserver()
 	{
 	}
 
@@ -213,9 +213,9 @@ protected:
 		else
 		{
 			HTTPServerParams *p = new HTTPServerParams();
-			unsigned short port = (unsigned short) config().getInt("LUAEVServer.port", 9980);
+			unsigned short port = (unsigned short) config().getInt("evluaserver.port", 9980);
 
-			p->setBlocking(config().getBool("LUAEVServer.blocking", false));
+			p->setBlocking(config().getBool("evluaserver.blocking", false));
 			
 			// set-up a server socket
 			ServerSocket svs(port);
@@ -238,7 +238,7 @@ private:
 int func(int argc, char ** argv)
 {
 	int ret = 0;
-	LUAEVServer app;
+	evluaserver app;
 	ret =  app.run(argc, argv);
 	return ret;
 }

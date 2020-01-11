@@ -1,4 +1,4 @@
-set(SAMPLE_NAME "LUAEVServer")
+set(SAMPLE_NAME "evluaserver")
 
 set(LOCAL_SRCS "")
 aux_source_directory(src LOCAL_SRCS)
