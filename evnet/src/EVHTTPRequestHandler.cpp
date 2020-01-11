@@ -218,6 +218,22 @@ long EVHTTPRequestHandler::resolveHost(TCallback cb,
 	return sr_num;
 }
 
+long EVHTTPRequestHandler::executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data)
+{
+	Poco::evnet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	//DEBUGPOINT("Here\n");
+	sr_num =  getServer().submitRequestForTaskExecution(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), tf, input_data);
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
 bool EVHTTPRequestHandler::bypassProxy(std::string host)
 {
 	if (!proxyConfig().nonProxyHosts.empty()) {

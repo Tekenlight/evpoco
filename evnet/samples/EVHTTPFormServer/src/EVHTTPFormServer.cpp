@@ -110,6 +110,11 @@ private:
 	std::string _fileName;
 };
 
+static void * hello_world(void * data)
+{
+	DEBUGPOINT("%s\n", (char*)data);
+	return (void*)("PRINTED HELLO WORLD");
+}
 
 class EVFormRequestHandler: public EVHTTPRequestHandler
 	/// Return a HTML document with the current date and time.
@@ -120,6 +125,22 @@ public:
 	{
 	}
 	
+	void send_string_response(int line_no, const char* msg)
+	{
+		Poco::Net::HTTPServerRequest& request = (getRequest());
+		Poco::Net::HTTPServerResponse& response = (getResponse());
+
+		response.setChunkedTransferEncoding(true);
+		response.setContentType("text/plain");
+		response.setContentType("text/plain");
+		response.setStatus(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+		std::ostream& ostr = getResponse().send();
+
+		ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
+
+		ostr.flush();
+	}
+
 	void send_error_response(int line_no)
 	{
 		HTTPServerRequest& request = (getRequest());
@@ -257,9 +278,22 @@ public:
 		return PROCESSING_COMPLETE;
 	}
 
+	int handleRequest0()
+	{
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() != 0) {
+			send_string_response(__LINE__, "Got some error");
+			return -1;
+		}
+		void * return_string = usN.getTaskReturnValue();
+		DEBUGPOINT("Here return_value = %p %s\n", return_string, (char*)return_string);
+		resolveHost(std::bind(&EVFormRequestHandler::handleRequest1, this), "localhost", NULL, &addr_info);
+		return PROCESSING;
+	}
+
 	int handleRequest()
 	{
-		resolveHost(std::bind(&EVFormRequestHandler::handleRequest1, this), "localhost", NULL, &addr_info);
+		executeGenericTask(std::bind(&EVFormRequestHandler::handleRequest0, this), &hello_world, (void*)("Hello world"));
 		return PROCESSING;
 	}
 };

@@ -99,16 +99,16 @@ struct _strms_io_struct_type {
 	EVConnectedStreamSocket *cn;
 };
 
-typedef struct _dns_ref_data {
-	_dns_ref_data() : _instance(0), _usN(0) {}
+typedef struct _cb_ref_data {
+	_cb_ref_data() : _instance(0), _usN(0) {}
 	EVTCPServer* _instance;
 	EVUpstreamEventNotification *_usN;
-} dns_ref_data_type, * dns_ref_data_ptr_type;
+	poco_socket_t _acc_fd;
+} cb_ref_data_type, * cb_ref_data_ptr_type;
 
 struct _dns_io_struct {
 	struct _input {
-		_input():_acc_fd(-1), _host_name(0), _serv_name(0), _ref_data(0) { memset(&_hints, 0, sizeof(struct addrinfo)); }
-		poco_socket_t _acc_fd;
+		_input(): _host_name(0), _serv_name(0), _ref_data(0) { memset(&_hints, 0, sizeof(struct addrinfo)); }
 		const char* _host_name;
 		const char* _serv_name;
 		struct addrinfo _hints;
@@ -292,6 +292,12 @@ public:
 	void postHostResolution(dns_io_ptr_type dio_ptr);
 		/// To handle result of host resolution in the context of EVTCPServer
 
+	void postGenericTaskComplete(poco_socket_t acc_fd, EVUpstreamEventNotification *usN);
+		/// To handle post processing of generic task
+
+	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data);
+		/// Function to submit a generic task for asynchronous execution
+
 protected:
 	void run();
 		/// Runs the server. The server will run until
@@ -311,9 +317,11 @@ private:
 	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketWritable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	void handleHostResolved(const bool& ev_occured);
+	void handleGenericTaskComplete(const bool& ev_occured);
 	ssize_t handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	int makeTCPConnection(EVTCPServiceRequest *);
 	int resolveHost(EVTCPServiceRequest * sr);
+	int initiateGenericTask(EVTCPServiceRequest * sr);
 	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
@@ -381,12 +389,14 @@ private:
 	ev_async*							_stop_watcher_ptr2;;
 	ev_async*							_stop_watcher_ptr3;;
 	ev_async*							_dns_watcher_ptr;
+	ev_async*							_gen_task_compl_watcher_ptr;
 
 	ASColMapType						_accssColl;
 
 	NotificationQueue					_queue;
 	NotificationQueue					_service_request_queue;
 	ev_queue_type						_aux_tc_queue; // Auxillary task completion queue
+	ev_queue_type						_host_resolve_queue; // Host resolution completion queue
 
 	EVStreamSocketLRUList				_ssLRUList;
 	int									_numThreads;

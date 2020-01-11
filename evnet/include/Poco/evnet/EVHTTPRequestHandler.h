@@ -141,6 +141,8 @@ public:
 	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess);
 	 *
 	 */
+	long executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data);
+
 	long resolveHost(TCallback cb, const char* domain_name, const char* serv_name, struct addrinfo ** addr_info_ptr_ptr);
 
 	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const char * serv_name, EVHTTPClientSession& sess);

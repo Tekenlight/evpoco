@@ -33,7 +33,6 @@
 namespace Poco {
 namespace evnet {
 
-const static char *_resp_output_stream = "respostr";
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_req_type_name = "httpreq";
 const static char *_http_resp_type_name = "httpresp";

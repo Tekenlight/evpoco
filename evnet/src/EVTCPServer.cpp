@@ -133,6 +133,27 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 	return;
 }
 
+// this callback is called when a submitted generic task is complete
+static void generic_task_complete (EV_P_ ev_async *w, int revents)
+{
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleGenericTaskComplete(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->method))(true);
+
+	return;
+}
+
 // this callback is called when a passed domain name is resolved
 static void host_addr_resolved (EV_P_ ev_async *w, int revents)
 {
@@ -283,7 +304,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_stop_watcher_ptr2(0),
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
+	_gen_task_compl_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
 {
@@ -315,7 +338,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_stop_watcher_ptr2(0),
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
+	_gen_task_compl_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
 {
@@ -346,7 +371,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_stop_watcher_ptr2(0),
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
+	_gen_task_compl_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
 {
@@ -1383,7 +1410,8 @@ void EVTCPServer::run()
 	ev_async stop_watcher_1;
 	ev_async stop_watcher_2;
 	ev_async stop_watcher_3;
-	ev_async _dns_watcher;;
+	ev_async dns_watcher;
+	ev_async gen_task_compl_watcher;
 	ev_timer timeout_watcher;
 	double timeout = 0.00001;
 
@@ -1395,13 +1423,15 @@ void EVTCPServer::run()
 	memset(&(stop_watcher_1), 0, sizeof(ev_async));
 	memset(&(stop_watcher_2), 0, sizeof(ev_async));
 	memset(&(stop_watcher_3), 0, sizeof(ev_async));
-	memset(&(_dns_watcher),0,sizeof(ev_async));
+	memset(&(dns_watcher),0,sizeof(ev_async));
+	memset(&(gen_task_compl_watcher),0,sizeof(ev_async));
 	memset(&(timeout_watcher), 0, sizeof(ev_timer));
 
 	this->_stop_watcher_ptr1 = &(stop_watcher_1);
 	this->_stop_watcher_ptr2 = &(stop_watcher_2);
 	this->_stop_watcher_ptr3 = &(stop_watcher_3);
-	this->_dns_watcher_ptr = &(_dns_watcher);
+	this->_dns_watcher_ptr = &(dns_watcher);
+	this->_gen_task_compl_watcher_ptr = &(gen_task_compl_watcher);
 
 	this->_cbStruct.objPtr = this;
 	this->_cbStruct.connArrived = &EVTCPServer::handleConnReq;
@@ -1459,10 +1489,23 @@ void EVTCPServer::run()
 
 		cb_ptr->objPtr = this;
 		cb_ptr->method = &EVTCPServer::handleHostResolved;
-		_dns_watcher.data = (void*)cb_ptr;
+		dns_watcher.data = (void*)cb_ptr;
 
-		ev_async_init(&_dns_watcher, host_addr_resolved);
-		ev_async_start (_loop, &_dns_watcher);
+		ev_async_init(&dns_watcher, host_addr_resolved);
+		ev_async_start (_loop, &dns_watcher);
+	}
+
+	{
+		strms_pc_cb_ptr_type cb_ptr = 0;
+		cb_ptr = (strms_pc_cb_ptr_type) malloc(sizeof(strms_pc_cb_struct_type));
+		memset(cb_ptr,0,sizeof(strms_pc_cb_struct_type));
+
+		cb_ptr->objPtr = this;
+		cb_ptr->method = &EVTCPServer::handleGenericTaskComplete;
+		gen_task_compl_watcher.data = (void*)cb_ptr;
+
+		ev_async_init(&gen_task_compl_watcher, generic_task_complete);
+		ev_async_start (_loop, &gen_task_compl_watcher);
 	}
 
 	{
@@ -1483,7 +1526,7 @@ void EVTCPServer::run()
 	free(stop_watcher_2.data);
 	free(stop_watcher_3.data);
 	free(timeout_watcher.data);
-	free(_dns_watcher.data);
+	free(dns_watcher.data);
 
 	return;
 }
@@ -1682,14 +1725,14 @@ int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
 
 void host_resolution(void * ptr)
 {
-	dns_ref_data_ptr_type ref_data = 0;
+	cb_ref_data_ptr_type ref_data = 0;
 	dns_io_ptr_type dio_ptr = (dns_io_ptr_type)ptr; 
 
 	dio_ptr->_out._return_value = getaddrinfo(dio_ptr->_in._host_name,
 								dio_ptr->_in._serv_name, &dio_ptr->_in._hints, &dio_ptr->_out._result);
 	dio_ptr->_out._errno = errno;
 
-	ref_data = (dns_ref_data_ptr_type)dio_ptr->_in._ref_data;
+	ref_data = (cb_ref_data_ptr_type)dio_ptr->_in._ref_data;
 	ref_data->_instance->postHostResolution(dio_ptr);
 	return;
 }
@@ -1700,7 +1743,7 @@ void EVTCPServer::postHostResolution(dns_io_ptr_type dio_ptr)
 	/* This is to make sure that multiple parallel resolution objects
 	 * queue, so that the single event loop thread can handle them one by one.
 	 * */
-	enqueue(_aux_tc_queue, dio_ptr);
+	enqueue(_host_resolve_queue, dio_ptr);
 	/* Wake the event loop. */
 	/* This will invoke host_addr_resolved and therefore EVTCPServer::handleHostResolved */
 	ev_async_send(_loop, this->_dns_watcher_ptr);
@@ -1711,13 +1754,13 @@ void EVTCPServer::postHostResolution(dns_io_ptr_type dio_ptr)
 void EVTCPServer::handleHostResolved(const bool& ev_occured)
 {
 	void* pNf = 0;
-	for  (pNf = dequeue(_aux_tc_queue); pNf ; pNf = dequeue(_aux_tc_queue)) {
+	for  (pNf = dequeue(_host_resolve_queue); pNf ; pNf = dequeue(_host_resolve_queue)) {
 		dns_io_ptr_type dio_ptr = ((dns_io_ptr_type)(pNf));
-		dns_ref_data_ptr_type ref_data = 0;
+		cb_ref_data_ptr_type ref_data = 0;
 
-		EVAcceptedStreamSocket *tn = _accssColl[dio_ptr->_in._acc_fd];
+		ref_data = (cb_ref_data_ptr_type)dio_ptr->_in._ref_data;
+		EVAcceptedStreamSocket *tn = _accssColl[ref_data->_acc_fd];
 
-		ref_data = (dns_ref_data_ptr_type)dio_ptr->_in._ref_data;
 		EVUpstreamEventNotification * usN = ref_data->_usN;;
 		dio_ptr->_in._ref_data = NULL;
 
@@ -1737,7 +1780,6 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 		tn->decrNumCSEvents();
 		delete ref_data;
 		delete dio_ptr;
-		pNf = NULL;
 	}
 }
 
@@ -1747,7 +1789,6 @@ int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 	dns_io_ptr_type dio_ptr = new dns_io_struct_type();
 	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 
-	dio_ptr->_in._acc_fd = sr->accSockfd();
 
 	dio_ptr->_in._host_name = sr->getDomainName();
 	dio_ptr->_in._serv_name = sr->getServName();
@@ -1763,15 +1804,105 @@ int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 	//dio_ptr->_in._hints.ai_flags = AI_ALL|AI_V4MAPPED;
 	//dio_ptr->_in._hints.ai_flags = AI_ALL;
 
-	dns_ref_data_ptr_type ref_data  = new dns_ref_data_type();
+	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
 	ref_data->_usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
 	ref_data->_instance = this;
+	ref_data->_acc_fd = sr->accSockfd();
 	dio_ptr->_in._ref_data = ref_data;
 
 	enqueue_task(_thread_pool, &(host_resolution), dio_ptr);
 
 	tn->incrNumCSEvents();
 
+	return 0;
+}
+
+typedef struct {
+	poco_socket_t _acc_fd;
+	EVUpstreamEventNotification* _usN;
+} tc_enqueued_struct, * tc_enqueued_struct_ptr;
+
+
+/* This is handling of task completion within the event loop.
+ * So that the event of task completion can be sent to the 
+ * correct worker thread handling the request.
+ * */
+void EVTCPServer::handleGenericTaskComplete(const bool& ev_occured)
+{
+	//DEBUGPOINT("Here\n");
+	void* pNf = 0;
+	for  (pNf = dequeue(_aux_tc_queue); pNf ; pNf = dequeue(_aux_tc_queue)) {
+		tc_enqueued_struct_ptr tc_ptr = ((tc_enqueued_struct_ptr)(pNf));
+
+		EVAcceptedStreamSocket *tn = _accssColl[tc_ptr->_acc_fd];
+		if (!tn) {
+			DEBUGPOINT("Here tn has become null while task was being processed\n");
+			return;
+		}
+		EVUpstreamEventNotification * usN = tc_ptr->_usN;;
+
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		if (!(tn->sockBusy())) {
+			tn->setSockBusy();
+			_pDispatcher->enqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+
+		tn->decrNumCSEvents();
+		delete tc_ptr;
+	}
+	//DEBUGPOINT("Here\n");
+}
+
+void EVTCPServer::postGenericTaskComplete(poco_socket_t acc_fd, EVUpstreamEventNotification *usN)
+{
+	//DEBUGPOINT("Here\n");
+	tc_enqueued_struct_ptr tc_ptr = (tc_enqueued_struct_ptr)malloc(sizeof(tc_enqueued_struct));
+	/* This is to make sure that multiple parallel task completion objects
+	 * queue up, so that the single event loop thread can handle them one by one.
+	 * */
+	tc_ptr->_acc_fd = acc_fd;
+	tc_ptr->_usN = usN;
+	//DEBUGPOINT("Here %p\n", tc_ptr->_usN);
+	//tc_ptr->_usN->debug(__FILE__, __LINE__);
+	enqueue(_aux_tc_queue, tc_ptr);
+	/* Wake the event loop. */
+	/* This will invoke generic_task_complete and therefore EVTCPServer::handleGenericTaskComplete */
+	ev_async_send(_loop, this->_gen_task_compl_watcher_ptr);
+	//DEBUGPOINT("Here\n");
+}
+
+static void post_task_completion(void* return_data, void* ref_data)
+{
+	//DEBUGPOINT("Here\n");
+	cb_ref_data_ptr_type ref = (cb_ref_data_ptr_type)ref_data;
+	ref->_usN->setTaskReturnValue(return_data);
+	ref->_usN->setRet(0);
+	ref->_instance->postGenericTaskComplete(ref->_acc_fd, ref->_usN);
+	//DEBUGPOINT("Here\n");
+	return;
+}
+
+/* Fill in code for this method to trigger a getaddrinfo asynchronously */
+int EVTCPServer::initiateGenericTask(EVTCPServiceRequest * sr)
+{
+	void* task_input_data = sr->getTaskInputData();
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+
+	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
+
+	ref_data->_usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	ref_data->_instance = this;
+	ref_data->_acc_fd = sr->accSockfd();
+
+	enqueue_task_function(_thread_pool, (sr->getTaskFunc()), task_input_data, ref_data, &post_task_completion);
+
+	tn->incrNumCSEvents();
+
+	//DEBUGPOINT("Here func = %p, notification_func = %p, inp = %p %s\n", sr->getTaskFunc(), &post_task_completion, task_input_data, (char*)task_input_data);
+	//DEBUGPOINT("Here\n");
 	return 0;
 }
 
@@ -1939,6 +2070,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("RECVDATA_REQUEST from %d\n", tn->getSockfd());
 				recvDataOnConnSocket(srNF);
 				break;
+			case EVTCPServiceRequest::GENERIC_TASK:
+				//DEBUGPOINT("GENERIC_TASK from %d\n", tn->getSockfd());
+				initiateGenericTask(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -2014,6 +2149,27 @@ long EVTCPServer::submitRequestForClose(poco_socket_t acc_fd, Net::StreamSocket&
 	/* Enque the socket */
 	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::CLEANUP_REQUEST,
 																										acc_fd, css));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+	return sr_num;
+}
+
+/* TBD
+ * Consider implementing execution of generic task without waking up the event listener thread 2 times.
+ * The task can be initiated in the worker thread itself and upon completion, the completion handler can
+ * wake up the event listener to submit the event back to the worker thread.
+ * This however can violate certain safety conditions.
+ * It requires to be thoughroughly checked and designed before implementation.
+ * */
+long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num, EVTCPServiceRequest::GENERIC_TASK,
+																								acc_fd, tf, input_data));
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(_loop, this->_stop_watcher_ptr2);

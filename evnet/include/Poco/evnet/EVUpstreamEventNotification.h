@@ -61,6 +61,8 @@ public:
 	chunked_memory_stream* getSendStream();
 	void setAddrInfo(struct addrinfo *a);
 	struct addrinfo* getAddrInfo();
+	void setTaskReturnValue(void* a);
+	void* getTaskReturnValue();
 
 private:
 	poco_socket_t			_sockfd;
@@ -71,7 +73,18 @@ private:
 	chunked_memory_stream*	_send_stream;
 	chunked_memory_stream*	_recv_stream;
 	struct addrinfo*		_addr_info;
+	void*					_task_return_value;
 };
+
+inline void EVUpstreamEventNotification::setTaskReturnValue(void* a)
+{
+	_task_return_value = a;
+}
+
+inline void* EVUpstreamEventNotification::getTaskReturnValue()
+{
+	return _task_return_value;
+}
 
 inline void EVUpstreamEventNotification::setAddrInfo(struct addrinfo *a)
 {
@@ -149,6 +162,7 @@ inline void EVUpstreamEventNotification::debug(const char* file, const int linen
 	printf("[%p][%s:%d] _ret = %zd\n", pthread_self(), file, lineno, _ret);
 	printf("[%p][%s:%d] _cb_evid_num = %d\n", pthread_self(), file, lineno, _cb_evid_num);
 	printf("[%p][%s:%d] _errno = %d, %s\n", pthread_self(), file, lineno, _errno, strerror(_errno));
+	printf("[%p][%s:%d] _task_return_value = %p\n", pthread_self(), file, lineno, _task_return_value);
 }
 
 } } // namespace evnet and Poco end.

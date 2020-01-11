@@ -26,6 +26,7 @@ using Poco::Net::StreamSocket;
 #define POCO_EVNET_EVTCPSERVICEREQUEST_INCLUDED
 
 namespace Poco{ namespace evnet {
+
 class EVTCPServiceRequest: public Notification
 {
 public:
@@ -41,6 +42,7 @@ public:
 	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
 	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
 	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, const char* domain_name, const char* serv_name);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, task_func_with_return_t tf, void* td);
 
 	~EVTCPServiceRequest();
 
@@ -60,26 +62,38 @@ public:
 
 	long getSRNum();
 
-	inline const char* getDomainName();
+	const char* getDomainName();
 
-	inline struct addrinfo* getHints();
+	struct addrinfo* getHints();
 
-	inline const char* getServName();
+	const char* getServName();
+
+	task_func_with_return_t getTaskFunc();
+
+	void* getTaskInputData();
 
 private:
-	long					_sr_num;
-	int						_cb_evid_num; // Unique Service request number, for identificaton
-	what					_event; // One of connect, send data or recieve data
-	poco_socket_t			_acc_fd; // fd of the accepted(listen) socket
-	Net::StreamSocket		_ss; // Connected StreamSocket
-	Net::SocketAddress		_addr; // Optional address needed only in the connect request
-	//struct addrinfo*		_hints;
-	const char*				_domain_name; // Either socket address or domain name can be passed
-	const char*				_serv_name; // Either socket address or domain name can be passed
-	task_func_type			_task_func;
-	void*					_task_inout_data; // Input output data for generic task
+	long						_sr_num;
+	int							_cb_evid_num; // Unique Service request number, for identificaton
+	what						_event; // One of connect, send data or recieve data
+	poco_socket_t				_acc_fd; // fd of the accepted(listen) socket
+	Net::StreamSocket			_ss; // Connected StreamSocket
+	Net::SocketAddress			_addr; // Optional address needed only in the connect request
+	const char*					_domain_name; // Either socket address or domain name can be passed
+	const char*					_serv_name; // Either socket address or domain name can be passed
+	task_func_with_return_t		_task_func;
+	void*						_task_input_data; // Input data for generic task
 };
 
+inline task_func_with_return_t EVTCPServiceRequest::getTaskFunc()
+{
+	return _task_func;
+}
+
+inline void* EVTCPServiceRequest::getTaskInputData()
+{
+	return _task_input_data;
+}
 
 inline EVTCPServiceRequest::what EVTCPServiceRequest::getEvent()
 {

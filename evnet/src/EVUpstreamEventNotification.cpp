@@ -23,7 +23,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, int cb_evi
 	_errno(0),
 	_send_stream(0),
 	_recv_stream(0),
-	_addr_info(0)
+	_addr_info(0),
+	_task_return_value(0)
 {
 }
 
@@ -35,7 +36,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_errno(err_no),
 	_send_stream(0),
 	_recv_stream(0),
-	_addr_info(0)
+	_addr_info(0),
+	_task_return_value(0)
 {
 }
 
@@ -47,7 +49,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_errno(err_no),
 	_send_stream(0),
 	_recv_stream(0),
-	_addr_info(0)
+	_addr_info(0),
+	_task_return_value(0)
 {
 }
 
@@ -59,7 +62,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_errno(err_no),
 	_send_stream(0),
 	_recv_stream(0),
-	_addr_info(0)
+	_addr_info(0),
+	_task_return_value(0)
 {
 }
 
