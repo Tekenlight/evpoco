@@ -81,10 +81,15 @@ function handle_request() -- {
 		response:write('<td>'..row[1]..'</td>'..'<td>'..row[2]..'</td>');
 		response:write('</tr>')
 	end
+
 	response:write('</table>\n');
 	response:write('</p>');
 
 	response:write('</body>\n');
+
+	local b=c:rollback();
+	local b=c:autocommit(false);
+	print('HH',b,'HH');
 
 	return ;
 end -- }
