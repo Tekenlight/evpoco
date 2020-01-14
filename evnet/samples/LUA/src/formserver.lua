@@ -88,8 +88,9 @@ function handle_request() -- {
 
 	response:write('</body>\n');
 
-	local b=c:rollback();
 	local b=c:autocommit(false);
+	local b=c:commit();
+	local b=c:rollback();
 	print('HH',b,'HH');
 
 	return ;

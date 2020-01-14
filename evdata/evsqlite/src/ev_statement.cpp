@@ -1,4 +1,5 @@
 #include "Poco/evdata/evsqlite/ev_sqlite3.h"
+#include "Poco/evnet/evnet_lua.h"
 
 extern "C" {
 int try_begin_transaction(connection_t *conn);
@@ -387,8 +388,9 @@ static int statement_tostring(lua_State *L)
     return 1;
 }
 
-extern "C" int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
-int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
+/* original function */
+extern "C" int db_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
+int db_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
 { 
     statement_t *statement = NULL;
 
@@ -407,6 +409,38 @@ int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sq
     luaL_getmetatable(L, EV_SQLITE_STATEMENT);
     lua_setmetatable(L, -2);
     return 1;
+} 
+
+extern "C" void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams,
+																connection_t *conn, const char *sql_query);
+
+void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams,
+																connection_t *conn, const char *sql_query)
+{ 
+    statement_t *statement = NULL;
+
+    statement = (statement_t *)malloc(sizeof(statement_t));
+    statement->conn = conn;
+    statement->stmt = NULL;
+    statement->more_data = 0;
+    statement->affected = 0;
+
+    if (sqlite3_prepare_v2(statement->conn->sqlite, sql_query, strlen(sql_query), &statement->stmt, NULL) != SQLITE_OK) {
+		free(statement);
+		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
+		char str[1024];
+		sprintf(str, EV_SQL_ERR_PREP_STATEMENT, sqlite3_errmsg(statement->conn->sqlite));	
+		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+		return ;
+    } 
+
+	gen_lua_user_data_t* gud = new gen_lua_user_data_t();
+    gud->meta_table_name = strdup(EV_SQLITE_STATEMENT);
+	gud->user_data = statement;
+	gud->size = sizeof(statement_t);
+	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA, gud);
+
+    return ;
 } 
 
 extern "C" int ev_sqlite3_statement(lua_State *L);

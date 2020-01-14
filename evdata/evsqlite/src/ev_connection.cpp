@@ -5,7 +5,9 @@
 #include "Poco/evnet/evnet_lua.h"
 
 extern "C" {
-int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
+void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams,
+																connection_t *conn, const char *sql_query);
+int db_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
 }
 
 
@@ -108,22 +110,6 @@ static int completion_common_routine(lua_State* L, int status, lua_KContext ctx)
 	return n;
 }
 
-static int complete_connection_new(lua_State* L, int status, lua_KContext ctx)
-{
-	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
-	if (usN.getRet() != 0) {
-		luaL_error(L, "New: connection could not be established");
-		return 0;
-	}
-	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
-	push_out_params_to_lua_stack(oparams, L);
-	int n = get_num_generic_params(oparams);
-
-	oparams = destroy_generic_task_out_params(oparams);
-	return n;
-}
-
 static int initiate_connection_new(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -200,22 +186,6 @@ static void* vs_connection_autocommit(void *v)
 	return oparams;
 }
 
-static int complete_connection_autocommit(lua_State* L, int status, lua_KContext ctx)
-{
-	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
-	if (usN.getRet() != 0) {
-		luaL_error(L, "autocommit could not be set");
-		return 0;
-	}
-	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
-	push_out_params_to_lua_stack(oparams, L);
-	int n = get_num_generic_params(oparams);
-
-	oparams = destroy_generic_task_out_params(oparams);
-	return n;
-}
-
 static int initiate_connection_autocommit(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -228,7 +198,7 @@ static int initiate_connection_autocommit(lua_State *L)
 
 	reqHandler->executeGenericTask(NULL, &vs_connection_autocommit, params);
 
-	return lua_yieldk(L, 0, (lua_KContext)0, complete_connection_autocommit);
+	return lua_yieldk(L, 0, (lua_KContext)"autocommit could not be set", completion_common_routine);
 }
 
 
@@ -251,6 +221,43 @@ static int connection_close(lua_State *L)
     return 1;
 }
 
+static void* vs_connection_close(void* v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+    connection_t *conn = (connection_t *)get_generic_task_param(iparams,1);
+	int disconnect = 0;
+
+    if (conn->sqlite) {
+		rollback(conn);
+		sqlite3_close(conn->sqlite);
+		disconnect = 1;
+		conn->sqlite = NULL;
+    }
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &disconnect);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	return oparams;
+}
+
+static int initiate_connection_close(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
+
+    if (!(conn->sqlite)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	reqHandler->executeGenericTask(NULL, &vs_connection_close, params);
+	return lua_yieldk(L, 0, (lua_KContext)"connection could not be closed", completion_common_routine);
+}
+
 /*
  * success = connection:commit()
  */
@@ -265,6 +272,44 @@ static int connection_commit(lua_State *L)
 
     lua_pushboolean(L, !err);
     return 1;
+}
+
+static void* vs_connection_commit(void *v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+    connection_t *conn = (connection_t *)get_generic_task_param(iparams,1);
+	int err = 1;
+
+    if (conn->sqlite) {
+		err = commit(conn);
+    }
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+	int b = !err;
+	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &b);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	return oparams;
+}
+
+/*
+ * success = connection:commit()
+ */
+static int initiate_connection_commit(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
+
+    if (!(conn->sqlite)) {
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	reqHandler->executeGenericTask(NULL, &vs_connection_commit, params);
+	return lua_yieldk(L, 0, (lua_KContext)"transaction could not be committed", completion_common_routine);
 }
 
 /*
@@ -291,12 +336,46 @@ static int connection_prepare(lua_State *L)
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
 
     if (conn->sqlite) {
-	return ev_sqlite3_statement_create(L, conn, luaL_checkstring(L, 2));
+		return db_sqlite3_statement_create(L, conn, luaL_checkstring(L, 2));
     }
 
     lua_pushnil(L);    
     lua_pushstring(L, EV_SQL_ERR_DB_UNAVAILABLE);
     return 2;
+}
+
+static void* vs_connection_prepare(void *v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+    connection_t *conn = (connection_t *)get_generic_task_param(iparams,1);
+	char * sql_statement = (char*)get_generic_task_param(iparams,2);
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+	ev_sqlite3_statement_create(iparams, oparams, conn, sql_statement);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	return oparams;
+}
+
+/*
+ * statement,err = connection:prepare(sql_str)
+ */
+static int initiate_connection_prepare(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
+
+	if (!(conn->sqlite)) {
+		lua_pushnil(L);    
+		lua_pushstring(L, EV_SQL_ERR_DB_UNAVAILABLE);
+		return 2;
+	}
+
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	reqHandler->executeGenericTask(NULL, &vs_connection_prepare, params);
+	return lua_yieldk(L, 0, (lua_KContext)"statement could not be prepared", completion_common_routine);
 }
 
 /*
@@ -353,22 +432,6 @@ static void* vs_connection_rollback(void * inp)
 	return oparams;
 }
 
-static int complete_connection_rollback(lua_State* L, int status, lua_KContext ctx)
-{
-	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
-	if (usN.getRet() != 0) {
-		luaL_error(L, "transaction could not be rolled back");
-		return 0;
-	}
-	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
-	push_out_params_to_lua_stack(oparams, L);
-	int n = get_num_generic_params(oparams);
-
-	oparams = destroy_generic_task_out_params(oparams);
-	return n;
-}
-
 static int initiate_connection_rollback(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -380,7 +443,7 @@ static int initiate_connection_rollback(lua_State *L)
 	}
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
 	reqHandler->executeGenericTask(NULL, &vs_connection_rollback, params);
-	return lua_yieldk(L, 0, (lua_KContext)0, complete_connection_rollback);
+	return lua_yieldk(L, 0, (lua_KContext)"transaction could not be rolled back", completion_common_routine);
 }
 /*
  * last_id = connection:last_id()
@@ -434,10 +497,10 @@ int ev_sqlite3_connection(lua_State *L)
      */
     static const luaL_Reg connection_methods[] = {
 	{"autocommit", initiate_connection_autocommit}, // Done
-	{"close", connection_close},
-	{"commit", connection_commit},
+	{"close", initiate_connection_close}, // Done
+	{"commit", initiate_connection_commit}, // Done
 	{"ping", connection_ping}, // Only memory operation
-	{"prepare", connection_prepare},
+	{"prepare", initiate_connection_prepare}, // Done
 	{"quote", connection_quote}, // Only memory operation
 	{"rollback", initiate_connection_rollback}, // Done
 	{"last_id", connection_lastid}, //Only memory operation
