@@ -283,7 +283,7 @@ public:
 		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
 		if (usN.getRet() != 0) {
 			send_string_response(__LINE__, "Got some error");
-			return -1;
+			return PROCESSING_COMPLETE;
 		}
 		void * return_string = usN.getTaskReturnValue();
 		DEBUGPOINT("Here return_value = %p %s\n", return_string, (char*)return_string);

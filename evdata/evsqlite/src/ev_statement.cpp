@@ -1,11 +1,9 @@
 #include "Poco/evdata/evsqlite/ev_sqlite3.h"
 
-namespace evpoco {
-namespace evdata {
-namespace evsqlite {
-
+extern "C" {
 int try_begin_transaction(connection_t *conn);
 int try_end_transaction(connection_t *conn);
+}
 
 /*
  * Converts SQLite types to Lua types
@@ -389,6 +387,7 @@ static int statement_tostring(lua_State *L)
     return 1;
 }
 
+extern "C" int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
 int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
 { 
     statement_t *statement = NULL;
@@ -410,6 +409,7 @@ int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sq
     return 1;
 } 
 
+extern "C" int ev_sqlite3_statement(lua_State *L);
 int ev_sqlite3_statement(lua_State *L)
 {
     static const luaL_Reg statement_methods[] = {
@@ -434,6 +434,3 @@ int ev_sqlite3_statement(lua_State *L)
     return 1;    
 }
 
-}
-}
-}

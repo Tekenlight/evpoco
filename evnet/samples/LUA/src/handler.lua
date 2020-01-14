@@ -1,7 +1,7 @@
 function handle_request()
 	return_string = 'Hello from LUA handler';
 	ev_yield();
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
 	local it, k, v = form:begin_iteration();
 	while (k ~= nil) do

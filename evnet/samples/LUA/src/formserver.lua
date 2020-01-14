@@ -1,12 +1,13 @@
-function handle_request()
+function handle_request() -- {
 	local return_string = 'Hello from LUA handler';
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
-	local response = context.get_http_response();
+	local response = platform.get_http_response();
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
 	response:send();
-	--ev_sleep(3000000);
+
+
 	response:write('<html>\n');
 	response:write('<head>\n');
 	response:write('<title>EVLUA Form Server Sample</title>\n');
@@ -61,20 +62,41 @@ function handle_request()
 	end
 	response:write('</p>');
 
+	db = require('rdbms_interface');
+	c = assert(db.Connect('sqlite','test.db'));
+	s = assert(c:prepare('select org_id, org_name from org'));
+
+	assert(s:execute());
+
+	col = assert(s:columns());
+
+	response:write('<p>');
+	response:write('<table>');
+	response:write('<tr>')
+	response:write('<td>'..col[1]..'</td>'..'<td>'..col[2]..'</td>');
+	response:write('</tr>')
+
+	for row in s:rows() do
+		response:write('<tr>')
+		response:write('<td>'..row[1]..'</td>'..'<td>'..row[2]..'</td>');
+		response:write('</tr>')
+	end
+	response:write('</table>\n');
+	response:write('</p>');
+
 	response:write('</body>\n');
 
 	return ;
-end
+end -- }
 
 function handle_upload()
 	print('Hello from LUA handler');
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
-	local response = context.get_http_response();
+	local response = platform.get_http_response();
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
 	response:send();
-	--ev_sleep(3000000);
 	response:write('<html>\n');
 	response:write('<head>\n');
 	response:write('<title>EVLUA Form Server Sample</title>\n');
@@ -134,15 +156,14 @@ function handle_upload()
 	return ;
 end
 
-function handle_post()
+function handle_post() -- {
 	local return_string = 'Hello from LUA handler';
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
-	local response = context.get_http_response();
+	local response = platform.get_http_response();
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
 	response:send();
-	--ev_sleep(3000000);
 	response:write('<html>\n');
 	response:write('<head>\n');
 	response:write('<title>EVLUA Form Server Sample</title>\n');
@@ -197,7 +218,5 @@ function handle_post()
 	end
 	response:write('</p>');
 
-	response:write('</body>\n');
-
 	return ;
-end
+end --}

@@ -1,8 +1,8 @@
 function handle_request()
 	local return_string = 'Hello from LUA handler';
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
-	local response = context.get_http_response();
+	local response = platform.get_http_response();
 
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
@@ -18,12 +18,12 @@ function handle_request()
 	local s = 'this is a random request body';
 	echo_request:set_content_length(string.len(s));
 	echo_request:set_expect_continue(true); 
-	local client_session, msg = context.make_http_connection('localhost', 9980);
-	context.send_request_header(client_session, echo_request);
+	local client_session, msg = platform.make_http_connection('localhost', 9980);
+	platform.send_request_header(client_session, echo_request);
 
 	echo_request:write(s);
-	context.send_request_body(client_session, echo_request);
-	local echo_response = context.receive_http_response(client_session);
+	platform.send_request_body(client_session, echo_request);
+	local echo_response = platform.receive_http_response(client_session);
 
 	--for n,v in pairs(request:get_cookies()) do
 		--print(n, v);

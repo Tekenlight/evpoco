@@ -28,6 +28,7 @@ extern "C" {
 #include <lualib.h>
 }
 
+#include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
 #include "Poco/Net/HTMLForm.h"
 #include "Poco/Net/PartHandler.h"
@@ -168,6 +169,10 @@ public:
 	EVHTTPClientSession* getHTTPConnection(int i);
 	std::string getDynamicMetaName();
 	char* getEphemeralBuf();
+
+	static const std::string SERVER_PREFIX_CFG_NAME;
+	static const std::string ENABLE_CACHE;
+	Poco::Util::AbstractConfiguration& appConfig();
 
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);

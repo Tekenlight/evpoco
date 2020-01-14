@@ -1,10 +1,13 @@
 #include "Poco/evdata/evsqlite/ev_sqlite3.h"
+#include "Poco/evnet/EVLHTTPRequestHandler.h"
+#include "Poco/evnet/EVUpstreamEventNotification.h"
 
-namespace evpoco {
-namespace evdata {
-namespace evsqlite {
+#include "Poco/evnet/evnet_lua.h"
 
+extern "C" {
 int ev_sqlite3_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
+}
+
 
 static int run(connection_t *conn, const char *command)
 {
@@ -37,21 +40,13 @@ static int rollback(connection_t *conn)
     return run(conn, "ROLLBACK TRANSACTION");
 }
 
-int try_begin_transaction(connection_t *conn)
-{
-    if (conn->autocommit) {
-        return 1;
-    }
-
-    return begin(conn) == 0;
-}
-
 /* 
  * connection,err = evrdbms.sqlite3(dbfile)
  */
-static int connection_new(lua_State *L)
+static void* connection_new(void *v)
 {
-    int n = lua_gettop(L);
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+    int n = iparams->n;
 
     const char *db = NULL;
     connection_t *conn = NULL;
@@ -59,32 +54,85 @@ static int connection_new(lua_State *L)
     /* db */
     switch(n) {
     default:
-	/*
-	 * db is the only mandatory parameter
-	 */
-	db = luaL_checkstring(L, 1);
+		/*
+		 * db is the only mandatory parameter
+		 */
+		db = (char*)get_generic_task_param(iparams, 1);
     }
 
     int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
     if (n >= 2) {
-      if (!lua_isnil(L, 2))
-	flags = luaL_checkinteger(L, 2);
+		void *p =  get_generic_task_param(iparams, 2);
+		if (p) flags = (int)(long)(p);
     }
 
-    conn = (connection_t *)lua_newuserdata(L, sizeof(connection_t));
+	generic_task_params_ptr_t oparams = new_generic_task_params();
 
+    conn = (connection_t *)malloc(sizeof(connection_t));
     if (sqlite3_open_v2(db, &conn->sqlite, flags, NULL) != SQLITE_OK) {
-	lua_pushnil(L);
-	lua_pushfstring(L, EV_SQL_ERR_CONNECTION_FAILED, sqlite3_errmsg(conn->sqlite));
-	return 2;
+		free(conn);
+		set_lua_stack_out_param(oparams, 1, LUA_TNIL, 0);
+		char str[1024];
+		sprintf(str, EV_SQL_ERR_CONNECTION_FAILED, sqlite3_errmsg(conn->sqlite));
+		set_lua_stack_out_param(oparams, 2, LUA_TSTRING, &str);
+		return (void*)oparams;
     }
 
     conn->autocommit = 0;
 
-    luaL_getmetatable(L, EV_SQLITE_CONNECTION);
-    lua_setmetatable(L, -2);
+	gen_lua_user_data_t* gud = new gen_lua_user_data_t();
+    gud->meta_table_name = strdup(EV_SQLITE_CONNECTION);
+	gud->user_data = conn;
+	gud->size = sizeof(connection_t);
+	set_lua_stack_out_param(oparams, 1, LUA_TUSERDATA, &gud);
 
-    return 1;
+	iparams = destroy_generic_task_in_params(iparams);
+    return (void*)oparams;
+}
+
+static int complete_connection_new(lua_State* L, int status, lua_KContext ctx)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	if (usN.getRet() != 0) {
+		luaL_error(L, "New: connection could not be established");
+		return 0;
+	}
+	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
+	push_out_params_to_lua_stack(oparams, L);
+	int n = oparams->n;
+
+	oparams = destroy_generic_task_out_params(oparams);
+	return n;
+}
+
+static int initiate_connection_new(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+    int n = lua_gettop(L);
+
+    const char *db = NULL;
+
+    /* db */
+    switch(n) {
+		/*
+		 * db is the only mandatory parameter
+		 */
+		default:
+			db = luaL_checkstring(L, 1);
+    }
+
+    int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+    if (n >= 2) {
+		if (!lua_isnil(L, 2))
+			flags = luaL_checkinteger(L, 2);
+    }
+
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+
+	reqHandler->executeGenericTask(NULL, &connection_new, params);
+
+	return lua_yieldk(L, 0, (lua_KContext)0, complete_connection_new);
 }
 
 /*
@@ -248,6 +296,17 @@ static int connection_tostring(lua_State *L)
     return 1;
 }
 
+extern "C" int try_begin_transaction(connection_t *conn);
+int try_begin_transaction(connection_t *conn)
+{
+    if (conn->autocommit) {
+        return 1;
+    }
+
+    return begin(conn) == 0;
+}
+
+extern "C" int ev_sqlite3_connection(lua_State *L);
 int ev_sqlite3_connection(lua_State *L)
 {
     /*
@@ -259,9 +318,9 @@ int ev_sqlite3_connection(lua_State *L)
 	{"commit", connection_commit},
 	{"ping", connection_ping},
 	{"prepare", connection_prepare},
-	{"quote", connection_quote},
-	{"rollback", connection_rollback},
-	{"last_id", connection_lastid},
+	{"quote", connection_quote}, // Only memory operation
+	{"rollback", connection_rollback}, 
+	{"last_id", connection_lastid}, //Only memory operation
 	{NULL, NULL}
     };
 
@@ -269,7 +328,7 @@ int ev_sqlite3_connection(lua_State *L)
      * class methods
      */
     static const luaL_Reg connection_class_methods[] = {
-	{"New", connection_new},
+	{"New", initiate_connection_new}, // Opens the database needs to be async
 	{NULL, NULL}
     };
 
@@ -311,7 +370,3 @@ int ev_sqlite3_connection(lua_State *L)
     return 1;    
 }
 
-
-}
-}
-}

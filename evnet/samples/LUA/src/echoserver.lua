@@ -1,8 +1,8 @@
 function handle_request()
 	local return_string = 'Hello from LUA handler';
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	local form = request:parse_req_form();
-	local response = context.get_http_response();
+	local response = platform.get_http_response();
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/plain");
 	response:send();

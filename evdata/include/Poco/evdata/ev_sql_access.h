@@ -12,9 +12,6 @@ extern "C" {
 #include <lualib.h>
 }
 
-namespace evpoco {
-namespace evdata {
-
 #ifdef _WIN32
     #define LUA_EXPORT __declspec(dllexport)
 #else
@@ -167,6 +164,4 @@ void ev_sql_register(lua_State *L, const char *name,
 
 __END_DECLS
 
-}
-}
 #endif

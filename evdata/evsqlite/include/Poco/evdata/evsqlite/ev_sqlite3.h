@@ -6,10 +6,6 @@ extern "C" {
 #ifndef EV_SQLITE3_INCLUDED
 #define EV_SQLITE3_INCLUDED
 
-namespace evpoco {
-namespace evdata {
-namespace evsqlite {
-
 #define EV_SQLITE_CONNECTION	"EV.SQLite3.Connection"
 #define EV_SQLITE_STATEMENT		"EV.SQLite3.Statement"
 
@@ -30,9 +26,5 @@ typedef struct _statement {
     int more_data;
     int affected;
 } statement_t;
-
-}
-}
-}
 
 #endif

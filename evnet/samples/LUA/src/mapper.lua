@@ -4,7 +4,7 @@ end
 function map_request_to_handler()
 	local request_handler = "formserver.lua";
 	local request_handler_func = "handle_request";
-	local request = context.get_http_request();
+	local request = platform.get_http_request();
 	--local host = request:get_host();
 	--local method = request:get_method();
 	local uri = request:get_uri();

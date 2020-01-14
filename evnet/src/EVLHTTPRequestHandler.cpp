@@ -18,6 +18,7 @@
 #include <ev_rwlock.h>
 #include <chunked_memory_stream.h>
 
+#include "Poco/Util/Application.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerRequest.h"
@@ -29,6 +30,8 @@
 #include "Poco/DateTime.h"
 #include "Poco/URI.h"
 
+#include "Poco/evnet/evnet_lua.h"
+
 
 namespace Poco {
 namespace evnet {
@@ -36,10 +39,9 @@ namespace evnet {
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_req_type_name = "httpreq";
 const static char *_http_resp_type_name = "httpresp";
-const static char *_platform_name = "context";
+const static char *_platform_name = "platform";
 
 namespace evpoco {
-	static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L);
 	static int get_http_request(lua_State* L);
 	static int get_http_response(lua_State* L);
 	static int resolve_host_address_complete(lua_State* L, int status, lua_KContext ctx);
@@ -325,14 +327,6 @@ static int obj__gc(lua_State *L)
 }
 
 namespace evpoco {
-
-	static EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L)
-	{
-		lua_getglobal(L, "EVLHTTPRequestHandler*");
-		EVLHTTPRequestHandler * req_h = (EVLHTTPRequestHandler*)lua_touserdata(L, -1);
-		lua_pop(L, 1);
-		return req_h;
-	}
 
 	static int evpoco_sleep(lua_State* L)
 	{
@@ -1679,6 +1673,9 @@ static int luaopen_evpoco(lua_State* L)
 	return 1;
 }
 
+const std::string EVLHTTPRequestHandler::SERVER_PREFIX_CFG_NAME("evlhttprequesthandler.");
+const std::string EVLHTTPRequestHandler::ENABLE_CACHE("enableluafilecache");
+
 EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_L0(0),
 	_L(0),
@@ -1703,20 +1700,26 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	lua_pushlightuserdata(_L, (void*) this);
 	lua_setglobal(_L, "EVLHTTPRequestHandler*");
 
-	lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
-	lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
+	Poco::Util::AbstractConfiguration& config = appConfig();
+	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
 
-	lua_pushlightuserdata(_L, (void*)luaL_cacheloadedfile);
-	lua_setglobal(_L, LUA_FILE_CACHING_FUNCTION);
+	//DEBUGPOINT("Here enable_lua_cache=%d\n", enable_lua_cache);
+	if (enable_lua_cache) {
+		lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
+		lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
 
-	lua_pushlightuserdata(_L, (void*)luaL_checkfilecacheexists);
-	lua_setglobal(_L, LUA_CACHED_FILE_EXISTS_FUNCTION);
+		lua_pushlightuserdata(_L, (void*)luaL_cacheloadedfile);
+		lua_setglobal(_L, LUA_FILE_CACHING_FUNCTION);
 
-	lua_pushlightuserdata(_L, (void*)luaL_getcachedpath);
-	lua_setglobal(_L, LUA_CACHED_PATH_FUNCTION);
+		lua_pushlightuserdata(_L, (void*)luaL_checkfilecacheexists);
+		lua_setglobal(_L, LUA_CACHED_FILE_EXISTS_FUNCTION);
 
-	lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
-	lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
+		lua_pushlightuserdata(_L, (void*)luaL_getcachedpath);
+		lua_setglobal(_L, LUA_CACHED_PATH_FUNCTION);
+
+		lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
+		lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
+	}
 
 }
 
@@ -1886,6 +1889,21 @@ int EVLHTTPRequestHandler::handleRequest()
 			}
 		}
 		return PROCESSING_COMPLETE;
+	}
+}
+
+Poco::Util::AbstractConfiguration& EVLHTTPRequestHandler::appConfig()
+{
+	try
+	{
+		return Poco::Util::Application::instance().config();
+	}
+	catch (Poco::NullPointerException&)
+	{
+		throw Poco::IllegalStateException(
+			"An application configuration is required to initialize the Poco::Net::SSLManager, "
+			"but no Poco::Util::Application instance is available."
+		);
 	}
 }
 

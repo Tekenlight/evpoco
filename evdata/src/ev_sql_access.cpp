@@ -6,9 +6,6 @@
 
 #include <Poco/evdata/ev_sql_access.h>
 
-namespace evpoco {
-namespace evdata {
-
 const char *ev_sql_strlower(char *in) {
     char *s = in;
 
@@ -133,6 +130,3 @@ void ev_sql_register(lua_State *L, const char *name,
     luaL_setfuncs(L, class_methods, 0);
 }
 
-
-}
-}

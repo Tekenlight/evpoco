@@ -2,82 +2,40 @@
 
 local _M = {}
 
--- Driver to module mapping
-local name_to_module = {
-    mysql = 'evrdbms.mysql',
-    postgresql = 'evrdbms.postgresql',
-    sqlite3 = 'evrdbms.sqlite3',
-    db2 = 'evrdbms.db2',
-    oracle = 'evrdbms.oracle',
-    odbc = 'evrdbms.odbc'
+-- Driver to module_loader mapping
+local name_to_module_loader = {
+    mysql = package.loadlib('libevmysql.so','luaopen_evrdbms_mysql'),
+    postgresql = package.loadlib('libevpostgresql.so','luaopen_evrdbms_postgresql'),
+    sqlite = package.loadlib('libevsqlite.so','luaopen_evrdbms_sqlite3'),
+    db2 = package.loadlib('libevdb2.so','luaopen_evrdbms_db2'),
+    oracle = package.loadlib('libevoracle.so','luaopen_evrdbms_oracle'),
+    odbc = package.loadlib('libevoebc.so','luaopen_evrdbms_oebc'),
 }
 
-local string = require('string')
-
--- Returns a list of available drivers
--- based on run time loading
-local function available_drivers()
-    local available = {}
-
-    for driver, modulefile in pairs(name_to_module) do
-		local m, _ = pcall(require, modulefile)
-
-		if m then
-			table.insert(available, driver)
-		end
-    end
-
-    -- no drivers available
-    if #available < 1 then
-		available = {'(None)'}
-    end
-
-    return available
+local driver_to_initfuncs = {};
+for n, l in pairs(name_to_module_loader) do
+	if l ~= nil then
+		driver_to_initfuncs[n]=l();
+	end
 end
+
 
  -- High level DB connection function
  -- This should be used rather than DBD.{Driver}.New
 function _M.Connect(driver, ...)
-    local modulefile = name_to_module[driver]
+    local db = driver_to_initfuncs[driver]
 
-    if not modulefile then
-        local available = table.concat(available_drivers(), ',')
-		error(string.format("Driver '%s' not found. Available drivers are: %s", driver, available))
+    if db == nil then
+		--error(string.format("Driver '%s' not found. Available drivers are: %s", driver, available))
+		error(string.format("Driver for '%s' not found", driver))
     end
 
-    local m, _ = pcall(require, modulefile)
-
-    if not m then
-		-- cannot load the module, we cannot continue
-        local available = table.concat(available_drivers(), ',')
-		error(string.format('Cannot load driver %s. Available drivers are: %s', driver, available))
-    end
-
-    return package.loaded[modulefile].New(...)
-end
-
--- Help function to do prepare and execute in
--- a single step
-function _M.Do(dbh, sql, ...)
-    local sth, err = dbh:prepare(sql)
-
-    if not sth then
-		return false, err
-    end
-
-    local ok
-    ok, err = sth:execute(...)
-
-    if not ok then
-        return false, err
-    end
-
-    return sth:affected()
+    return db.New(...)
 end
 
 -- List drivers available on this system
 function _M.Drivers()
-    return available_drivers()
+    return driver_to_initfunc;
 end
 
 
