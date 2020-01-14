@@ -71,10 +71,10 @@ static void* connection_new(void *v)
     conn = (connection_t *)malloc(sizeof(connection_t));
     if (sqlite3_open_v2(db, &conn->sqlite, flags, NULL) != SQLITE_OK) {
 		free(conn);
-		set_lua_stack_out_param(oparams, 1, LUA_TNIL, 0);
+		set_lua_stack_out_param(oparams, 1, EV_LUA_TNIL, 0);
 		char str[1024];
 		sprintf(str, EV_SQL_ERR_CONNECTION_FAILED, sqlite3_errmsg(conn->sqlite));
-		set_lua_stack_out_param(oparams, 2, LUA_TSTRING, &str);
+		set_lua_stack_out_param(oparams, 2, EV_LUA_TSTRING, &str);
 		return (void*)oparams;
     }
 
@@ -84,7 +84,7 @@ static void* connection_new(void *v)
     gud->meta_table_name = strdup(EV_SQLITE_CONNECTION);
 	gud->user_data = conn;
 	gud->size = sizeof(connection_t);
-	set_lua_stack_out_param(oparams, 1, LUA_TUSERDATA, &gud);
+	set_lua_stack_out_param(oparams, 1, EV_LUA_TUSERDATA, &gud);
 
 	iparams = destroy_generic_task_in_params(iparams);
     return (void*)oparams;

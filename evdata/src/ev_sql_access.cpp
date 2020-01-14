@@ -5,6 +5,8 @@
 #include <sqlite3.h>
 
 #include <Poco/evdata/ev_sql_access.h>
+#include <Poco/evnet/evnet_lua.h>
+
 
 const char *ev_sql_strlower(char *in) {
     char *s = in;
