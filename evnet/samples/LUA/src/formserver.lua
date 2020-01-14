@@ -64,6 +64,7 @@ function handle_request() -- {
 
 	db = require('rdbms_interface');
 	c = assert(db.Connect('sqlite','test.db'));
+	print(c);
 	s = assert(c:prepare('select org_id, org_name from org'));
 
 	assert(s:execute());

@@ -74,7 +74,7 @@ static void* connection_new(void *v)
 		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
 		char str[1024];
 		sprintf(str, EV_SQL_ERR_CONNECTION_FAILED, sqlite3_errmsg(conn->sqlite));
-		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, &str);
+		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
 		return (void*)oparams;
     }
 
@@ -84,10 +84,28 @@ static void* connection_new(void *v)
     gud->meta_table_name = strdup(EV_SQLITE_CONNECTION);
 	gud->user_data = conn;
 	gud->size = sizeof(connection_t);
-	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA, &gud);
+	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA, gud);
 
 	iparams = destroy_generic_task_in_params(iparams);
     return (void*)oparams;
+}
+
+static int completion_common_routine(lua_State* L, int status, lua_KContext ctx)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	if (usN.getRet() != 0) {
+		char * msg = (char*)ctx;
+		if (!msg) msg = (char*)"Error occured during invocation";
+		luaL_error(L, msg);
+		return 0;
+	}
+	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
+	push_out_params_to_lua_stack(oparams, L);
+	int n = get_num_generic_params(oparams);
+
+	oparams = destroy_generic_task_out_params(oparams);
+	return n;
 }
 
 static int complete_connection_new(lua_State* L, int status, lua_KContext ctx)
@@ -133,7 +151,7 @@ static int initiate_connection_new(lua_State *L)
 
 	reqHandler->executeGenericTask(NULL, &connection_new, params);
 
-	return lua_yieldk(L, 0, (lua_KContext)0, complete_connection_new);
+	return lua_yieldk(L, 0, (lua_KContext)"New: connection could not be established", completion_common_routine);
 }
 
 /*
@@ -418,7 +436,7 @@ int ev_sqlite3_connection(lua_State *L)
 	{"autocommit", initiate_connection_autocommit}, // Done
 	{"close", connection_close},
 	{"commit", connection_commit},
-	{"ping", connection_ping},
+	{"ping", connection_ping}, // Only memory operation
 	{"prepare", connection_prepare},
 	{"quote", connection_quote}, // Only memory operation
 	{"rollback", initiate_connection_rollback}, // Done
