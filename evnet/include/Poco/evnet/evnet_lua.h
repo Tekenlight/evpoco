@@ -61,14 +61,22 @@ union _evnet_gen_value_t {
 	void* lightuserdata_value;
 	evnet_lua_table_t* table_value;
 	void* function_value;
-	void* userdata_value;
+	void* userdata_value_from_lua;
+	struct gen_lua_user_data_t* userdata_value_to_lua;
 	void* thread_value;
 	void* none_value;
+	
 };
 
 struct _evnet_lua_table_value_t {
 	ev_lua_type_enum type;
 	union _evnet_gen_value_t value;
+
+	_evnet_lua_table_value_t() {
+	}
+	~_evnet_lua_table_value_t() {
+		DEBUGPOINT("Here\n");
+	}
 } ;
 
 

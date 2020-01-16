@@ -11,6 +11,7 @@ struct _ev_lua_var_s_t {
 struct ptr_s {
 	void* ptr;
 	evnet_lua_table_t * table_map;
+	struct gen_lua_user_data_t* gud;
 };
 
 struct _generic_task_params_t {
@@ -217,6 +218,7 @@ generic_task_params_ptr_t destroy_generic_task_out_params(generic_task_params_pt
 	for (auto it = params->gc_list.begin(); it != params->gc_list.end(); it++) {
 		if (it->ptr) free(it->ptr);
 		else if (it->table_map) delete it->table_map;
+		else if (it->gud) delete it->gud;
 	}
 	free(params);
 	return NULL;
@@ -232,6 +234,7 @@ generic_task_params_ptr_t destroy_generic_task_in_params(generic_task_params_ptr
 	for (auto it = params->gc_list.begin(); it != params->gc_list.end(); it++) {
 		if (it->ptr) free(it->ptr);
 		else if (it->table_map) delete it->table_map;
+		else if (it->gud) delete it->gud;
 	}
 	free(params);
 	return NULL;
@@ -318,6 +321,7 @@ int set_lua_stack_out_param(generic_task_params_ptr_t params, ev_lua_type_enum t
 			struct ptr_s p_s;
 			p_s.ptr = 0;
 			p_s.table_map = table;
+			p_s.gud = 0;
 			params->gc_list.push_back(p_s);
 			break;
 			}
@@ -374,6 +378,8 @@ static void add_iv_tuple(evnet_lua_table_t* map, int index, evnet_lua_table_valu
 	(*map)[map_name] = value;
 }
 
+static evnet_lua_table_t * lua_to_evnet_table(generic_task_params_ptr_t params, lua_State * L, int position);
+
 static void set_value_to_table_value(generic_task_params_ptr_t params, lua_State * L, evnet_lua_table_value_t * vp)
 {
 	switch (lua_type(L, -1)) {
@@ -401,6 +407,7 @@ static void set_value_to_table_value(generic_task_params_ptr_t params, lua_State
 			struct ptr_s p_s;
 			p_s.ptr = vp->value.string_value;
 			p_s.table_map = 0;
+			p_s.gud = 0;
 			params->gc_list.push_back(p_s);
 			vp->type = EV_LUA_TSTRING;
 			break;
@@ -413,7 +420,17 @@ static void set_value_to_table_value(generic_task_params_ptr_t params, lua_State
 			}
 		case LUA_TTABLE:
 			{
-			poco_assert((1!=1));
+			/*
+			 * Top of the stack has the table which has to be 
+			 * recursively traversed.
+			 * */
+			vp->value.table_value = lua_to_evnet_table(params, L, lua_gettop(L));
+			struct ptr_s p_s;
+			p_s.ptr = 0;
+			p_s.table_map = vp->value.table_value;
+			p_s.gud = 0;
+			params->gc_list.push_back(p_s);
+			vp->type = EV_LUA_TTABLE;
 			break;
 			}
 		case LUA_TFUNCTION:
@@ -424,7 +441,7 @@ static void set_value_to_table_value(generic_task_params_ptr_t params, lua_State
 			}
 		case LUA_TUSERDATA:
 			{
-			vp->value.userdata_value = lua_touserdata(L, -1);
+			vp->value.userdata_value_from_lua = lua_touserdata(L, -1);
 			vp->type = EV_LUA_TUSERDATA;
 			break;
 			}
@@ -459,21 +476,7 @@ static evnet_lua_table_t * lua_to_evnet_table(generic_task_params_ptr_t params, 
 	while (lua_next(L, -2) != 0) {
 		/* At this original key is popped out and point -2 is NEW KEY and -1 is NEW VALUE */
 		memset(&value_s, 0, sizeof(evnet_lua_table_value_t));
-		if (lua_type(L, -1) == LUA_TTABLE) {
-			/*
-			 * Top of the stack has the table which has to be 
-			 * recursivelt traversed.
-			 * */
-			value_s.value.table_value = lua_to_evnet_table(params, L, lua_gettop(L));
-			struct ptr_s p_s;
-			p_s.ptr = 0;
-			p_s.table_map = value_s.value.table_value;
-			params->gc_list.push_back(p_s);
-			value_s.type = EV_LUA_TTABLE;
-		}
-		else {
-			set_value_to_table_value(params, L, &value_s);
-		}
+		set_value_to_table_value(params, L, &value_s);
 		if (lua_isinteger(L, -2)) {
 			add_iv_tuple(table, lua_tointeger(L, -2), value_s);
 		}
@@ -543,6 +546,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				struct ptr_s p_s;
 				p_s.ptr = 0;
 				p_s.table_map = p;
+				p_s.gud = 0;
 				params->gc_list.push_back(p_s);
 				break;
 				}
@@ -586,6 +590,126 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 	}
 
 	return params;
+}
+
+static void add_table_to_lua_stack(generic_task_params_ptr_t params, lua_State *L, evnet_lua_table_t *p);
+
+/*
+ * Assumption in this function is that the table to which value is being added is currently
+ * at top of the stack.
+ * */
+static void push_item_to_lua_table(generic_task_params_ptr_t params, lua_State *L, const char * inp_name, evnet_lua_table_value_t* value_ptr)
+{
+	int int_type = (inp_name[2] == '2');
+	const char* name = inp_name+4;
+	int table_index = 0;
+
+	if (int_type) {
+		table_index = atoi(name);
+	}
+
+	switch(value_ptr->type) {
+		case EV_LUA_TNIL:
+			{
+			lua_pushnil(L);
+			break;
+			}
+		case EV_LUA_TBOOLEAN:
+			{
+			lua_pushboolean(L, value_ptr->value.bool_value);
+			break;
+			}
+		case EV_LUA_TINTEGER:
+			{
+			lua_pushinteger(L, value_ptr->value.int_value);
+			break;
+			}
+		case EV_LUA_TNUMBER:
+			{
+			lua_pushnumber(L, value_ptr->value.number_value);
+			break;
+			}
+		case EV_LUA_TSTRING:
+			{
+			lua_pushstring(L, value_ptr->value.string_value);
+			struct ptr_s p_s;
+			p_s.ptr = value_ptr->value.string_value;
+			p_s.table_map = 0;
+			p_s.gud = 0;
+			params->gc_list.push_back(p_s);
+			break;
+			}
+		case EV_LUA_TLIGHTUSERDATA:
+			{
+			lua_pushlightuserdata(L, value_ptr->value.lightuserdata_value);
+			break;
+			}
+		case EV_LUA_TTABLE:
+			{
+			lua_newtable(L);
+			add_table_to_lua_stack(params, L, value_ptr->value.table_value);
+			struct ptr_s p_s;
+			p_s.ptr = 0;
+			p_s.table_map = value_ptr->value.table_value;
+			p_s.gud = 0;
+			params->gc_list.push_back(p_s);
+			break;
+			}
+		case EV_LUA_TFUNCTION:
+			{
+			//std::abort(" TBD: Still to decide, how to handle closures");
+			std::abort();
+			break;
+			}
+		case EV_LUA_TUSERDATA:
+			{
+			struct gen_lua_user_data_t* p = value_ptr->value.userdata_value_to_lua;
+			poco_assert(p!=NULL);
+			poco_assert(p->user_data!=NULL);
+			poco_assert(p->meta_table_name!=NULL);
+			poco_assert(p->size!=0);
+			//DEBUGPOINT("Here %p %s %zu\n", p, p->meta_table_name, p->size);
+			void * ptr = lua_newuserdata(L, p->size);
+			memcpy(ptr, p->user_data, p->size);
+			luaL_setmetatable(L, p->meta_table_name);
+			struct ptr_s p_s;
+			p_s.ptr = 0;
+			p_s.table_map = 0;
+			p_s.gud = p;
+			params->gc_list.push_back(p_s);
+			break;
+			}
+		case EV_LUA_TTHREAD:
+			{
+			//std::abort(" TBD: Still to decide, how to handle THREAD");
+			std::abort();
+			break;
+			}
+		case EV_LUA_TNONE:
+			{
+			//std::abort(" TBD: Still to decide, how to handle NONE");
+			std::abort();
+			}
+		default:
+			poco_assert((1!=1));
+			break;
+	}
+	if (int_type) lua_seti(L, -2, table_index);
+	else lua_setfield(L, -2, name);
+
+	return ;
+}
+
+/*
+ * Assumption in this function is that the table to which value is being added is currently
+ * at top of the stack.
+ * */
+static void add_table_to_lua_stack(generic_task_params_ptr_t params, lua_State *L, evnet_lua_table_t *p)
+{
+	for (auto it = p->begin(); it != p->end(); it++) {
+		push_item_to_lua_table(params, L, it->first.c_str(), &it->second);
+	}
+	return;
 }
 
 void push_out_params_to_lua_stack(generic_task_params_ptr_t params, lua_State *L)
@@ -632,9 +756,9 @@ void push_out_params_to_lua_stack(generic_task_params_ptr_t params, lua_State *L
 				}
 			case EV_LUA_TTABLE:
 				{
-				void * p = *(void**)get_param_location(params, i);
-				//std::abort("TBD:Still to take a decision as to how this is to ba handled");
-				std::abort();
+				evnet_lua_table_t *p = *(evnet_lua_table_t**)(void**)get_param_location(params, i);
+				lua_newtable(L);
+				add_table_to_lua_stack(params, L, p);
 				break;
 				}
 			case EV_LUA_TFUNCTION:
