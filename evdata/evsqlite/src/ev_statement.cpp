@@ -4,6 +4,8 @@
 extern "C" {
 int try_begin_transaction(connection_t *conn);
 int try_end_transaction(connection_t *conn);
+int completion_common_routine(lua_State* L, int status, lua_KContext ctx);
+gen_lua_user_data_t* get_generic_lua_userdata(const char * name, void * data, size_t size);
 }
 
 /*
@@ -85,6 +87,62 @@ static int statement_close(lua_State *L)
 
     lua_pushboolean(L, ok);
     return 1;
+}
+
+static void vs_nr_func(void* i)
+{
+	return;
+}
+
+static void vs_nr_statement_close(void* v)
+{
+	//DEBUGPOINT("Here\n");
+    statement_t *statement = (statement_t *)v;
+	sqlite3_finalize(statement->stmt);
+	statement->stmt = NULL;
+	free(statement);
+	statement = NULL;
+	//DEBUGPOINT("Here\n");
+	return ;
+}
+
+static void * vs_statement_close(void* v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+    statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams,1);
+	//DEBUGPOINT("Here udata of statement = %p\n", statement);
+    int ok = 0;
+
+	if (sqlite3_finalize(statement->stmt) == SQLITE_OK) {
+	    ok = 1;
+	}
+	statement->stmt = NULL;
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &ok);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	return oparams;
+}
+
+static int initiate_statement_close(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+    statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
+    int ok = 0;
+
+	if (!(statement->stmt)) {
+		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	//DEBUGPOINT("Here udata of statement = %p\n", statement);
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	reqHandler->executeGenericTask(NULL, &vs_statement_close, params);
+	return lua_yieldk(L, 0, (lua_KContext)"statement could not be closed", completion_common_routine);
 }
 
 /*
@@ -370,8 +428,29 @@ static int statement_rowcount(lua_State *L)
  */
 static int statement_gc(lua_State *L)
 {
-    /* always free the handle */
     statement_close(L);
+
+    return 0;
+}
+
+static int new_statement_gc(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+    statement_t *l_statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
+    int ok = 0;
+	if (!(l_statement->stmt)) {
+		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+    statement_t *statement = NULL;
+    statement = (statement_t *)malloc(sizeof(statement_t));
+	memcpy(statement, l_statement, sizeof(statement_t));
+
+	//DEBUGPOINT("Here %p\n", &vs_nr_statement_close);
+	reqHandler->executeGenericTaskNR(vs_nr_statement_close, statement);
 
     return 0;
 }
@@ -434,11 +513,10 @@ void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task
 		return ;
     } 
 
-	gen_lua_user_data_t* gud = new gen_lua_user_data_t();
-    gud->meta_table_name = strdup(EV_SQLITE_STATEMENT);
-	gud->user_data = statement;
-	gud->size = sizeof(statement_t);
-	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA, gud);
+	//DEBUGPOINT("Here\n");
+	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA,
+				get_generic_lua_userdata(EV_SQLITE_STATEMENT, statement, sizeof(statement_t)));
+	//DEBUGPOINT("Here\n");
 
     return ;
 } 
@@ -447,8 +525,8 @@ extern "C" int ev_sqlite3_statement(lua_State *L);
 int ev_sqlite3_statement(lua_State *L)
 {
     static const luaL_Reg statement_methods[] = {
-	{"affected", statement_affected},
-	{"close", statement_close},
+	{"affected", statement_affected}, // Not required, only memory operation.
+	{"close", initiate_statement_close}, // Done
 	{"columns", statement_columns},
 	{"execute", statement_execute},
 	{"fetch", statement_fetch},
@@ -463,7 +541,7 @@ int ev_sqlite3_statement(lua_State *L)
 
     ev_sql_register(L, EV_SQLITE_STATEMENT,
 		 statement_methods, statement_class_methods,
-		 statement_gc, statement_tostring);
+		 new_statement_gc, statement_tostring);
 
     return 1;    
 }

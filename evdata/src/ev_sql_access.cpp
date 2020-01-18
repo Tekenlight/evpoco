@@ -7,6 +7,14 @@
 #include <Poco/evdata/ev_sql_access.h>
 #include <Poco/evnet/evnet_lua.h>
 
+#include "Poco/evnet/EVLHTTPRequestHandler.h"
+#include "Poco/evnet/EVUpstreamEventNotification.h"
+
+#include "Poco/evnet/evnet_lua.h"
+
+extern "C" {
+int completion_common_routine(lua_State* L, int status, lua_KContext ctx);
+}
 
 const char *ev_sql_strlower(char *in) {
     char *s = in;
@@ -130,5 +138,25 @@ void ev_sql_register(lua_State *L, const char *name,
     /* Create a new table and register the class methods with it */
     lua_newtable(L);
     luaL_setfuncs(L, class_methods, 0);
+}
+
+int completion_common_routine(lua_State* L, int status, lua_KContext ctx)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	if (usN.getRet() != 0) {
+		char * msg = (char*)ctx;
+		if (!msg) msg = (char*)"Error occured during invocation";
+		luaL_error(L, msg);
+		return 0;
+	}
+	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
+	push_out_params_to_lua_stack(oparams, L);
+	int n = get_num_generic_params(oparams);
+
+	//DEBUGPOINT("Here\n");
+	oparams = destroy_generic_task_out_params(oparams);
+	//DEBUGPOINT("Here\n");
+	return n;
 }
 

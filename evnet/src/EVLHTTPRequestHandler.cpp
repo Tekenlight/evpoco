@@ -321,6 +321,22 @@ static int luaL_loadcachedbufferx(lua_State *L, const char *name, const char *mo
 	return lua_load(L, getCB, &ls, name, mode);
 }
 
+static void v_hello_world(void* v)
+{
+	DEBUGPOINT("Here\n");
+	//free(v);
+	return;
+}
+
+static int obj1__gc(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+
+	return 0;
+}
+
 static int obj__gc(lua_State *L)
 {
 	return 0;
@@ -338,6 +354,13 @@ namespace evpoco {
 		//DEBUGPOINT("Here %d\n", duration);
 
 		usleep(duration);
+
+		/*
+		Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		poco_assert(reqHandler != NULL);
+		Poco::evnet::EVServer * server = reqHandler->getServerPtr();
+		server->submitRequestForTaskExecutionNR(v_hello_world, 0);
+		*/
 
 		return 0;
 	}
@@ -453,6 +476,11 @@ namespace evpoco {
 		//DEBUGPOINT("HERE\n");
 		EVHTTPClientSession* session = *(EVHTTPClientSession**)lua_touserdata(L, 1);
 		delete session;
+		/*
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		Poco::evnet::EVServer * server = reqHandler->getServerPtr();
+		server->submitRequestForTaskExecutionNR(v_hello_world, 0);
+		*/
 		return 0;
 	}
 
@@ -1726,7 +1754,6 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
 	//lua_close(_L0);
-	lua_close(_L);
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -1888,6 +1915,7 @@ int EVLHTTPRequestHandler::handleRequest()
 				send_string_response(__LINE__, output.c_str());
 			}
 		}
+		lua_close(_L);
 		return PROCESSING_COMPLETE;
 	}
 }

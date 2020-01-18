@@ -30,6 +30,7 @@ add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 
 set_target_properties( "${LIBNAME}"
     PROPERTIES
+	LINK_FLAGS "-bind_at_load"
     VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evdata_EXPORTS

@@ -1876,12 +1876,19 @@ void EVTCPServer::postGenericTaskComplete(poco_socket_t acc_fd, EVUpstreamEventN
 
 static void post_task_completion(void* return_data, void* ref_data)
 {
-	//DEBUGPOINT("Here\n");
 	cb_ref_data_ptr_type ref = (cb_ref_data_ptr_type)ref_data;
-	ref->_usN->setTaskReturnValue(return_data);
-	ref->_usN->setRet(0);
-	ref->_instance->postGenericTaskComplete(ref->_acc_fd, ref->_usN);
-	//DEBUGPOINT("Here\n");
+	if (ref) {
+		ref->_usN->setTaskReturnValue(return_data);
+		ref->_usN->setRet(0);
+		ref->_instance->postGenericTaskComplete(ref->_acc_fd, ref->_usN);
+	}
+	else {
+		/*
+		 * If the task completion is not waited for
+		 * the return data from the task should be NULL.
+		 * */
+		poco_assert (return_data == NULL);
+	}
 	return;
 }
 
@@ -1903,6 +1910,15 @@ int EVTCPServer::initiateGenericTask(EVTCPServiceRequest * sr)
 
 	//DEBUGPOINT("Here func = %p, notification_func = %p, inp = %p %s\n", sr->getTaskFunc(), &post_task_completion, task_input_data, (char*)task_input_data);
 	//DEBUGPOINT("Here\n");
+	return 0;
+}
+
+int EVTCPServer::initiateGenericTaskNR(EVTCPServiceRequest * sr)
+{
+	void* task_input_data = sr->getTaskInputData();
+
+	enqueue_task_function(_thread_pool, (sr->getTaskFunc()), task_input_data, NULL, &post_task_completion);
+
 	return 0;
 }
 
@@ -2074,6 +2090,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("GENERIC_TASK from %d\n", tn->getSockfd());
 				initiateGenericTask(srNF);
 				break;
+			case EVTCPServiceRequest::GENERIC_TASK_NR:
+				//DEBUGPOINT("GENERIC_TASK from %d\n", tn->getSockfd());
+				initiateGenericTaskNR(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -2173,6 +2193,23 @@ long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num, poco_socket_t a
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+	return sr_num;
+}
+
+long EVTCPServer::submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data)
+{
+	long sr_num = getNextSRSrlNum();
+
+	//DEBUGPOINT("Here %p\n", tf);
+	//DEBUGPOINT("Here %p\n", input_data);
+	enqueue_task(_thread_pool, tf, input_data);
+	/* Enque the socket */
+	//_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::GENERIC_TASK_NR,
+	//																							acc_fd, tf, input_data));
+
+	/* And then wake up the loop calls process_service_request */
+	//ev_async_send(_loop, this->_stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }

@@ -27,7 +27,8 @@ if(WIN32)
     endif()    
 endif(WIN32)
 
-add_library( "${LIBNAME}" MODULE ${SRCS} )
+#add_library( "${LIBNAME}" MODULE ${SRCS} ) This is needed to creare .so file
+add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 #add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 #set_target_properties( "${LIBNAME}"
 #    PROPERTIES
@@ -41,6 +42,8 @@ add_library( "${LIBNAME}" MODULE ${SRCS} )
 
 set_target_properties( "${LIBNAME}"
     PROPERTIES
+	LINK_FLAGS "-bind_at_load"
+    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evsqlite_EXPORTS
     )

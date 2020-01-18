@@ -218,6 +218,23 @@ long EVHTTPRequestHandler::resolveHost(TCallback cb,
 	return sr_num;
 }
 
+void EVHTTPRequestHandler::executeGenericTaskNR(generic_task_handler_nr_t tf, void * input_data)
+{
+	//DEBUGPOINT("Here\n");
+	Poco::evnet::EVServer & server = getServer();
+	server.submitRequestForTaskExecutionNR(tf, input_data);
+
+	return ;
+}
+
+void EVHTTPRequestHandler::executeGenericTaskNR(Poco::evnet::EVServer & server, generic_task_handler_nr_t tf, void * input_data)
+{
+	//DEBUGPOINT("Here\n");
+	server.submitRequestForTaskExecutionNR(tf, input_data);
+
+	return ;
+}
+
 long EVHTTPRequestHandler::executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data)
 {
 	Poco::evnet::EVServer & server = getServer();

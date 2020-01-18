@@ -63,12 +63,15 @@ function handle_request() -- {
 	response:write('</p>');
 
 	db = require('rdbms_interface');
+	--print('connect')
 	c = assert(db.Connect('sqlite','test.db'));
-	print(c);
+	--print('prepare')
 	s = assert(c:prepare('select org_id, org_name from org'));
 
+	--print('execute')
 	assert(s:execute());
 
+	--print('columns')
 	col = assert(s:columns());
 
 	response:write('<p>');
@@ -88,10 +91,13 @@ function handle_request() -- {
 
 	response:write('</body>\n');
 
+	--print('autocommit')
 	local b=c:autocommit(false);
+	--print('commit')
 	local b=c:commit();
+	--print('rollback')
 	local b=c:rollback();
-	print('HH',b,'HH');
+	--print('HH',b,'HH');
 
 	return ;
 end -- }

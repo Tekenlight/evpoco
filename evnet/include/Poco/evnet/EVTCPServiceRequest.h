@@ -37,6 +37,7 @@ public:
 		,RECVDATA_REQUEST
 		,CLEANUP_REQUEST
 		,GENERIC_TASK
+		,GENERIC_TASK_NR
 	} what;
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
 	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);

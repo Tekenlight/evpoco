@@ -122,6 +122,7 @@ public:
 	void setUNotification(EVUpstreamEventNotification *);
 	int getEvent();
 	EVServer& getServer();
+	EVServer* getServerPtr();
 	void setServer(EVServer * server);
 	poco_socket_t getAccSockfd();
 	void setAccSockfd(poco_socket_t fd);
@@ -142,6 +143,8 @@ public:
 	 *
 	 */
 	long executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data);
+	static void executeGenericTaskNR(Poco::evnet::EVServer & server, generic_task_handler_nr_t tf, void * input_data);
+	void executeGenericTaskNR(generic_task_handler_nr_t tf, void * input_data);
 
 	long resolveHost(TCallback cb, const char* domain_name, const char* serv_name, struct addrinfo ** addr_info_ptr_ptr);
 
@@ -194,6 +197,11 @@ inline int EVHTTPRequestHandler::getEvent()
 inline EVServer& EVHTTPRequestHandler::getServer()
 {
 	return *_server;
+}
+
+inline EVServer* EVHTTPRequestHandler::getServerPtr()
+{
+	return _server;
 }
 
 inline void EVHTTPRequestHandler::setServer(EVServer * server)

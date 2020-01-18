@@ -298,6 +298,9 @@ public:
 	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data);
 		/// Function to submit a generic task for asynchronous execution
 
+	virtual  long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data);
+		/// Function to submit a generic task for asynchronous execution, this function does not call back or return.
+
 protected:
 	void run();
 		/// Runs the server. The server will run until
@@ -322,6 +325,7 @@ private:
 	int makeTCPConnection(EVTCPServiceRequest *);
 	int resolveHost(EVTCPServiceRequest * sr);
 	int initiateGenericTask(EVTCPServiceRequest * sr);
+	int initiateGenericTaskNR(EVTCPServiceRequest * sr);
 	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);

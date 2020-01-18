@@ -9,6 +9,7 @@ namespace Poco {
 namespace evnet {
 
 typedef void* (*generic_task_handler_t)(void*);
+typedef void (*generic_task_handler_nr_t)(void*);
 
 class Net_API EVServer {
 public:
@@ -25,6 +26,7 @@ public:
 	virtual long submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSocket& css)=0;
 	virtual long submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css)=0;
 	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data) = 0;
+	virtual long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data) = 0;
 };
 
 }
