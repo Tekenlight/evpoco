@@ -8,8 +8,8 @@ set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 add_executable( ${SAMPLE_NAME} ${LOCAL_SRCS} )
-target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation evdata evsqlite )
-#target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation )
+#target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation evdata evsqlite )
+target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation )
 
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	string(APPEND INC_DIRS " -I${dir} ")
