@@ -23,8 +23,21 @@
 #include <stdio.h>
 #include <libgen.h>
 
-#ifdef __APPLE__
+/*
+char** strs = backtrace_symbols(callstack, frames);
+for (i = 0; i < frames; ++i) {
+	printf("%s\n", strs[i]);
+}
+free(strs);
+*/
 
+#define STACK_TRACE() {\
+	void* callstack[128]; \
+	int i, frames = backtrace(callstack, 128); \
+	backtrace_symbols_fd(callstack, frames, STDERR_FILENO); \
+}
+
+#ifdef __APPLE__
 #include "TargetConditionals.h"
 
 #if TARGET_OS_IPHONE && TARGET_IPHONE_SIMULATOR

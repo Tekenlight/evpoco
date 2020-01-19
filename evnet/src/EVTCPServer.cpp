@@ -2201,8 +2201,8 @@ long EVTCPServer::submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, 
 {
 	long sr_num = getNextSRSrlNum();
 
-	//DEBUGPOINT("Here %p\n", tf);
-	//DEBUGPOINT("Here %p\n", input_data);
+	DEBUGPOINT("Here %p\n", tf);
+	DEBUGPOINT("Here %p\n", input_data);
 	enqueue_task(_thread_pool, tf, input_data);
 	/* Enque the socket */
 	//_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::GENERIC_TASK_NR,

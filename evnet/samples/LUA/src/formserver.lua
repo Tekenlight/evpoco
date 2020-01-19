@@ -68,11 +68,14 @@ function handle_request() -- {
 	--print('prepare')
 	s = assert(c:prepare('select org_id, org_name from org'));
 
+	--print('columns')
+	col = assert(s:columns());
+	for i,v in ipairs(col) do
+		print(v);
+	end
 	--print('execute')
 	assert(s:execute());
 
-	--print('columns')
-	col = assert(s:columns());
 
 	response:write('<p>');
 	response:write('<table>');

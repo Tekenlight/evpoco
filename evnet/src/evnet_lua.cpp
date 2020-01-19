@@ -577,14 +577,14 @@ int set_lua_stack_out_param(generic_task_params_ptr_t params, ev_lua_type_enum t
 	return 1;
 }
 
-static void add_nv_tuple(evnet_lua_table_t* map, const char* name, evnet_lua_table_value_t& value)
+void add_nv_tuple(evnet_lua_table_t* map, const char* name, evnet_lua_table_value_t& value)
 {
 	char map_name[256];
 	sprintf(map_name, "001:%s", name);
 	(*map)[map_name] = value;
 }
 
-static void add_iv_tuple(evnet_lua_table_t* map, int index, evnet_lua_table_value_t& value)
+void add_iv_tuple(evnet_lua_table_t* map, int index, evnet_lua_table_value_t& value)
 {
 	char map_name[256];
 	sprintf(map_name, "002:%d", index);

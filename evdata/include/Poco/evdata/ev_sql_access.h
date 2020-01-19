@@ -78,6 +78,14 @@ extern "C" {
     lua_rawseti(L, -2, n); \
     n++;
 
+#define EVLUA_TABLE_PUSH_ARRAY_STRING(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TSTRING; \
+	val.value.string_value = strdup(v); \
+	add_iv_tuple(t, n, val);\
+    n++; \
+}
+
 #define LUA_PUSH_ARRAY_STRING_BY_LENGTH(n, v, len) \
     lua_pushlstring(L, v, len); \
     lua_rawseti(L, -2, n); \

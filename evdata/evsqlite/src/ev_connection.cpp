@@ -4,6 +4,8 @@
 
 #include "Poco/evnet/evnet_lua.h"
 
+#include <execinfo.h>
+
 extern "C" {
 void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams,
 																connection_t *conn, const char *sql_query);
@@ -264,6 +266,7 @@ static int connection_close(lua_State *L)
 
 static void v_nr_connection_close(void* v)
 {
+	DEBUGPOINT("Here in close\n");
     connection_t *conn = (connection_t *)v;
 	int disconnect = 0;
 
@@ -517,12 +520,13 @@ static int connection_lastid(lua_State *L)
 /*
  * __gc 
  */
+/*
+ * Not in use
+ */
 static int connection_gc(lua_State *L) {
     /* always close the connection */
     connection_close(L);
 
-	/*
-	*/
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
 	Poco::evnet::EVServer * server = reqHandler->getServerPtr();
@@ -531,6 +535,10 @@ static int connection_gc(lua_State *L) {
     return 0;
 }
 
+/*
+ * __gc
+ * in use
+ */
 static int new_connection_gc(lua_State *L)
 {
     /* always close the connection */
@@ -539,12 +547,24 @@ static int new_connection_gc(lua_State *L)
 	connection_t *conn = (connection_t *)malloc(sizeof(connection_t));
 	memcpy(conn, lconn, sizeof(connection_t));
 
+	v_nr_connection_close(conn);
+	/*
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
 	Poco::evnet::EVServer * server = reqHandler->getServerPtr();
 	server->submitRequestForTaskExecutionNR(v_nr_connection_close, conn);
+	*/
+
+	//STACK_TRACE();
 
     return 0;
+}
+
+/* This does not work. */
+static int v2_new_connection_gc(lua_State *L)
+{
+    /* always close the connection */
+	return initiate_connection_close(L);
 }
 
 /*

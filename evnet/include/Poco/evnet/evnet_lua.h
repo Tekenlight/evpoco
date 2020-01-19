@@ -107,6 +107,8 @@ int get_num_generic_params(generic_task_params_ptr_t p);
 int get_generic_task_int_param(generic_task_params_ptr_t p, unsigned int loc);
 int get_generic_task_bool_param(generic_task_params_ptr_t p, unsigned int loc);
 lua_Number get_generic_task_luan_param(generic_task_params_ptr_t p, unsigned int loc);
+void add_nv_tuple(evnet_lua_table_t* map, const char* name, evnet_lua_table_value_t& value);
+void add_iv_tuple(evnet_lua_table_t* map, int index, evnet_lua_table_value_t& value);
 }
 
 #endif
