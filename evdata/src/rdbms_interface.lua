@@ -15,7 +15,7 @@ local name_to_module_loader = {
 local driver_to_initfuncs = {};
 for n, l in pairs(name_to_module_loader) do
 	if l ~= nil then
-		driver_to_initfuncs[n]=l();
+		driver_to_initfuncs[n]=l;
 	end
 end
 
@@ -23,7 +23,7 @@ end
  -- High level DB connection function
  -- This should be used rather than DBD.{Driver}.New
 function _M.Connect(driver, ...)
-    local db = driver_to_initfuncs[driver]
+    local db = driver_to_initfuncs[driver]();
 
     if db == nil then
 		--error(string.format("Driver '%s' not found. Available drivers are: %s", driver, available))
