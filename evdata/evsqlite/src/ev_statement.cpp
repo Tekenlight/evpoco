@@ -618,21 +618,20 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
     int num_columns;
 
     if (!statement->stmt) {
-	luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
-	return 0;
+		luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+		return 0;
     }
 
     if (!statement->more_data) {
-	/* 
-         * Result set is empty, or not result set returned
-         */
-  
-	lua_pushnil(L);
-	return 1;
+		/* 
+		 * Result set is empty, or not result set returned
+		 */
+	  
+		lua_pushnil(L);
+		return 1;
     }
 
     num_columns = sqlite3_column_count(statement->stmt);
-
     if (num_columns) {
 		int i;
 		int d = 1;
@@ -646,49 +645,60 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
 			if (lua_push == LUA_PUSH_NIL) {
 				if (named_columns) {
 					LUA_PUSH_ATTRIB_NIL(name);
-				} else {
+				}
+				else {
 					LUA_PUSH_ARRAY_NIL(d);
 				}
-			} else if (lua_push == LUA_PUSH_INTEGER) {
+			}
+			else if (lua_push == LUA_PUSH_INTEGER) {
 				int val = sqlite3_column_int(statement->stmt, i);
 
 				if (named_columns) {
 					LUA_PUSH_ATTRIB_INT(name, val);
-				} else {
+				}
+				else {
 					LUA_PUSH_ARRAY_INT(d, val);
 				}
-			} else if (lua_push == LUA_PUSH_NUMBER) {
+			}
+			else if (lua_push == LUA_PUSH_NUMBER) {
 				double val = sqlite3_column_double(statement->stmt, i);
 
 				if (named_columns) {
 					LUA_PUSH_ATTRIB_FLOAT(name, val);
-				} else {
+				}
+				else {
 					LUA_PUSH_ARRAY_FLOAT(d, val);
 				}
-			} else if (lua_push == LUA_PUSH_STRING) {
+			}
+			else if (lua_push == LUA_PUSH_STRING) {
 				const char *val = (const char *)sqlite3_column_text(statement->stmt, i);
 
 				if (named_columns) {
 					LUA_PUSH_ATTRIB_STRING(name, val);
-				} else {
+				}
+				else {
 					LUA_PUSH_ARRAY_STRING(d, val);
 				}
-			} else if (lua_push == LUA_PUSH_BOOLEAN) {
+			}
+			else if (lua_push == LUA_PUSH_BOOLEAN) {
 				int val = sqlite3_column_int(statement->stmt, i);
 
 				if (named_columns) {
 					LUA_PUSH_ATTRIB_BOOL(name, val);
-				} else {
+				}
+				else {
 					LUA_PUSH_ARRAY_BOOL(d, val);
 				}
-			} else {
+			}
+			else {
 				luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
 			}
 		}
-    } else {
+    }
+	else {
 		/* 
-			 * no columns returned by statement?
-			 */ 
+		 * no columns returned by statement?
+		 */ 
 		lua_pushnil(L);
     }
 
