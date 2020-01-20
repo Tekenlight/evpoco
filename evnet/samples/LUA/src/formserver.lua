@@ -70,11 +70,27 @@ function handle_request() -- {
 
 	--print('columns')
 	col = assert(s:columns());
-	for i,v in ipairs(col) do
-		print(v);
-	end
+	--for i,v in ipairs(col) do
+		--print(v);
+	--end
 	--print('execute')
 	assert(s:execute());
+
+	local base = require "cjson"
+	local cjson = base.new();
+
+	json_text = '[ true, { "foo": "bar" } ]'
+	value = cjson.decode(json_text);
+
+	for n,v in pairs(value) do
+		print(n,v);
+		if (type(v) == "table") then
+			for p,q in pairs(v) do
+				print(p,q);
+			end
+		end
+	end
+
 
 
 	response:write('<p>');

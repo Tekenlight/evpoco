@@ -2200,17 +2200,9 @@ long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num, poco_socket_t a
 long EVTCPServer::submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data)
 {
 	long sr_num = getNextSRSrlNum();
-
-	DEBUGPOINT("Here %p\n", tf);
-	DEBUGPOINT("Here %p\n", input_data);
+	//DEBUGPOINT("Here %p\n", tf);
+	//DEBUGPOINT("Here %p\n", input_data);
 	enqueue_task(_thread_pool, tf, input_data);
-	/* Enque the socket */
-	//_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::GENERIC_TASK_NR,
-	//																							acc_fd, tf, input_data));
-
-	/* And then wake up the loop calls process_service_request */
-	//ev_async_send(_loop, this->_stop_watcher_ptr2);
-	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
 

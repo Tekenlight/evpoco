@@ -91,7 +91,6 @@ static int connection_new(lua_State *L)
 	server->submitRequestForTaskExecutionNR(v_hello_world, 0);
 	*/
 
-	DEBUGPOINT("Here\n");
     conn->autocommit = 0;
 
     luaL_getmetatable(L, EV_SQLITE_CONNECTION);
@@ -266,7 +265,6 @@ static int connection_close(lua_State *L)
 
 static void v_nr_connection_close(void* v)
 {
-	DEBUGPOINT("Here in close\n");
     connection_t *conn = (connection_t *)v;
 	int disconnect = 0;
 

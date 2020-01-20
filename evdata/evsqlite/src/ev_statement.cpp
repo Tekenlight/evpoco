@@ -53,6 +53,56 @@ static int step(statement_t *statement)
 	return 0;
 }
 
+static void* vs_step(void* v)
+{
+	statement_t* statement = (statement_t*)v;
+	int res = sqlite3_step(statement->stmt);
+	int * ip = (int*)malloc(sizeof(int));
+
+	*ip = 0;
+	if (res == SQLITE_DONE) {
+		statement->more_data = 0;
+		*ip = 1;
+	} else if (res == SQLITE_ROW) {
+		statement->more_data = 1;
+		*ip = 1;
+	}
+
+	//DEBUGPOINT("Here *ip = %d\n", *ip);
+
+	return ip;
+}
+
+static int vs_step_completion(lua_State* L, int status, lua_KContext ctx)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	statement_t* statement = 0;
+	statement = (statement_t*)ctx;
+
+	if (usN.getRet() != 0) {
+		char * msg = (char*)"Error occured during invocation";
+		luaL_error(L, msg);
+		return 0;
+	}
+
+	int * ip = (int*)(usN.getTaskReturnValue());
+    if (*ip == 0) {
+		if (sqlite3_reset(statement->stmt) != SQLITE_OK) {
+			/* 
+			 * reset needs to be called to retrieve the 'real' error message
+			 */
+			free(ip);
+			luaL_error(L, EV_SQL_ERR_FETCH_FAILED, sqlite3_errmsg(statement->conn->sqlite));
+		}
+    }
+
+	//DEBUGPOINT("Here *ip = %d\n", *ip);
+	free(ip);
+
+	return 1;
+}
+
 /*
  * num_affected_rows = statement:affected()
  */
@@ -145,6 +195,7 @@ static int initiate_statement_close(lua_State *L)
 	reqHandler->executeGenericTask(NULL, &vs_statement_close, params);
 	return lua_yieldk(L, 0, (lua_KContext)"statement could not be closed", completion_common_routine);
 }
+
 
 /*
  * column_names = statement:columns()
@@ -354,7 +405,7 @@ static void* vs_statement_execute(void* v)
 	statement->affected = sqlite3_changes(statement->conn->sqlite);
 	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &ok);
 
-	DEBUGPOINT("Here\n");
+	//DEBUGPOINT("Here\n");
 	return oparams;
 }
 
@@ -460,7 +511,7 @@ static int initiate_statement_execute(lua_State *L)
 		return 2;
 	}
 
-	DEBUGPOINT("Here\n");
+	//DEBUGPOINT("Here\n");
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
@@ -562,12 +613,98 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
     return 1;    
 }
 
+static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
+{
+    int num_columns;
+
+    if (!statement->stmt) {
+	luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+	return 0;
+    }
+
+    if (!statement->more_data) {
+	/* 
+         * Result set is empty, or not result set returned
+         */
+  
+	lua_pushnil(L);
+	return 1;
+    }
+
+    num_columns = sqlite3_column_count(statement->stmt);
+
+    if (num_columns) {
+		int i;
+		int d = 1;
+
+		lua_newtable(L);
+
+		for (i = 0; i < num_columns; i++) {
+			lua_push_type_t lua_push = sqlite_to_lua_push(sqlite3_column_type(statement->stmt, i));
+			const char *name = sqlite3_column_name(statement->stmt, i);
+
+			if (lua_push == LUA_PUSH_NIL) {
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_NIL(name);
+				} else {
+					LUA_PUSH_ARRAY_NIL(d);
+				}
+			} else if (lua_push == LUA_PUSH_INTEGER) {
+				int val = sqlite3_column_int(statement->stmt, i);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_INT(name, val);
+				} else {
+					LUA_PUSH_ARRAY_INT(d, val);
+				}
+			} else if (lua_push == LUA_PUSH_NUMBER) {
+				double val = sqlite3_column_double(statement->stmt, i);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_FLOAT(name, val);
+				} else {
+					LUA_PUSH_ARRAY_FLOAT(d, val);
+				}
+			} else if (lua_push == LUA_PUSH_STRING) {
+				const char *val = (const char *)sqlite3_column_text(statement->stmt, i);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_STRING(name, val);
+				} else {
+					LUA_PUSH_ARRAY_STRING(d, val);
+				}
+			} else if (lua_push == LUA_PUSH_BOOLEAN) {
+				int val = sqlite3_column_int(statement->stmt, i);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_BOOL(name, val);
+				} else {
+					LUA_PUSH_ARRAY_BOOL(d, val);
+				}
+			} else {
+				luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+			}
+		}
+    } else {
+		/* 
+			 * no columns returned by statement?
+			 */ 
+		lua_pushnil(L);
+    }
+
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+	reqHandler->executeGenericTask(NULL, &vs_step, statement);
+	return lua_yieldk(L, 0, (lua_KContext)statement, vs_step_completion);
+}
+
 static int next_iterator(lua_State *L)
 {
     statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
-    return statement_fetch_impl(L, statement, named_columns);
+    return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -578,7 +715,7 @@ static int statement_fetch(lua_State *L)
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, 2);
 
-    return statement_fetch_impl(L, statement, named_columns);
+    return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -711,10 +848,10 @@ int ev_sqlite3_statement(lua_State *L)
 	{"affected", statement_affected}, // Not required, only memory operation.
 	{"close", initiate_statement_close}, // Done
 	{"columns", statement_columns}, // Not required to do this for sqlite
-	{"execute", initiate_statement_execute}, // The program terminated with SEGV once
-	{"fetch", statement_fetch},
-	{"rows", statement_rows},
-	{"rowcount", statement_rowcount},
+	{"execute", initiate_statement_execute}, // Done. The program terminated with SEGV once
+	{"fetch", statement_fetch}, // Done through initiate_statement_fetch_impl
+	{"rows", statement_rows}, // Done through closure of next_iterator and then initiate_statement_fetch_impl
+	{"rowcount", statement_rowcount}, // Not required
 	{NULL, NULL}
     };
 
