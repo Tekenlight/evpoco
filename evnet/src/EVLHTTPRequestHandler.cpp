@@ -1754,6 +1754,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
 	//lua_close(_L0);
+	lua_close(_L);
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -1915,7 +1916,6 @@ int EVLHTTPRequestHandler::handleRequest()
 				send_string_response(__LINE__, output.c_str());
 			}
 		}
-		lua_close(_L);
 		return PROCESSING_COMPLETE;
 	}
 }
