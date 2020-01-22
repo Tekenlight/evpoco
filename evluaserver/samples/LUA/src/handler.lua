@@ -25,3 +25,10 @@ function handle_request()
 	end
 	return return_string;
 end
+
+local arg = {...}
+req_handler_func_name = arg[1];
+local func = load('return '..req_handler_func_name..'()');
+
+return pcall(func);
+

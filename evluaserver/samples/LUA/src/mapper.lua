@@ -45,3 +45,6 @@ function map_request_to_handler()
 	if (isempty(url_parts[2])) then url_parts[1] = 'handle_request'; end
 	return url_parts[1], url_parts[2];
 end
+
+return map_request_to_handler();
+

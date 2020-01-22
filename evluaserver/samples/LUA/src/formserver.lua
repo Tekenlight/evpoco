@@ -66,30 +66,31 @@ function handle_request() -- {
 	--print('connect')
 	c = assert(db.Connect('sqlite','test.db'));
 	--print('prepare')
-	s = assert(c:prepare('select org_id, org_name from org'));
+	s = assert(c:prepare('select org_id, org_name from org where org_name like :ORG_NAME'));
 
 	--print('columns')
 	col = assert(s:columns());
 	--for i,v in ipairs(col) do
 		--print(v);
 	--end
+	local ORG_NAME = '%Ltd';
 	--print('execute')
-	assert(s:execute());
+	assert(s:execute(ORG_NAME));
 
 	local base = require "cjson"
 	local cjson = base.new();
 
-	json_text = '[ true, { "foo": "bar" } ]'
+	json_text = '{ "one": 1, "two" : [ true, { "foo": "bar" } ] }'
 	value = cjson.decode(json_text);
 
-	for n,v in pairs(value) do
-		print(n,v);
-		if (type(v) == "table") then
-			for p,q in pairs(v) do
-				print(p,q);
-			end
-		end
-	end
+	--for n,v in pairs(value) do
+		--print(n,v);
+		--if (type(v) == "table") then
+			--for p,q in pairs(v) do
+				--print(p,q);
+			--end
+		--end
+	--end
 
 
 
@@ -99,16 +100,37 @@ function handle_request() -- {
 	response:write('<td>'..col[1]..'</td>'..'<td>'..col[2]..'</td>');
 	response:write('</tr>')
 
-	for row in s:rows() do
+	for row in s:rows(1) do
 		response:write('<tr>')
-		response:write('<td>'..row[1]..'</td>'..'<td>'..row[2]..'</td>');
+		response:write('<td>'..row['org_id']..'</td>'..'<td>'..row['org_name']..'</td>');
 		response:write('</tr>')
 	end
 
 	response:write('</table>\n');
 	response:write('</p>');
 
+	
+	local mongo = require 'mongo'
+	local client = mongo.Client('mongodb://127.0.0.1');
+	--print(mongo.BSON{org_id="prathisthan", org_name = "Prathishthan Software Ventures Pvt Ltd", ts_cnt = 1}) -- From table (order is unspecified)
+	--print(mongo.BSON({a = { b = 2, c = 3}})) -- From table (order is unspecified)
+	--print(mongo.BSON('{"org_id" : { "$eq" : "tekenlight"}}'))
+	--for n,v in pairs(client:getDatabaseNames()) do
+		--print(n,v);
+	--end
+
+	db = client:getDatabase('examples');
+	collection= db:getCollection('companies');
+	local query1 = mongo.BSON('{"org_id" : { "$eq" : "tekenlight"}}')
+	local cursor = collection:find(mongo.BSON('{"org_id" : { "$eq" : "tekenlight"}}'));
+	for doc in cursor:iterator() do
+		for n,v in pairs(doc) do
+			print(n,v);
+		end
+	end
+
 	response:write('</body>\n');
+
 
 	--print('autocommit')
 	local b=c:autocommit(false);
@@ -117,6 +139,7 @@ function handle_request() -- {
 	--print('rollback')
 	local b=c:rollback();
 	--print('HH',b,'HH');
+	--
 
 	return ;
 end -- }
@@ -252,3 +275,10 @@ function handle_post() -- {
 
 	return ;
 end --}
+
+local arg = {...}
+req_handler_func_name = arg[1];
+local func = load('return '..req_handler_func_name..'()');
+
+return pcall(func);
+

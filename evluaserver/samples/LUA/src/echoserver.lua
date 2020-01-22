@@ -11,3 +11,10 @@ function handle_request()
 	response:write(buf);
 	return ;
 end
+
+local arg = {...}
+req_handler_func_name = arg[1];
+local func = load('return '..req_handler_func_name..'()');
+
+return pcall(func);
+
