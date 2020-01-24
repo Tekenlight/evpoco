@@ -42,7 +42,11 @@ function map_request_to_handler()
 
 	--print(table.unpack(url_parts));
 	if (isempty(url_parts[1])) then url_parts[1] = 'default_handler.lua'; end
-	if (isempty(url_parts[2])) then url_parts[1] = 'handle_request'; end
+	if (isempty(url_parts[2])) then url_parts[2] = 'handle_request'; end
+	if (nil == string.find(url_parts[1], '.lua')) then -- {
+		local s = url_parts[1];
+		url_parts[1] = s..'.lua';
+	end --}
 	return url_parts[1], url_parts[2];
 end
 

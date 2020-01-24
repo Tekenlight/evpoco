@@ -1,4 +1,5 @@
-function handle_request() -- {
+local handlers = {};
+handlers.handle_request = function () -- {
 	local return_string = 'Hello from LUA handler';
 	local request = platform.get_http_request();
 	local form = request:parse_req_form();
@@ -144,7 +145,7 @@ function handle_request() -- {
 	return ;
 end -- }
 
-function handle_upload()
+handlers.handle_upload = function ()
 	print('Hello from LUA handler');
 	local request = platform.get_http_request();
 	local form = request:parse_req_form();
@@ -211,7 +212,7 @@ function handle_upload()
 	return ;
 end
 
-function handle_post() -- {
+handlers.handle_post = function () -- {
 	local return_string = 'Hello from LUA handler';
 	local request = platform.get_http_request();
 	local form = request:parse_req_form();
@@ -278,7 +279,7 @@ end --}
 
 local arg = {...}
 req_handler_func_name = arg[1];
-local func = load('return '..req_handler_func_name..'()');
+local func = handlers[req_handler_func_name];
 
-return pcall(func);
+return pcall(func());
 

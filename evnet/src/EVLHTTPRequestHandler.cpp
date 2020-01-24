@@ -22,6 +22,8 @@
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPServerRequest.h"
+#include "Poco/evnet/EVHTTPServerRequestImpl.h"
+#include "Poco/evnet/EVHTTPResponse.h"
 #include "Poco/Net/MessageHeader.h"
 #include "Poco/CountingStream.h"
 #include "Poco/NullStream.h"
@@ -85,6 +87,7 @@ namespace evpoco {
 			static int get_expect_continue(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int get_message_body_str(lua_State* L);
 			static int get_cookies(lua_State* L);
 			namespace htmlform {
 				static int get_form_field(lua_State* L);
@@ -103,6 +106,7 @@ namespace evpoco {
 			static int send(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int get_message_body_str(lua_State* L);
 			static int get_cookies(lua_State* L);
 		}
 	}
@@ -150,6 +154,7 @@ static const luaL_Reg evpoco_httpreq_lib[] = {
 	{ "get_part", &evpoco::httpmessage::httpreq::get_part},
 	{ "write", &evpoco::httpmessage::httpreq::write},
 	{ "read", &evpoco::httpmessage::httpreq::read},
+	{ "get_message_body_str", &evpoco::httpmessage::httpreq::get_message_body_str},
 	{ "get_cookies", &evpoco::httpmessage::httpreq::get_cookies},
 	{ NULL, NULL }
 };
@@ -175,6 +180,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 	{ "send", &evpoco::httpmessage::httpresp::send },
 	{ "write", &evpoco::httpmessage::httpresp::write },
 	{ "read", &evpoco::httpmessage::httpresp::read },
+	{ "get_message_body_str", &evpoco::httpmessage::httpresp::get_message_body_str},
 	{ "get_cookies", &evpoco::httpmessage::httpresp::get_cookies },
 	{ NULL, NULL }
 };
@@ -1375,6 +1381,37 @@ namespace evpoco {
 				return 1;
 			}
 
+			static int get_message_body_str(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "istream:get_message_body_str: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else {
+					char * str_buf = (char*)reqHandler->getFromComponents(EVLHTTPRequestHandler::string_body);
+					if (str_buf) {
+						lua_pushstring(L, str_buf);
+					}
+					else {
+						EVHTTPServerRequestImpl& request = *(*(EVHTTPServerRequestImpl**)lua_touserdata(L, 1));
+						size_t body_size = request.getMessageBodySize();
+						if (body_size) {
+							str_buf = (char*)calloc(body_size+1, 1);
+							std::istream& istr = request.stream();
+							istr.read(str_buf, body_size);
+							lua_pushstring(L, str_buf);
+							reqHandler->addToComponents(EVLHTTPRequestHandler::string_body, str_buf);
+						}
+						else {
+							lua_pushnil(L);
+						}
+					}
+				}
+				return 1;
+			}
+
 			static int get_cookies(lua_State* L) {
 				Poco::Net::NameValueCollection nvset;
 				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -1589,7 +1626,7 @@ namespace evpoco {
 				}
 				else if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
 					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-					luaL_error(L, "ostream:write: invalid third argumet %s", lua_typename(L, lua_type(L, 2)));
+					luaL_error(L, "ostream:write: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
 				}
 				else {
 					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
@@ -1615,6 +1652,31 @@ namespace evpoco {
 					size_t size = istr.gcount();
 					if (size) lua_pushstring(L, reqHandler->getEphemeralBuf());
 					else lua_pushnil(L);
+				}
+				return 1;
+			}
+
+			static int get_message_body_str(lua_State* L)
+			{
+				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+					luaL_error(L, "istream:get_message_body_str: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+					return 0;
+				}
+				else {
+					EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
+					size_t body_size = response.getMessageBodySize();
+					if (body_size) {
+						char * str_buf = (char*)calloc(body_size+1, 1);
+						std::istream& istr = *(response.getStream());
+						istr.read(str_buf, body_size);
+						lua_pushstring(L, str_buf);
+						free(str_buf);
+					}
+					else {
+						lua_pushnil(L);
+					}
 				}
 				return 1;
 			}
@@ -1774,6 +1836,12 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 					delete ph;
 				}
 				break;
+			case string_body:
+				{
+					char* str = (char*)(EVLHTTPPartHandler*)it->second;
+					free(str);
+				}
+				break;
 			default:
 				break;
 		}
@@ -1820,7 +1888,7 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 		send_string_response(__LINE__, "map_request_to_handler: did not return request handler function");
 		return -1;
 	}
-	_request_handler_func = lua_tostring(_L, -1);
+	_url_part = lua_tostring(_L, -1);
 
 	if (lua_isnil(_L, -2) || !lua_isstring(_L, -2)) {
 		send_string_response(__LINE__, "map_request_to_handler: did not return request handler");
@@ -1883,7 +1951,7 @@ int EVLHTTPRequestHandler::handleRequest()
 			DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
-		lua_pushstring(_L, _request_handler_func.c_str());
+		lua_pushstring(_L, _url_part.c_str());
 		nargs=1;
 	}
 	status = lua_resume(_L, NULL, nargs);

@@ -151,6 +151,7 @@ public:
 	typedef enum {
 		 html_form
 		,part_handler
+		,string_body
 	} mapped_item_type;
 	EVLHTTPRequestHandler();
 		/// Creates the EVLHTTPRequestHandler.
@@ -188,7 +189,7 @@ private:
 	lua_State*								_L;
 	std::string								_mapping_script;
 	std::string								_request_handler;
-	std::string								_request_handler_func;
+	std::string								_url_part;
 	std::map<mapped_item_type, void*>		_components;
 	std::map<int,EVHTTPClientSession*>		_http_connections;
 	int										_http_connection_count;
@@ -235,6 +236,12 @@ inline void EVLHTTPRequestHandler::addToComponents(mapped_item_type t, void* p)
 				{
 					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)_components[t];
 					delete ph;
+				}
+				break;
+			case string_body:
+				{
+					char* str = (char*)_components[t];
+					free(str);
 				}
 				break;
 			default:

@@ -31,6 +31,7 @@ for (i = 0; i < frames; ++i) {
 free(strs);
 */
 
+#include <execinfo.h>
 #define STACK_TRACE() {\
 	void* callstack[128]; \
 	int i, frames = backtrace(callstack, 128); \
