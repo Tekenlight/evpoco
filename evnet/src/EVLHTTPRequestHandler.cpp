@@ -1861,7 +1861,7 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 	response.setChunkedTransferEncoding(true);
 	response.setContentType("text/plain");
 	response.setContentType("text/plain");
-	response.setStatus(Net::HTTPResponse::HTTP_BAD_REQUEST);
+	response.setStatusAndReason(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 	std::ostream& ostr = getResponse().send();
 
 	ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
