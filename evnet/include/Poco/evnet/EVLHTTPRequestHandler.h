@@ -192,6 +192,7 @@ private:
 	std::string								_url_part;
 	std::map<mapped_item_type, void*>		_components;
 	std::map<int,EVHTTPClientSession*>		_http_connections;
+	std::list<std::string>					_url_parts;
 	int										_http_connection_count;
 	int										_variable_instance_count;;
 	char									_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];

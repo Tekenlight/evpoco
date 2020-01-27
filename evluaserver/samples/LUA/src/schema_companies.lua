@@ -4,15 +4,13 @@ mongo = require('mongo');
 local client = mongo.Client('mongodb://127.0.0.1');
 local db = client:getDatabase('examples');
 
-a=	{ validator = {
-			jsonschema = {
-				bsonType = "object",
-				required = { "data" },
+local envelope = { bsonType = "object",
+				required = {__array=true, "data" },
 				properties = {
 					data = {
 						bsonType = "object",
 						descripton = "envelope that holds the actual object",
-						required = { "org_id", "org_name", "ts_cnt"},
+						required = {__array=true, "org_id", "org_name", "ts_cnt"},
 						properties = {
 							org_id = {
 								bsonType = "string",
@@ -29,14 +27,18 @@ a=	{ validator = {
 						}
 					}
 				}
-			}
-		}
-	}; 
+			};
+local scema = {};
+scema["$jsonSchema"] = envelope;
+local doc = {};
+doc.validator = a2;
+
+bsondoc = mongo.BSON(doc);
 
 b =	' { "validator":  {"$jsonSchema": { "bsonType" : "object", "required" : ["data"], "properties" : {"data": { "bsonType": "object", "description": "envelope that holds the actual object", "required": [ "org_id", "org_name", "ts_cnt"], "properties" : { "org_id" : { "bsonType" : "string", "description" : "must be a string and is required" }, "org_name" : { "bsonType" : "string", "description" : "must be string and is required" }, "ts_cnt" : { "bsonType" : "int", "description" : "must be an integer and is required" } } } } } } } '
 
 bb = mongo.BSON(b);
---print(bb);
+if (aa == bb) then print("They are same"); end
 res = db:createCollection("companies", bb)
 print(res);
 

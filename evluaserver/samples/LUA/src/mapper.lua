@@ -47,6 +47,7 @@ function map_request_to_handler()
 		local s = url_parts[1];
 		url_parts[1] = s..'.lua';
 	end --}
+	--print(table.unpack(url_parts));
 	return url_parts[1], url_parts[2];
 end
 

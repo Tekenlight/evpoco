@@ -278,8 +278,9 @@ handlers.handle_post = function () -- {
 end --}
 
 local arg = {...}
-req_handler_func_name = arg[1];
+req_handler_func_name = arg[2];
+print(req_handler_func_name);
 local func = handlers[req_handler_func_name];
 
-return pcall(func());
+return pcall(func);
 

@@ -1878,25 +1878,34 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 		return -1;
 	}
 
-	if (3 != lua_gettop(_L)) {
+	int n = lua_gettop(_L);
+	if (2 > n) {
 		DEBUGPOINT("Here number of return values%d\n", (lua_gettop(_L)-1));
 		send_string_response(__LINE__, "map_request_to_handler: did not return values not OK");
 		return -1;
 	}
 
-	if (lua_isnil(_L, -1) || !lua_isstring(_L, -1)) {
-		send_string_response(__LINE__, "map_request_to_handler: did not return request handler function");
-		return -1;
+	for (int i = 2; i <= n ; i++) {
+		std::string* s = new (std::string);
+		*s = lua_tostring(_L, i);
+		_url_parts.push_back(*s);
 	}
-	_url_part = lua_tostring(_L, -1);
 
-	if (lua_isnil(_L, -2) || !lua_isstring(_L, -2)) {
+	if (lua_isnil(_L, 2) || !lua_isstring(_L, 2)) {
 		send_string_response(__LINE__, "map_request_to_handler: did not return request handler");
 		return -1;
 	}
-	_request_handler = lua_tostring(_L, -2);
+	_request_handler = lua_tostring(_L, 2);
 
-	lua_pop(_L, 2);
+
+	if ((n>2) && !lua_isnil(_L, 3) && lua_isstring(_L, 3)) {
+		_url_part = lua_tostring(_L, 3);
+	}
+	else {
+		_url_part = "handle_request";
+	}
+
+	lua_pop(_L, n);
 
 	return 0;
 }
@@ -1951,8 +1960,12 @@ int EVLHTTPRequestHandler::handleRequest()
 			DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
-		lua_pushstring(_L, _url_part.c_str());
-		nargs=1;
+		int i = 0;
+		for (auto it = _url_parts.begin(); it != _url_parts.end(); ++it) {
+			i++;
+			lua_pushstring(_L, it->c_str());
+		}
+		nargs=i;
 	}
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {

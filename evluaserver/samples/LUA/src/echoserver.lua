@@ -13,7 +13,7 @@ function handle_request()
 end
 
 local arg = {...}
-req_handler_func_name = arg[1];
+req_handler_func_name = arg[2];
 local func = _G[req_handler_func_name];
 
 return pcall(func);
