@@ -201,7 +201,7 @@ end
 --}
 
 -- {
-handlers.modify= function (self, db_handle, url_parts, query_params, company)
+handlers.modify = function (self, db_handle, url_parts, query_params, company)
 	local ret, errmsg = self:validateForModify(db_handle, company);
 	if (ret ~= 0) then -- {
 		return { message = errmsg }, 400;
@@ -234,10 +234,10 @@ end
 --{
 handlers.validateForDelete = function(self, db_handle, company)
 	if (company.org_id == nil or company.org_id == '') then -- {
-		return -1, "org_id is a manadatory field";
+		return nil, -1, "org_id is a manadatory field";
 	end -- }
 	if (company.ts_cnt == nil or company.ts_cnt == '') then -- {
-		return -1, "original ts_cnt should be submitted as part of the document during modify";
+		return nil, -1, "original ts_cnt should be submitted as part of the document during modify";
 	end -- }
 	local collection = db_handle:getCollection('companies');
 	local query = {};
@@ -245,38 +245,113 @@ handlers.validateForDelete = function(self, db_handle, company)
 	doc, err = collection:findOne(query);
 	if (err ~= nil) then -- {
 		error(err);
-		return -1, err;
+		return nil, -1, err;
 	end -- }
-	--print(doc);
+	print(doc);
 	if (doc == nil) then -- {
-		return -1, "Record with id "..company.org_id.." does not exist";
-	elseif (doc:value().data.deleted == 1) then -- } {
-		return -1, "Record with id "..company.org_id.." is logically deleted";
+		return nil, -1, "Record with id "..company.org_id.." does not exist";
+	elseif (doc:value().data.deleted ~= nil and doc:value().data.deleted == 1) then -- } {
+		return nil, -1, "Record with id "..company.org_id.." is already marked deleted";
+	elseif (doc:value().data.ts_cnt ~= company.ts_cnt) then -- } {
+		return nil, -1, "Sapshot of input record with id "..company.org_id.." is not current";
 	end -- }
-	return 0, nil;
+	return doc, 0, nil;
 end
 --}
 
 -- {
-handlers.delete= function (self, db_handle, url_parts, query_params, company)
+handlers.delete = function (self, db_handle, url_parts, query_params, company)
 	if (company == nil) then -- {
 		return { errcode = -1, errmsg = "Company data not submitted for deletion" }
 	end -- }
-	local ret, errmsg = self:validateForDelete(db_handle, company);
+	local doc, ret, errmsg = self:validateForDelete(db_handle, company);
 	if (ret ~= 0) then -- {
-		return { message = errmsg }, 400;
+		print("HERERERER");
+		return { errcode = -1, message = errmsg }, 400;
 	end -- }
+	company = nil;
+	company = doc:value().data;
 	local collection = db_handle:getCollection('companies');
 	local old_ts_cnt = company.ts_cnt
 	local query_part1 = { ["data.org_id"] = { ["$eq"] = company.org_id } };
 	local query_part2 = { ["data.ts_cnt"] = { ["$eq"] = math.tointeger(old_ts_cnt) } };
 	local query = { ["$and"] = { __array=true, query_part1, query_part2 }};
 	company.ts_cnt = company.ts_cnt + 1;
-	old_doc, err = collection:findAndModify(mongo.BSON(query), {update = { ["$set"] = {["data.deleted"] = 1}}});
+	if (company.deleted ~= nil) then -- {
+		company.deleted = nil;
+	end -- }
+	company.deleted = 1;
+	old_doc, err = collection:findAndModify(mongo.BSON(query), {update = {data = company}});
 	local error_code = nil;
 	local table_out = {};
 	if (old_doc ~= nil and err == nil) then -- {
 		table_out = { message = "Record logically deleted"};
+	else -- } {
+		error_code = 400;
+		if (err ~= nil) then -- {
+			table_out = { message = err };
+		else -- } {
+			table_out = { errcode = 1403,
+				message = "Record not found, org_id: "..company.org_id..", ts_cnt: "..math.tointeger(old_ts_cnt)} ;
+		end -- }
+	end --}
+
+	return table_out, error_code;
+end
+-- }
+
+--{
+handlers.validateForUndelete = function(self, db_handle, company)
+	if (company.org_id == nil or company.org_id == '') then -- {
+		return nil, -1, "org_id is a manadatory field";
+	end -- }
+	if (company.ts_cnt == nil or company.ts_cnt == '') then -- {
+		return nil, -1, "original ts_cnt should be submitted as part of the document during modify";
+	end -- }
+	local collection = db_handle:getCollection('companies');
+	local query = {};
+	query = { ["data.org_id"] = { ["$eq"] = company.org_id } };
+	doc, err = collection:findOne(query);
+	if (err ~= nil) then -- {
+		error(err);
+		return nil, -1, err;
+	end -- }
+	if (doc == nil) then -- {
+		return nil, -1, "Record with id "..company.org_id.." does not exist";
+	elseif (doc:value().data.deleted == nil or doc:value().data.deleted ~= 1) then -- } {
+		return nil, -1, "Record with id "..company.org_id.." is not marked as deleted";
+	elseif (doc:value().data.ts_cnt ~= company.ts_cnt) then -- } {
+		return nil, -1, "Sapshot of input record with id "..company.org_id.." is not current";
+	end -- }
+	return doc, 0, nil;
+end
+--}
+
+-- {
+handlers.undelete= function (self, db_handle, url_parts, query_params, company)
+	if (company == nil) then -- {
+		return { errcode = -1, errmsg = "Company data not submitted for deletion" }
+	end -- }
+	local doc, ret, errmsg = self:validateForUndelete(db_handle, company);
+	if (ret ~= 0) then -- {
+		return { message = errmsg }, 400;
+	end -- }
+	company = nil;
+	company = doc:value().data;
+	local collection = db_handle:getCollection('companies');
+	local old_ts_cnt = company.ts_cnt
+	local query_part1 = { ["data.org_id"] = { ["$eq"] = company.org_id } };
+	local query_part2 = { ["data.ts_cnt"] = { ["$eq"] = math.tointeger(old_ts_cnt) } };
+	local query = { ["$and"] = { __array=true, query_part1, query_part2 }};
+	company.ts_cnt = company.ts_cnt + 1;
+	if (company.deleted ~= nil) then -- {
+		company.deleted = nil;
+	end -- }
+	old_doc, err = collection:findAndModify(mongo.BSON(query), {update = {data = company}});
+	local error_code = nil;
+	local table_out = {};
+	if (old_doc ~= nil and err == nil) then -- {
+		table_out = { message = "Record undeleted"};
 	else -- } {
 		error_code = 400;
 		if (err ~= nil) then -- {
