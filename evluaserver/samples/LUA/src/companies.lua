@@ -127,7 +127,7 @@ handlers.add= function (self, db_handle, url_parts, query_params, company)
 	local ret, errmsg = self:validateForAdd(db_handle, company);
 	print(ret, errmsg);
 	if (ret ~= 0) then -- {
-		return { message = errmsg }, 400;
+		return { errcode=-1,  message = errmsg }, 400;
 	end -- }
 	company.ts_cnt = 1;
 	local collection = db_handle:getCollection('companies');
@@ -139,13 +139,37 @@ handlers.add= function (self, db_handle, url_parts, query_params, company)
 	local error_code = nil;
 	local table_out = {};
 	if (flg ~= nil and flg == true ) then -- {
-		table_out = { message = "record inserted"};
+		table_out = { message = "Record inserted"};
 	else -- } {
 		error_code = 400;
-		table_out = { message = err };
+		table_out = { errcode = -1,  errmsg = err };
 	end --}
 
 	return table_out, error_code;
+end
+-- }
+
+-- {
+handlers.fetch= function (self, db_handle, url_parts, query_params)
+	local org_id = url_parts[2];
+	local err = 200;
+	local result = {};
+	if (org_id == nil or org_id == '') then -- {
+		err = 400;
+		result.msg = "org_id is mandatory"
+		result.errcode = -1;
+		return result, err;
+	end --}
+	local collection = db_handle:getCollection('companies');
+	local query = {};
+	query = { ["data.org_id"] = { ["$eq"] = org_id } };
+	local projection  = { projection = { data = 1, _id = 0 } };
+	doc = collection:findOne(mongo.BSON(query), mongo.BSON(projection));
+	if (doc == nil) then -- {
+		return { errcode = 1403, errmsg = "Record not found" }, 400
+	else -- } { 
+		return doc:value().data, nil;
+	end -- }
 end
 -- }
 
@@ -178,7 +202,6 @@ end
 
 -- {
 handlers.modify= function (self, db_handle, url_parts, query_params, company)
-	print(company);
 	local ret, errmsg = self:validateForModify(db_handle, company);
 	if (ret ~= 0) then -- {
 		return { message = errmsg }, 400;
@@ -186,47 +209,85 @@ handlers.modify= function (self, db_handle, url_parts, query_params, company)
 	local collection = db_handle:getCollection('companies');
 	local old_ts_cnt = company.ts_cnt
 	local query_part1 = { ["data.org_id"] = { ["$eq"] = company.org_id } };
-	local query_part2 = { ["data.ts_cnt"] = { ["$eq"] = old_ts_cnt } };
+	local query_part2 = { ["data.ts_cnt"] = { ["$eq"] = math.tointeger(old_ts_cnt) } };
 	local query = { ["$and"] = { __array=true, query_part1, query_part2 }};
 	company.ts_cnt = company.ts_cnt + 1;
-	local doc, err = collection:findOne(query_part1);
-	local envelope = doc:value();
-	envelope.data = company;
-	flg, err = collection:update(mongo.BSON(query), envelope);
-	print(flg, err);
+	old_doc, err = collection:findAndModify(mongo.BSON(query), {update = {data = company}});
 	local error_code = nil;
 	local table_out = {};
-	if (flg ~= nil and flg == true ) then -- {
-		table_out = { message = "record updated"};
+	if (old_doc ~= nil and err == nil) then -- {
+		table_out = { message = "Record updated"};
 	else -- } {
 		error_code = 400;
-		table_out = { message = err };
+		if (err ~= nil) then -- {
+			table_out = { message = err };
+		else -- } {
+			table_out = { errcode = 1403,
+				message = "Record not found, org_id: "..company.org_id..", ts_cnt: "..math.tointeger(old_ts_cnt)} ;
+		end -- }
 	end --}
 
 	return table_out, error_code;
 end
 -- }
 
-handlers.fetch= function (self, db_handle, url_parts, query_params) -- {
-	local org_id = url_parts[2];
-	local err = 200;
-	local result = {};
-	if (org_id == nil or org_id == '') then -- {
-		err = 400;
-		result.msg = "org_id is mandatory"
-		return result, err;
-	end --}
+--{
+handlers.validateForDelete = function(self, db_handle, company)
+	if (company.org_id == nil or company.org_id == '') then -- {
+		return -1, "org_id is a manadatory field";
+	end -- }
+	if (company.ts_cnt == nil or company.ts_cnt == '') then -- {
+		return -1, "original ts_cnt should be submitted as part of the document during modify";
+	end -- }
 	local collection = db_handle:getCollection('companies');
 	local query = {};
-	query = { ["data.org_id"] = { ["$eq"] = org_id } };
-	local projection  = { projection = { data = 1, _id = 0 } };
-	doc = collection:findOne(mongo.BSON(query), mongo.BSON(projection));
-	return doc:value().data, nil;
-end -- }
+	query = { ["data.org_id"] = { ["$eq"] = company.org_id } };
+	doc, err = collection:findOne(query);
+	if (err ~= nil) then -- {
+		error(err);
+		return -1, err;
+	end -- }
+	print(doc);
+	if (doc == nil) then -- {
+		return -1, "Record with id "..company.org_id.." does not exist";
+	elseif (doc:value().data.deleted == 1) then -- } {
+		return -1, "Record with id "..company.org_id.." is logically deleted";
+	end -- }
+	return 0, nil;
+end
+--}
 
-handlers.delete= function (self, db_handle, url_parts, query_params, company)
 -- {
-	return;
+handlers.delete= function (self, db_handle, url_parts, query_params, company)
+	if (company == nil) then -- {
+		return { errcode = -1, errmsg = "Company data not submitted for deletion" }
+	end -- }
+	local ret, errmsg = self:validateForDelete(db_handle, company);
+	if (ret ~= 0) then -- {
+		return { message = errmsg }, 400;
+	end -- }
+	local collection = db_handle:getCollection('companies');
+	local old_ts_cnt = company.ts_cnt
+	local query_part1 = { ["data.org_id"] = { ["$eq"] = company.org_id } };
+	local query_part2 = { ["data.ts_cnt"] = { ["$eq"] = math.tointeger(old_ts_cnt) } };
+	local query = { ["$and"] = { __array=true, query_part1, query_part2 }};
+	company.ts_cnt = company.ts_cnt + 1;
+	old_doc, err = collection:findAndModify(mongo.BSON(query), {update = { ["$set"] = {["data.deleted"] = 1}}});
+	local error_code = nil;
+	local table_out = {};
+	if (old_doc ~= nil and err == nil) then -- {
+		table_out = { message = "Record logically deleted"};
+	else -- } {
+		error_code = 400;
+		if (err ~= nil) then -- {
+			table_out = { message = err };
+		else -- } {
+			table_out = { errcode = 1403,
+				message = "Record not found, org_id: "..company.org_id..", ts_cnt: "..math.tointeger(old_ts_cnt)} ;
+		end -- }
+	end --}
+
+	return table_out, error_code;
 end
 -- }
 
@@ -250,6 +311,8 @@ local function deduce_method(request, num, url_parts, qp)
 				return 'add', nil;
 			elseif (method == 'PUT') then -- } {
 				return 'modify', nil;
+			elseif (method == 'DELETE') then -- } {
+				return 'delete', nil;
 			else -- } {
 				return nil, 'HTTP method '..method..' not supported';
 			end -- }
