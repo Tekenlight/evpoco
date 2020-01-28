@@ -114,7 +114,7 @@ handlers.validateForAdd = function(self, db_handle, company)
 		error(err);
 		return -1, err;
 	end -- }
-	print(doc);
+	--print(doc);
 	if (doc ~= nil) then -- {
 		return -1, "Record with id "..company.org_id.." already exists";
 	end -- }
@@ -125,7 +125,7 @@ end
 -- {
 handlers.add= function (self, db_handle, url_parts, query_params, company)
 	local ret, errmsg = self:validateForAdd(db_handle, company);
-	print(ret, errmsg);
+	--print(ret, errmsg);
 	if (ret ~= 0) then -- {
 		return { errcode=-1,  message = errmsg }, 400;
 	end -- }
@@ -134,7 +134,7 @@ handlers.add= function (self, db_handle, url_parts, query_params, company)
 	local envelope = { data = company };
 	local flg, err = collection:insert(envelope)
 
-	print(flg, err);
+	--print(flg, err);
 
 	local error_code = nil;
 	local table_out = {};
@@ -192,7 +192,7 @@ handlers.validateForModify = function(self, db_handle, company)
 		error(err);
 		return -1, err;
 	end -- }
-	print(doc);
+	--print(doc);
 	if (doc == nil) then -- {
 		return -1, "Record with id "..company.org_id.." does not exist";
 	end -- }
@@ -247,7 +247,7 @@ handlers.validateForDelete = function(self, db_handle, company)
 		error(err);
 		return -1, err;
 	end -- }
-	print(doc);
+	--print(doc);
 	if (doc == nil) then -- {
 		return -1, "Record with id "..company.org_id.." does not exist";
 	elseif (doc:value().data.deleted == 1) then -- } {
@@ -352,7 +352,7 @@ local handle_request = function (request, response)
 	local flg, table_input, err =  pcall(json_parser.decode, json_input);
 	local func, err = deduce_method(request, n, url_parts, qp);
 	if (func == nil) then -- {
-		print("in func == nil");
+		--print("in func == nil");
 		response:set_status(400);
 		response:set_chunked_trfencoding(true);
 		response:set_content_type("application/json");
