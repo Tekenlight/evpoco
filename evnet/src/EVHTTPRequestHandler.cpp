@@ -11,6 +11,9 @@
 
 
 #include <fcntl.h>
+#include <stdarg.h>
+
+#include <ef_io.h>
 
 #include "Poco/Net/HostEntry.h"
 #include "Poco/Net/HostEntry.h"
@@ -34,6 +37,13 @@ EVHTTPRequestHandler::~EVHTTPRequestHandler()
         delete it->second;
     }
     _srColl.clear();
+
+	/* Close all the unclosed files. */
+	for (FilesMapType::iterator it = _opened_files.begin(); it != _opened_files.end(); ++it)  {
+		ef_close(it->first);
+		delete it->second;
+	}
+	_opened_files.clear();
 }
 
 int EVHTTPRequestHandler::getState()
@@ -438,145 +448,49 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	return (ret<0)?PROCESSING_ERROR:ret;
 }
 
-/* Not useful code
-long EVHTTPRequestHandler::makeNewSocketConnection(EventHandler& cb_handler, Net::SocketAddress& addr, Net::StreamSocket& css)
+file_handle* EVHTTPRequestHandler::ev_file_open(const char * path, int oflag, ...)
 {
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-	SRData * srdata = new SRData();
-
-	srdata->addr = addr;
-	srdata->cb_handler = &cb_handler;
-	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
-	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
-
-	_srColl[sr_num] = srdata;
-
-	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
-	return sr_num;
-}
-
-long EVHTTPRequestHandler::makeNewSocketConnection(int cb_evid_num, Net::SocketAddress& addr, Net::StreamSocket& css)
-{
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-	SRData * srdata = new SRData();
-
-	srdata->addr = addr;
-	srdata->cb_evid_num = cb_evid_num;
-
-	sr_num = server.submitRequestForConnection(cb_evid_num, getAccSockfd(), addr, css);
-
-	_srColl[sr_num] = srdata;
-
-	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
-	return sr_num;
-}
-
-long EVHTTPRequestHandler::makeNewHTTPConnection(int cb_evid_num, EVHTTPClientSession& sess)
-{
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-
-	if (sess.getState() != EVHTTPClientSession::NOT_CONNECTED) {
-		return -1;
-	}
-
-	sess.setAccfd(getAccSockfd());
-
-	SRData * srdata = new SRData();
-	srdata->addr = sess.getAddr();
-	srdata->session_ptr = &sess;
-	srdata->cb_evid_num = cb_evid_num;
-
-	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
-	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAccSockfd(), sess.getAddr(), sess.getSS());
+	int fd = -1;
+	if (O_CREAT&oflag) {
+		int mode;
+		va_list ap;
+		va_start(ap,oflag);
+		mode= (mode_t)va_arg(ap,int);
+		va_end(ap);
+		fd = ef_open(path, oflag, mode);
 	}
 	else {
-		// TBD : Connect to proxy server first over here. TBD
-		// Set callback to HTTPRH_HTTPCONN_PROXYSOCK_READY here
+		fd = ef_open(path, oflag);
+	}
+	
+	/* Track the files */
+	file_handle *fh = NULL;
+	if (fd != -1) {
+		fh = new file_handle();
+		fh->set_fd(fd);
+		_opened_files[fd] = fh;
 	}
 
-	_srColl[sr_num] = srdata;
-
-	return sr_num;
+	return fh;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess)
+ssize_t EVHTTPRequestHandler::ev_file_read(file_handle* fh, void * buf, size_t nbyte)
 {
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-
-	if (sess.getState() != EVHTTPClientSession::NOT_CONNECTED) {
-		return -1;
-	}
-
-	sess.setAccfd(getAccSockfd());
-
-	SRData * srdata = new SRData();
-	srdata->addr = sess.getAddr();
-	srdata->session_ptr = &sess;
-	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
-	srdata->cb_handler = &cb_handler;
-
-	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
-	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAccSockfd(), sess.getAddr(), sess.getSS());
-	}
-	else {
-		// TBD : Connect to proxy server first over here. TBD
-		// Set callback to HTTPRH_HTTPCONN_PROXYSOCK_READY here
-	}
-
-	_srColl[sr_num] = srdata;
-
-	return sr_num;
+	return ef_read(fh->get_fd(), buf, nbyte);
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession& sess, EVHTTPResponse& res)
+ssize_t EVHTTPRequestHandler::ev_file_write(file_handle* fh, void *buf, size_t nbyte)
 {
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-
-	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
-	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
-
-	SRData * srdata = new SRData();
-	srdata->addr = sess.getAddr();
-	srdata->session_ptr = &sess;
-	srdata->cb_evid_num = cb_evid_num;
-	srdata->response = &res;
-
-	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
-
-	_srColl[sr_num] = srdata;
-
-	return sr_num;
+	return ef_write(fh->get_fd(), buf, nbyte);
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(EventHandler& cb_handler, EVHTTPClientSession& sess, EVHTTPResponse& res)
+int EVHTTPRequestHandler::ev_file_close(file_handle* fh)
 {
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-
-	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
-	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
-
-	SRData * srdata = new SRData();
-	srdata->addr = sess.getAddr();
-	srdata->session_ptr = &sess;
-	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
-	srdata->cb_handler = &cb_handler;
-	srdata->response = &res;
-
-	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
-
-	_srColl[sr_num] = srdata;
-
-	return sr_num;
+	ef_close(fh->get_fd());
+	_opened_files.erase(fh->get_fd());
+	delete fh;
+	return 0;
 }
 
-*/
 
 } } // namespace Poco::evnet

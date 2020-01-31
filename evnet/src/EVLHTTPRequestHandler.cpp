@@ -1947,7 +1947,6 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * Thus, it is not possible to do this initialization in the 
 	 * constructor of this class.
 	 * */
-	DEBUGPOINT("Here\n");
 	if (INITIAL == getState()) {
 		_mapping_script = getMappingScript(getRequest());
 		if (0 != loadReqMapper()) {

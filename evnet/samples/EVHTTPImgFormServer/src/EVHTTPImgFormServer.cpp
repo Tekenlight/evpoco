@@ -9,7 +9,7 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
-#include <ef_io.h>
+#include <string.h>
 
 #include "Poco/evnet/EVHTTPServer.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
@@ -116,8 +116,8 @@ class EVFormRequestHandler: public EVHTTPRequestHandler
 {
 public:
 	struct addrinfo * addr_info = NULL;
-	int c_fd1 = -1;
-	int c_fd2 = -1;
+	Poco::evnet::file_handle_p c_fd1;
+	Poco::evnet::file_handle_p c_fd2;
 	int c_i = 0;
 	char buf[4097];
 	EVFormRequestHandler() 
@@ -126,8 +126,6 @@ public:
 
 	~EVFormRequestHandler()
 	{
-		if (c_fd1>-1) ef_close(c_fd1);
-		if (c_fd2>-1) ef_close(c_fd2);
 	}
 
 	void send_string_response(int line_no, const char* msg)
@@ -136,7 +134,6 @@ public:
 		Poco::Net::HTTPServerResponse& response = (getResponse());
 
 		response.setChunkedTransferEncoding(true);
-		response.setContentType("text/plain");
 		response.setContentType("text/plain");
 		response.setStatus(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 		std::ostream& ostr = getResponse().send();
@@ -283,9 +280,38 @@ public:
 		return PROCESSING_COMPLETE;
 	}
 
-	int handleRequestOne()
+	int handleRequestOneOriginal()
 	{
 		resolveHost(std::bind(&EVFormRequestHandler::handleRequest1, this), "localhost", NULL, &addr_info);
+		return PROCESSING;
+	}
+
+	int handleRequestTwo()
+	{
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() < 0) {
+			send_string_response(__LINE__, strerror(usN.getErrNo()));
+			return PROCESSING_COMPLETE;
+		}
+		memset(buf, 0, 4097);
+		strcpy(buf, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+		ev_file_write(c_fd2, buf, strlen(buf));
+		strcpy(buf, "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII\n");
+		ev_file_write(c_fd2, buf, strlen(buf));
+		strcpy(buf, "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ\n");
+		ev_file_write(c_fd2, buf, strlen(buf));
+
+		return handleRequestOneOriginal();
+	}
+
+	int handleRequestOne()
+	{
+		c_fd2 = ev_file_open("./cha", O_APPEND|O_WRONLY|O_CREAT, 0644);
+		if (c_fd2 == NULL) {
+			send_string_response(__LINE__, strerror(errno));
+			return PROCESSING_ERROR;
+		}
+		pollFileOpenStatus(std::bind(&EVFormRequestHandler::handleRequestTwo, this), c_fd2->get_fd());
 		return PROCESSING;
 	}
 
@@ -302,7 +328,7 @@ public:
 			return handleRequestOne();
 		}
 		int ret =0;
-		while ((ret = ef_read(c_fd1, buf, 4096)) > 0) {
+		while ((ret = ev_file_read(c_fd1, buf, 4096)) > 0) {
 			//DEBUGPOINT("Got some bytes %d\n", ret);
 		}
 		if (ret == -1 && errno != EAGAIN) {
@@ -313,7 +339,7 @@ public:
 			//DEBUGPOINT("Reached end of file\n");
 			return handleRequestOne();
 		}
-		pollFileReadStatus(std::bind(&EVFormRequestHandler::handleRequestZero, this), c_fd1);
+		pollFileReadStatus(std::bind(&EVFormRequestHandler::handleRequestZero, this), c_fd1->get_fd());
 		return PROCESSING;
 	}
 
@@ -325,7 +351,7 @@ public:
 			return PROCESSING_COMPLETE;
 		}
 		memset(buf, 0, 4097);
-		int ret = ef_read(c_fd1, buf, 4096);
+		int ret = ev_file_read(c_fd1, buf, 4096);
 		if (ret == -1 && errno != EAGAIN) {
 			send_string_response(__LINE__, strerror(errno));
 			return PROCESSING_ERROR;
@@ -335,19 +361,92 @@ public:
 			send_string_response(__LINE__, " Empty file");
 			return PROCESSING_ERROR;
 		}
-		pollFileReadStatus(std::bind(&EVFormRequestHandler::handleRequestZero, this), c_fd1);
+		pollFileReadStatus(std::bind(&EVFormRequestHandler::handleRequestZero, this), c_fd1->get_fd());
+		return PROCESSING;
+	}
+
+	int giveImage1()
+	{
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() < 0) {
+			DEBUGPOINT("Here ret = %zd, errno = %d\n", usN.getRet(), usN.getErrNo());
+			send_string_response(__LINE__, strerror(usN.getErrNo()));
+			return PROCESSING_COMPLETE;
+		}
+		if (usN.getRet() == 0) {
+			//DEBUGPOINT("Reached end of file\n");
+			return PROCESSING_COMPLETE;
+		}
+		int ret =0;
+		Poco::Net::HTTPServerResponse& response = (getResponse());
+		std::ostream& ostr = response.getOStream();
+		while ((ret = ev_file_read(c_fd1, buf, 4096)) > 0) {
+			ostr.write(buf, ret);
+		}
+		if (ret == -1 && errno != EAGAIN) {
+			send_string_response(__LINE__, strerror(errno));
+			return PROCESSING_ERROR;
+		}
+		else if (ret == 0) {
+			//DEBUGPOINT("Reached end of file\n");
+			return PROCESSING_COMPLETE;
+		}
+		pollFileReadStatus(std::bind(&EVFormRequestHandler::giveImage1, this), c_fd1->get_fd());
+		return PROCESSING;
+	}
+
+	int giveImage0()
+	{
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() < 0) {
+			send_string_response(__LINE__, strerror(usN.getErrNo()));
+			return PROCESSING_COMPLETE;
+		}
+		Poco::Net::HTTPServerResponse& response = (getResponse());
+		response.setChunkedTransferEncoding(true);
+		response.setContentType("image/jpeg");
+		std::ostream& ostr = response.send();
+
+		memset(buf, 0, 4097);
+		int ret;
+		while ((ret = ev_file_read(c_fd1, buf, 4096)) >0) {
+			ostr.write(buf, ret);
+		}
+		if (ret == -1 && errno != EAGAIN) {
+			send_string_response(__LINE__, strerror(errno));
+			return PROCESSING_ERROR;
+		}
+		else if (ret == 0) {
+			DEBUGPOINT("Reached end of file\n");
+			return PROCESSING_COMPLETE;
+		}
+		pollFileReadStatus(std::bind(&EVFormRequestHandler::giveImage1, this), c_fd1->get_fd());
 		return PROCESSING;
 	}
 
 	int handleRequest()
 	{
-		c_fd1 = ef_open("./Sudheer.JPG", O_RDONLY);
-		if (c_fd1 == -1) {
-			send_string_response(__LINE__, strerror(errno));
-			return PROCESSING_ERROR;
+		Poco::Net::HTTPServerRequest& request = (getRequest());
+		if (strstr(request.getURI().c_str(), "image.JPG")) {
+			c_fd1 = ev_file_open("./Sudheer.JPG", O_RDONLY);
+			DEBUGPOINT("fp = %d\n", c_fd1->get_fd());
+			if (c_fd1 == NULL) {
+				send_string_response(__LINE__, strerror(errno));
+				return PROCESSING_ERROR;
+			}
+			pollFileOpenStatus(std::bind(&EVFormRequestHandler::giveImage0, this), c_fd1->get_fd());
+			return PROCESSING;
 		}
-		pollFileOpenStatus(std::bind(&EVFormRequestHandler::handleRequest0, this), c_fd1);
-		return PROCESSING;
+		else {
+			c_fd1 = ev_file_open("./Sudheer.JPG", O_RDONLY);
+			DEBUGPOINT("fp = %d\n", c_fd1->get_fd());
+			if (c_fd1 == NULL) {
+				send_string_response(__LINE__, strerror(errno));
+				return PROCESSING_ERROR;
+			}
+			pollFileOpenStatus(std::bind(&EVFormRequestHandler::handleRequest0, this), c_fd1->get_fd());
+			return PROCESSING;
+		}
 	}
 };
 

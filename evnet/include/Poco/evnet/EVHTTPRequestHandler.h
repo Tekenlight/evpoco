@@ -39,6 +39,26 @@
 namespace Poco {
 namespace evnet {
 
+class file_handle {
+public:
+	file_handle() : _fd(-1) {}
+	~file_handle() {}
+	int get_fd()
+	{
+		return _fd;
+	}
+	void set_fd(int f)
+	{
+		_fd = f;
+	}
+
+private:
+	int _fd;
+};
+
+typedef file_handle* file_handle_p;
+
+
 class EVHTTPRequestHandler;
 
 class Net_API EVHTTPRequestHandler
@@ -80,6 +100,7 @@ public:
 		struct addrinfo**       addr_info_ptr_ptr;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
+	typedef std::map<int,file_handle*> FilesMapType;
 	static const int INITIAL = 0;
 
 	/* Return values of handleRequest method. */
@@ -164,6 +185,12 @@ public:
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 
+	file_handle_p ev_file_open(const char * path, int oflag, ...);
+	ssize_t ev_file_read(file_handle_p fh, void * buf, size_t nbyte);
+	ssize_t ev_file_write(file_handle_p fh, void *buf, size_t nbyte);
+	int ev_file_close(file_handle_p fh);
+	file_handle_p ev_get_file_handle(int fd);
+
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
 	EVHTTPRequestHandler& operator = (const EVHTTPRequestHandler&);
@@ -177,7 +204,15 @@ private:
 	Net::HTTPServerRequest*			_req = NULL;
 	Net::HTTPServerResponse*		_rsp = NULL;
 	SRColMapType					_srColl;
+	FilesMapType					_opened_files;
 };
+
+inline file_handle_p EVHTTPRequestHandler::ev_get_file_handle(int fd)
+{
+	FilesMapType::iterator it = _opened_files.find(fd);
+	if (it == _opened_files.end()) return NULL;
+	return it->second;
+}
 
 inline EVUpstreamEventNotification & EVHTTPRequestHandler::getUNotification()
 {
