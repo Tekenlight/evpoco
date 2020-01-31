@@ -38,7 +38,7 @@ endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 #message(STATUS "Here ${LTF}")
-target_link_libraries( "${LIBNAME}" "${LTF}" Foundation Net Util ${SYSLIBS} ev evds evthrpool evsync http_parser lua)
+target_link_libraries( "${LIBNAME}" "${LTF}" Foundation Net Util ${SYSLIBS} ev evds evthrpool evsync evio http_parser lua)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

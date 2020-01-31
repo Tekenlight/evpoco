@@ -63,6 +63,10 @@ public:
 	struct addrinfo* getAddrInfo();
 	void setTaskReturnValue(void* a);
 	void* getTaskReturnValue();
+	void setFileFd(int fd);
+	int getFileFd();
+	void setFileOper(int oper);
+	int getFileOper();
 
 private:
 	poco_socket_t			_sockfd;
@@ -74,7 +78,29 @@ private:
 	chunked_memory_stream*	_recv_stream;
 	struct addrinfo*		_addr_info;
 	void*					_task_return_value;
+	int						_file_fd;
+	int						_oper;
 };
+
+inline int EVUpstreamEventNotification::getFileOper()
+{
+	return _oper;
+}
+
+inline void EVUpstreamEventNotification::setFileOper(int oper)
+{
+	_oper = oper;
+}
+
+inline int EVUpstreamEventNotification::getFileFd()
+{
+	return _file_fd;
+}
+
+inline void EVUpstreamEventNotification::setFileFd(int fd)
+{
+	_file_fd = fd;
+}
 
 inline void EVUpstreamEventNotification::setTaskReturnValue(void* a)
 {

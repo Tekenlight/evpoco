@@ -10,9 +10,11 @@
 //
 
 
-#include <ev.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+
+#include <ev.h>
+#include <ef_io.h>
 
 #include "Poco/evnet/evnet.h"
 #include "Poco/Util/AbstractConfiguration.h"
@@ -41,6 +43,38 @@ const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
 const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
 const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
 const std::string EVTCPServer::USE_IPV6_FOR_CONN("useIpv6ForConn");
+
+// this callback is called when a submitted generic task is complete
+static void file_evt_occured (EV_P_ ev_async *w, int revents)
+{
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleFileEvtOccured(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->method))(true);
+
+	return;
+}
+
+static void file_operation_completion(int fd, int completed_oper, void * cb_data)
+{
+	EVTCPServer * tcpserver = (EVTCPServer*) cb_data;
+	if (tcpserver == NULL) {
+		DEBUGPOINT("THIS MUST NOT HAPPEN\n");
+		std::abort();
+	}
+	tcpserver->pushFileEvent(fd, completed_oper);
+	return ;
+}
 
 static void periodic_call_for_housekeeping(EV_P_ ev_timer *w, int revents)
 {
@@ -305,7 +339,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
+	_file_evt_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
@@ -339,7 +375,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
+	_file_evt_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
@@ -372,7 +410,9 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_stop_watcher_ptr3(0),
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
+	_file_evt_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
+	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
 	_use_ipv6_for_conn(false)
 
@@ -399,6 +439,11 @@ void EVTCPServer::freeClear()
         delete it->second;
     }
     _accssColl.clear();
+
+	ef_unset_cb_func();
+	for (FileEvtSubscrMap::iterator it = _file_evt_subscriptions.begin(); it != _file_evt_subscriptions.end(); ++it) {
+		delete it->second._usN;
+	}
 }
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
@@ -1215,8 +1260,15 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				tn->setSockFree();
 				if (PROCESS_COMPLETE <= (tn->getProcState()->getState())) {
 					//DEBUGPOINT("REMOVING STATE of %d\n", ss.impl()->sockfd());
+					std::map<int,int>& subscriptions = tn->getProcState()->getFileEvtSubscriptions();
+					for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
+						//DEBUGPOINT("Here %d\n", it->first);
+						_file_evt_subscriptions.erase(it->first);
+					}
+					subscriptions.clear();
 					tn->deleteState();
 					tn->setWaitingTobeEnqueued(false);
+					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn->pendingCSEvents()); 
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
 				sendDataOnAccSocket(tn);
@@ -1247,6 +1299,14 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				else {
 					//DEBUGPOINT("CLEARING ACC SOCK\n");
+					if (tn->getProcState()) {
+						std::map<int,int>& subscriptions = tn->getProcState()->getFileEvtSubscriptions();
+						for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
+							//DEBUGPOINT("Here %d\n", it->first);
+							_file_evt_subscriptions.erase(it->first);
+						}
+						subscriptions.clear();
+					}
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -1262,6 +1322,14 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				//DEBUGPOINT("ERROR_WHILE_RECEIVING on socket %d\n", pcNf->sockfd());
 				if (!(tn->sockBusy()) && !(tn->pendingCSEvents())) {
 					//DEBUGPOINT("CLEARING ACC SOCK tn sock = %d, pcNf sock = %d\n", tn->getSockfd(), pcNf->sockfd());
+					if (tn->getProcState()) {
+						std::map<int,int>& subscriptions = tn->getProcState()->getFileEvtSubscriptions();
+						for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
+							//DEBUGPOINT("Here %d\n", it->first);
+							_file_evt_subscriptions.erase(it->first);
+						}
+						subscriptions.clear();
+					}
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
@@ -1412,10 +1480,15 @@ void EVTCPServer::run()
 	ev_async stop_watcher_3;
 	ev_async dns_watcher;
 	ev_async gen_task_compl_watcher;
+	ev_async file_evt_watcher;
 	ev_timer timeout_watcher;
 	double timeout = 0.00001;
 
 	this->_thread_pool = create_thread_pool(DEFAULT_NUM_AUXJOB_THREADS);
+
+	ef_set_thrpool(this->_thread_pool);
+	ef_init();
+	ef_set_cb_func(file_operation_completion, (void *)this);
 
 	_loop = EV_DEFAULT;
 
@@ -1425,6 +1498,7 @@ void EVTCPServer::run()
 	memset(&(stop_watcher_3), 0, sizeof(ev_async));
 	memset(&(dns_watcher),0,sizeof(ev_async));
 	memset(&(gen_task_compl_watcher),0,sizeof(ev_async));
+	memset(&(file_evt_watcher),0,sizeof(ev_async));
 	memset(&(timeout_watcher), 0, sizeof(ev_timer));
 
 	this->_stop_watcher_ptr1 = &(stop_watcher_1);
@@ -1432,6 +1506,7 @@ void EVTCPServer::run()
 	this->_stop_watcher_ptr3 = &(stop_watcher_3);
 	this->_dns_watcher_ptr = &(dns_watcher);
 	this->_gen_task_compl_watcher_ptr = &(gen_task_compl_watcher);
+	this->_file_evt_watcher_ptr = &(file_evt_watcher);
 
 	this->_cbStruct.objPtr = this;
 	this->_cbStruct.connArrived = &EVTCPServer::handleConnReq;
@@ -1506,6 +1581,19 @@ void EVTCPServer::run()
 
 		ev_async_init(&gen_task_compl_watcher, generic_task_complete);
 		ev_async_start (_loop, &gen_task_compl_watcher);
+	}
+
+	{
+		strms_pc_cb_ptr_type cb_ptr = 0;
+		cb_ptr = (strms_pc_cb_ptr_type) malloc(sizeof(strms_pc_cb_struct_type));
+		memset(cb_ptr,0,sizeof(strms_pc_cb_struct_type));
+
+		cb_ptr->objPtr = this;
+		cb_ptr->method = &EVTCPServer::handleFileEvtOccured;
+		file_evt_watcher.data = (void*)cb_ptr;
+
+		ev_async_init(&file_evt_watcher, file_evt_occured);
+		ev_async_start (_loop, &file_evt_watcher);
 	}
 
 	{
@@ -1632,6 +1720,10 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 			ev_io_stop (_loop, socket_watcher_ptr);
 		}
 		else {
+			/*
+			 * ERROR CONDITION:
+			 * DID NOT FIND CONNECTED SOCKET FOR THE GIVEN NUMBER.
+			 */
 			EVUpstreamEventNotification * usN = 0;
 			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
 													sr->getCBEVIDNum(), -1, EBADF);
@@ -1818,10 +1910,89 @@ int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 }
 
 typedef struct {
+	int _fd;
+	int _completed_oper;
+} file_evt_s, * file_evt_p;
+
+void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
+{
+	void* pNf = 0;
+	for  (pNf = dequeue(_file_evt_queue); pNf ; pNf = dequeue(_file_evt_queue)) {
+		file_evt_p fe_ptr = ((file_evt_p)(pNf));
+
+		try {
+			file_event_status_s& fes = _file_evt_subscriptions.at(fe_ptr->_fd);
+			EVAcceptedStreamSocket *tn = _accssColl[fes._acc_fd];
+
+			if (!tn) {
+				DEBUGPOINT("Here tn has become null while task was being processed\n");
+				return;
+			}
+			EVUpstreamEventNotification * usN = fes._usN;;
+			//DEBUGPOINT("Here\n");
+			if (fe_ptr->_completed_oper == FILE_OPER_OPEN) {
+				errno = 0;
+				int status = ef_open_status(fe_ptr->_fd);
+				usN->setErrNo(errno);
+				usN->setRet(status);
+			}
+			else if (fe_ptr->_completed_oper == FILE_OPER_READ) {
+				int status = ef_file_ready_for_read(fe_ptr->_fd);
+				//DEBUGPOINT("Here ret = %d errno = %d\n", status, errno);
+				usN->setErrNo(errno);
+				usN->setRet(status);
+			}
+			else {
+				DEBUGPOINT("THIS MUST NOT HAPPEN\n");
+				std::abort();
+			}
+
+			//DEBUGPOINT("Here fd = %d oper = %d\n", fe_ptr->_fd, fe_ptr->_completed_oper);
+			usN->setFileFd(fe_ptr->_fd);
+			usN->setFileOper(fe_ptr->_completed_oper);
+
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
+
+			tn->decrNumCSEvents();
+			_file_evt_subscriptions.erase(fe_ptr->_fd);
+			(tn->getProcState()->getFileEvtSubscriptions()).erase(fe_ptr->_fd);
+		}
+		catch (...) {
+			/* No subcriptions for events of this file. */
+		}
+		delete fe_ptr;
+	}
+}
+
+void EVTCPServer::pushFileEvent(int fd, int completed_oper)
+{
+	//DEBUGPOINT("Here\n");
+	file_evt_p fe_ptr = (file_evt_p)malloc(sizeof(file_evt_s));
+	/* This is to make sure that multiple parallel file event completions
+	 * queue up, so that the single event loop thread can handle them one by one.
+	 * */
+	fe_ptr->_fd = fd;
+	fe_ptr->_completed_oper = completed_oper;
+
+	enqueue(_file_evt_queue, fe_ptr);
+
+	/* Wake the event loop. */
+	/* This will invoke file_evt_occured and therefore EVTCPServer::handleFileEvtOccured */
+	ev_async_send(_loop, this->_file_evt_watcher_ptr);
+
+}
+
+typedef struct {
 	poco_socket_t _acc_fd;
 	EVUpstreamEventNotification* _usN;
 } tc_enqueued_struct, * tc_enqueued_struct_ptr;
-
 
 /* This is handling of task completion within the event loop.
  * So that the event of task completion can be sent to the 
@@ -2012,8 +2183,7 @@ int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
 		EVConnectedStreamSocket * cn = tn->getProcState()->getEVConnSock(sr->sockfd());
 		if (cn) {
 			socket_watcher_ptr = cn->getSocketWatcher();
-			ev_io_stop (_loop, socket_watcher_ptr);
-		}
+			ev_io_stop (_loop, socket_watcher_ptr); }
 
 		errno = 0;
 		ret = 0;
@@ -2036,6 +2206,156 @@ int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
 	int fd = sr->getStreamSocket().impl()->sockfd();
 	return ret;
 }
+
+int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	errno = 0;
+	if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
+		//DEBUGPOINT("Here\n");
+		EVUpstreamEventNotification * usN = 0;
+		usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+		usN->setFileFd(sr->getFileFd());
+		usN->setFileOper(FILE_OPER_OPEN);
+
+		FileEvtSubscrMap::iterator it = _file_evt_subscriptions.find(sr->getFileFd());
+		if (_file_evt_subscriptions.end() != it) {
+		//DEBUGPOINT("Here\n");
+			usN->setErrNo(EBUSY);
+			usN->setRet(-1);
+
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
+		}
+
+		int ret = ef_open_status(sr->getFileFd());
+		if (ret == -1) {
+		//DEBUGPOINT("Here\n");
+			if (errno == EAGAIN) {
+		//DEBUGPOINT("Here %d\n", ret);
+				file_event_status_s fes;
+				fes._usN = usN;
+				fes._acc_fd = sr->accSockfd();
+				_file_evt_subscriptions[sr->getFileFd()] = fes;
+				(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
+				tn->incrNumCSEvents();
+			}
+			else {
+		//DEBUGPOINT("Here %d\n", ret);
+				usN->setErrNo(errno);
+				usN->setRet(ret);
+
+				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+				if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+				}
+				else {
+					tn->setWaitingTobeEnqueued(true);
+				}
+			}
+		}
+		else {
+		//DEBUGPOINT("Here %d errno %d\n", ret, errno);
+			usN->setErrNo(0);
+			usN->setRet(ret);
+			usN->setFileFd(sr->getFileFd());
+
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
+		}
+	}
+
+	return 0;
+}
+
+int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+
+	if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
+		//DEBUGPOINT("Here\n");
+
+		EVUpstreamEventNotification * usN = 0;
+		usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+		usN->setFileFd(sr->getFileFd());
+		usN->setFileOper(FILE_OPER_READ);
+
+		FileEvtSubscrMap::iterator it = _file_evt_subscriptions.find(sr->getFileFd());
+		if (_file_evt_subscriptions.end() != it) {
+			//DEBUGPOINT("Here\n");
+			usN->setErrNo(EBUSY);
+			usN->setRet(-1);
+
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
+		}
+
+		errno = 0;
+		int ret = ef_file_ready_for_read(sr->getFileFd());
+		if (ret < 0) {
+			//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+			if (errno == EAGAIN) {
+				//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+				file_event_status_s fes;
+				fes._usN = usN;
+				fes._acc_fd = sr->accSockfd();
+				_file_evt_subscriptions[sr->getFileFd()] = fes;
+				(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
+				tn->incrNumCSEvents();
+			}
+			else {
+				//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+				usN->setErrNo(errno);
+				usN->setRet(ret);
+
+				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+				if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+				}
+				else {
+					tn->setWaitingTobeEnqueued(true);
+				}
+			}
+		}
+		else {
+			//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+			usN->setErrNo(0);
+			usN->setRet(ret); /* >0 means data available, 0 means EOF */
+
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
+		}
+	}
+
+	return 0;
+}
+
 
 void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 {
@@ -2093,6 +2413,14 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 			case EVTCPServiceRequest::GENERIC_TASK_NR:
 				//DEBUGPOINT("GENERIC_TASK from %d\n", tn->getSockfd());
 				initiateGenericTaskNR(srNF);
+				break;
+			case EVTCPServiceRequest::FILEOPEN_NOTIFICATION:
+				//DEBUGPOINT("FILEOPEN_NOTIFICATION from %d\n", tn->getSockfd());
+				pollFileOpenEvent(srNF);
+				break;
+			case EVTCPServiceRequest::FILEREAD_NOTIFICATION:
+				//DEBUGPOINT("FILEREAD_NOTIFICATION from %d\n", tn->getSockfd());
+				pollFileReadEvent(srNF);
 				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
@@ -2205,5 +2533,36 @@ long EVTCPServer::submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, 
 	enqueue_task(_thread_pool, tf, input_data);
 	return sr_num;
 }
+
+long EVTCPServer::notifyOnFileOpen(int cb_evid_num, poco_socket_t acc_fd, int fd)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::FILEOPEN_NOTIFICATION, acc_fd, fd));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+
+	return sr_num;
+}
+
+long EVTCPServer::notifyOnFileRead(int cb_evid_num, poco_socket_t acc_fd, int fd)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	_service_request_queue.enqueueNotification(new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::FILEREAD_NOTIFICATION, acc_fd, fd));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+
+	return sr_num;
+}
+
 
 } } // namespace Poco::evnet

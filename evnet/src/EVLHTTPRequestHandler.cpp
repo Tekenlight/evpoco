@@ -401,7 +401,7 @@ namespace evpoco {
 		struct addrinfo** addr_info_ptr_ptr = (struct addrinfo**)ctx;
 
 		Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
-		if (usN.getRet() != 0) {
+		if (usN.getRet() < 0) {
 			luaL_error(L, "resolve_host_address: address resolution could not happen: %s", strerror(usN.getErrNo()));
 			if (usN.getAddrInfo()) {
 				//DEBUGPOINT("Here\n");
@@ -1932,6 +1932,7 @@ int EVLHTTPRequestHandler::loadReqHandler()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
+	//DEBUGPOINT("Here %s\n", _request_handler.c_str());
 	int ret = luaL_loadfile(_L, _request_handler.c_str());
 	if (0 != ret)
 		send_string_response(__LINE__, lua_tostring(_L, -1));
@@ -1946,6 +1947,7 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * Thus, it is not possible to do this initialization in the 
 	 * constructor of this class.
 	 * */
+	DEBUGPOINT("Here\n");
 	if (INITIAL == getState()) {
 		_mapping_script = getMappingScript(getRequest());
 		if (0 != loadReqMapper()) {
@@ -1957,7 +1959,7 @@ int EVLHTTPRequestHandler::handleRequest()
 			return PROCESSING_ERROR;
 		}
 		if (0 != loadReqHandler()) {
-			DEBUGPOINT("Here\n");
+			//DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
 		int i = 0;

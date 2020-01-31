@@ -14,6 +14,7 @@
 
 #include <ev.h>
 #include <sys/time.h>
+#include <atomic>
 #include <chunked_memory_stream.h>
 #include <ev_queue.h>
 #include "Poco/Net/Net.h"
@@ -141,7 +142,8 @@ private:
 	int							_socketInError; /* Tells if an error is observed while processing request
 												   on this socket. */
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
-	int							_active_cs_events; /* Tells how many SR requests are pending on this sock */
+	//int						_active_cs_events; /* Tells how many SR requests are pending on this sock */
+	std::atomic_int				_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
 };
@@ -189,18 +191,21 @@ inline bool EVAcceptedStreamSocket::sockInError()
 
 inline void EVAcceptedStreamSocket::decrNumCSEvents()
 {
-	_active_cs_events--;
+	//_active_cs_events--;
+	std::atomic_fetch_add(&_active_cs_events, -1);
 }
 
 inline void EVAcceptedStreamSocket::incrNumCSEvents()
 {
-	_active_cs_events++;
+	//_active_cs_events++;
+	std::atomic_fetch_add(&_active_cs_events, 1);
 }
 
 inline bool EVAcceptedStreamSocket::pendingCSEvents()
 {
+	int cs_events = std::atomic_load(&_active_cs_events);
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
-	return (_active_cs_events>0);
+	return (cs_events>0);
 }
 
 inline void EVAcceptedStreamSocket::setEventLoop(struct ev_loop* loop)

@@ -35,14 +35,17 @@ public:
 		,CONNECTION_REQUEST
 		,SENDDATA_REQUEST
 		,RECVDATA_REQUEST
+		,FILEOPEN_NOTIFICATION
+		,FILEREAD_NOTIFICATION
 		,CLEANUP_REQUEST
 		,GENERIC_TASK
 		,GENERIC_TASK_NR
 	} what;
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
-	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
-	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
-	EVTCPServiceRequest(long sr_num, int cb_event_num, what event, poco_socket_t acc_fd, const char* domain_name, const char* serv_name);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, int file_fd);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, const char* domain_name, const char* serv_name);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, task_func_with_return_t tf, void* td);
 
 	~EVTCPServiceRequest();
@@ -73,6 +76,9 @@ public:
 
 	void* getTaskInputData();
 
+	int getFileFd();
+	void setFileFd(int fd);
+
 private:
 	long						_sr_num;
 	int							_cb_evid_num; // Unique Service request number, for identificaton
@@ -84,7 +90,18 @@ private:
 	const char*					_serv_name; // Either socket address or domain name can be passed
 	task_func_with_return_t		_task_func;
 	void*						_task_input_data; // Input data for generic task
+	int							_file_fd; // File descriptor of the disk file
 };
+
+inline int EVTCPServiceRequest::getFileFd()
+{
+	return _file_fd;
+}
+
+inline void EVTCPServiceRequest::setFileFd(int fd)
+{
+	_file_fd = fd;
+}
 
 inline task_func_with_return_t EVTCPServiceRequest::getTaskFunc()
 {

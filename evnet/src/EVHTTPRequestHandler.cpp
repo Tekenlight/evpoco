@@ -235,6 +235,35 @@ void EVHTTPRequestHandler::executeGenericTaskNR(Poco::evnet::EVServer & server, 
 	return ;
 }
 
+long EVHTTPRequestHandler::pollFileOpenStatus(TCallback cb, int fd)
+{
+	long sr_num = 0;
+
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	sr_num =  getServer().notifyOnFileOpen(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::pollFileReadStatus(TCallback cb, int fd)
+{
+	Poco::evnet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	sr_num =  getServer().notifyOnFileRead(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
 long EVHTTPRequestHandler::executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data)
 {
 	Poco::evnet::EVServer & server = getServer();

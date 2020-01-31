@@ -62,6 +62,7 @@ public:
 	void setServerAddress(Net::SocketAddress addr);
 	Net::SocketAddress& clientAddress();
 	Net::SocketAddress& serverAddress();
+	std::map<int,int>& getFileEvtSubscriptions();
 
 private:
 	EVServer*					_server;
@@ -71,7 +72,13 @@ private:
 	ev_queue_type				_upstream_io_event_queue;
 	Net::SocketAddress			_clientAddress;
 	Net::SocketAddress			_serverAddress;
+	std::map<int,int>			_file_evt_subscriptions;
 };
+
+inline std::map<int,int>& EVProcessingState::getFileEvtSubscriptions()
+{
+	return _file_evt_subscriptions;
+}
 
 inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
 												_no_new_data(0), _need_more_data(0), _upstream_io_event_queue(0) { }

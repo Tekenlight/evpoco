@@ -125,11 +125,14 @@ struct _dns_io_struct {
 typedef struct _dns_io_struct dns_io_struct_type;
 typedef struct _dns_io_struct* dns_io_ptr_type;
 
-class EVAuxTCNotification : public _dns_io_struct, public Notification
-{
-	virtual ~EVAuxTCNotification() { }
+struct _file_event_status {
+	poco_socket_t					_acc_fd;
+	EVUpstreamEventNotification*	_usN;
+	_file_event_status(): _acc_fd(-1), _usN(0) {}
 };
 
+typedef struct _file_event_status file_event_status_s;
+typedef struct _file_event_status* file_event_status_p;
 
 class Net_API EVTCPServer: public Poco::Runnable, public EVServer
 	/// This class implements a multithreaded TCP server.
@@ -295,11 +298,18 @@ public:
 	void postGenericTaskComplete(poco_socket_t acc_fd, EVUpstreamEventNotification *usN);
 		/// To handle post processing of generic task
 
+	void pushFileEvent(int fd, int completed_oper);
+		/// To handle the event of file operation completion
+
 	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data);
 		/// Function to submit a generic task for asynchronous execution
 
 	virtual  long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data);
 		/// Function to submit a generic task for asynchronous execution, this function does not call back or return.
+
+	virtual long notifyOnFileOpen(int cb_evid_num, poco_socket_t acc_fd, int fd);
+	virtual long notifyOnFileRead(int cb_evid_num, poco_socket_t acc_fd, int fd);
+		/// Functions needed for asynchronous file operations.
 
 protected:
 	void run();
@@ -321,18 +331,21 @@ private:
 	ssize_t handleConnSocketWritable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	void handleHostResolved(const bool& ev_occured);
 	void handleGenericTaskComplete(const bool& ev_occured);
+	void handleFileEvtOccured(const bool& ev_occured);
 	ssize_t handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	int makeTCPConnection(EVTCPServiceRequest *);
 	int resolveHost(EVTCPServiceRequest * sr);
 	int initiateGenericTask(EVTCPServiceRequest * sr);
 	int initiateGenericTaskNR(EVTCPServiceRequest * sr);
+	int pollFileOpenEvent(EVTCPServiceRequest * sr);
+	int pollFileReadEvent(EVTCPServiceRequest * sr);
 	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
 	int closeTCPConnection(EVTCPServiceRequest * sr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
-	typedef std::map<poco_socket_t,EVTCPServiceRequest *> SRColMapType;
+	typedef std::map<int,file_event_status_s> FileEvtSubscrMap;
 
 	static const std::string NUM_THREADS_CFG_NAME;
 	static const std::string RECV_TIME_OUT_NAME;
@@ -394,12 +407,15 @@ private:
 	ev_async*							_stop_watcher_ptr3;;
 	ev_async*							_dns_watcher_ptr;
 	ev_async*							_gen_task_compl_watcher_ptr;
+	ev_async*							_file_evt_watcher_ptr;
 
 	ASColMapType						_accssColl;
+	FileEvtSubscrMap					_file_evt_subscriptions;
 
 	NotificationQueue					_queue;
 	NotificationQueue					_service_request_queue;
 	ev_queue_type						_aux_tc_queue; // Auxillary task completion queue
+	ev_queue_type						_file_evt_queue; // File Event completion queue
 	ev_queue_type						_host_resolve_queue; // Host resolution completion queue
 
 	EVStreamSocketLRUList				_ssLRUList;

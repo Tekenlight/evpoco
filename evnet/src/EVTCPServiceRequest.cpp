@@ -18,6 +18,7 @@ using Poco::Net::StreamSocket;
 
 namespace Poco{ namespace evnet {
 
+
 EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss):
 	_sr_num(sr_num),
 	_cb_evid_num(0),
@@ -27,7 +28,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, what event, poco_socket_t 
 	_domain_name(0),
 	_serv_name(0),
 	_task_func(0),
-	_task_input_data(0)
+	_task_input_data(0),
+	_file_fd(-1)
 {
 }
 
@@ -40,7 +42,21 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_domain_name(0),
 	_serv_name(0),
 	_task_func(0),
-	_task_input_data(0)
+	_task_input_data(0),
+	_file_fd(-1)
+{
+}
+
+EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, int file_fd):
+	_sr_num(sr_num),
+	_cb_evid_num(cb_evid_num),
+	_event(event),
+	_acc_fd(acc_fd),
+	_domain_name(0),
+	_serv_name(0),
+	_task_func(0),
+	_task_input_data(0),
+	_file_fd(file_fd)
 {
 }
 
@@ -55,7 +71,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_domain_name(0),
 	_serv_name(0),
 	_task_func(0),
-	_task_input_data(0)
+	_task_input_data(0),
+	_file_fd(-1)
 {
 }
 
@@ -68,7 +85,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_domain_name(domain_name),
 	_serv_name(serv_name),
 	_task_func(0),
-	_task_input_data(0)
+	_task_input_data(0),
+	_file_fd(-1)
 {
 }
 
@@ -81,7 +99,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_domain_name(0),
 	_serv_name(0),
 	_task_func(tf),
-	_task_input_data(td)
+	_task_input_data(td),
+	_file_fd(-1)
 {
 }
 

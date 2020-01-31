@@ -142,6 +142,9 @@ public:
 	long makeNewHTTPConnection(EventHandler& cb_handler, EVHTTPClientSession& sess);
 	 *
 	 */
+
+	long pollFileOpenStatus(TCallback cb, int fd);
+	long pollFileReadStatus(TCallback cb, int fd);
 	long executeGenericTask(TCallback cb, generic_task_handler_t tf, void * input_data);
 	static void executeGenericTaskNR(Poco::evnet::EVServer & server, generic_task_handler_nr_t tf, void * input_data);
 	void executeGenericTaskNR(generic_task_handler_nr_t tf, void * input_data);

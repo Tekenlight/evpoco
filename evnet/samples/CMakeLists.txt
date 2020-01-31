@@ -1,4 +1,5 @@
 add_subdirectory(EVHTTPFormServer)
+add_subdirectory(EVHTTPImgFormServer)
 add_subdirectory(EVHTTPEchoServer)
 add_subdirectory(EVHTTPOrchServer)
 

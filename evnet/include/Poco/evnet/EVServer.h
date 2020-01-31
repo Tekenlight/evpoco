@@ -27,6 +27,8 @@ public:
 	virtual long submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css)=0;
 	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data) = 0;
 	virtual long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data) = 0;
+	virtual long notifyOnFileOpen(int cb_evid_num, poco_socket_t acc_fd, int fd) = 0;
+	virtual long notifyOnFileRead(int cb_evid_num, poco_socket_t acc_fd, int fd) = 0;
 };
 
 }
