@@ -186,7 +186,7 @@ public:
 	long closeHTTPSession(EVHTTPClientSession& sess);
 
 	file_handle_p ev_file_open(const char * path, int oflag, ...);
-	ssize_t ev_file_read(file_handle_p fh, void * buf, size_t nbyte);
+	ssize_t ev_file_read(file_handle_p fh, void *buf, size_t nbyte);
 	ssize_t ev_file_write(file_handle_p fh, void *buf, size_t nbyte);
 	int ev_file_close(file_handle_p fh);
 	file_handle_p ev_get_file_handle(int fd);

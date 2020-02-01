@@ -33,7 +33,7 @@ EVHTTPRequestHandler::EVHTTPRequestHandler():
 
 EVHTTPRequestHandler::~EVHTTPRequestHandler()
 {
-    for ( SRColMapType::iterator it = _srColl.begin(); it != _srColl.end(); ++it ) {
+    for (SRColMapType::iterator it = _srColl.begin(); it != _srColl.end(); ++it ) {
         delete it->second;
     }
     _srColl.clear();

@@ -38,6 +38,8 @@
 namespace Poco {
 namespace evnet {
 
+const static char *_memory_buffer_name = "memorybuffer";
+const static char *_file_handle_type_name = "filehandle";
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_req_type_name = "httpreq";
 const static char *_http_resp_type_name = "httpresp";
@@ -55,6 +57,14 @@ namespace evpoco {
 	static int send_request_header(lua_State* L);
 	static int send_request_body(lua_State* L);
 	static int receive_http_response_initiate(lua_State* L);
+	static int alloc_buffer(lua_State* L);
+	static int ev_lua_file_open_initiate(lua_State* L);
+	static int ev_lua_file_read_text_initiate(lua_State* L);
+	static int ev_lua_file_read_binary_initiate(lua_State* L);
+	static int ev_lua_file_write_text(lua_State* L);
+	static int ev_lua_file_write_binary(lua_State* L);
+	static int ev_lua_file_close(lua_State* L);
+	static void validate_file_handle(lua_State* L);
 	static int receive_http_response_complete(lua_State* L, int status, lua_KContext ctx);
 	namespace httpmessage {
 		static int set_version(lua_State* L);
@@ -113,6 +123,15 @@ namespace evpoco {
 }
 
 static const luaL_Reg dummy[] = {
+	{ NULL, NULL }
+};
+
+static const luaL_Reg evpoco_file_lib[] = {
+	{ "read_text", &evpoco::ev_lua_file_read_text_initiate},
+	{ "read_binary", &evpoco::ev_lua_file_read_binary_initiate},
+	{ "write_text", &evpoco::ev_lua_file_write_text},
+	{ "write_binary", &evpoco::ev_lua_file_write_binary},
+	{ "close", &evpoco::ev_lua_file_close},
 	{ NULL, NULL }
 };
 
@@ -196,6 +215,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "send_request_header", &evpoco::send_request_header },
 	{ "send_request_body", &evpoco::send_request_body },
 	{ "receive_http_response", &evpoco::receive_http_response_initiate },
+	{ "file_open", &evpoco::ev_lua_file_open_initiate },
+	{ "alloc_buffer", &evpoco::alloc_buffer },
 	{ NULL, NULL }
 };
 
@@ -340,6 +361,14 @@ static int obj1__gc(lua_State *L)
 	poco_assert(reqHandler != NULL);
 
 
+	return 0;
+}
+
+static int buffer__gc(lua_State *L)
+{
+	void * ptr = lua_touserdata(L, 1);
+	void * buffer = *(void**)ptr;
+	free(buffer);
 	return 0;
 }
 
@@ -716,6 +745,451 @@ namespace evpoco {
 
 		reqHandler->waitForHTTPResponse(NULL, (session), *response);
 		return lua_yieldk(L, 0, (lua_KContext)response, receive_http_response_complete);
+	}
+
+	static int ev_lua_file_open_complete(lua_State* L, int status, lua_KContext ctx)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		Poco::evnet::file_handle_p fh = (Poco::evnet::file_handle_p)ctx;
+		Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+		if (usN.getRet() < 0) {
+			DEBUGPOINT("fh = %p, fd = %d\n", fh, fh->get_fd());
+			char str[1024] = {0};
+			sprintf(str, "file_open: file could not be opened: %s", strerror(usN.getErrNo()));
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			reqHandler->ev_file_close(fh);
+			return 2;
+		}
+
+		void * ptr = lua_newuserdata(L, sizeof(Poco::evnet::file_handle_p));
+		*(Poco::evnet::file_handle_p*)ptr = fh;
+		luaL_setmetatable(L, _file_handle_type_name);
+
+		return 1;
+	}
+
+	static int ev_lua_file_open_initiate(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		int n = lua_gettop(L);
+		if (n != 2) {
+			return luaL_error(L, "file_open: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
+		}
+		if (!lua_isstring(L, 1)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+			return luaL_error(L, "file_open: invalid first argumet type %s", lua_typename(L, lua_type(L, 1)));
+		}
+		if (!lua_isstring(L, 2)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+			return luaL_error(L, "file_open: invalid second argumet type %s", lua_typename(L, lua_type(L, 2)));
+		}
+
+		const char * file_name = NULL;
+		const char * permission = NULL;
+
+		if (strchr(lua_tostring(L, 1), ' ') || strchr(lua_tostring(L, 1), '\t') || strchr(lua_tostring(L, 1), '\n')) {
+			DEBUGPOINT("Here %s\n", lua_tostring(L, 1));
+			return luaL_error(L, "file_open: invald first argument, white space not allowed  %s", lua_tostring(L, 1));
+		}
+		file_name = lua_tostring(L, 1);
+		if (strcmp("r", lua_tostring(L, 2)) && strcmp("w", lua_tostring(L, 2)) && strcmp("a", lua_tostring(L, 2)) &&
+			strcmp("r+", lua_tostring(L, 2)) && strcmp("w+", lua_tostring(L, 2)) && strcmp("a+", lua_tostring(L, 2))) {
+			DEBUGPOINT("Here %s\n", lua_tostring(L, 2));
+			return luaL_error(L, "file_open: invald second argument %s, allowed: r, w, a, r+, w+, a+", lua_tostring(L, 2));
+		}
+		permission = lua_tostring(L, 2);
+		int oflag = 0;
+		if (permission[1] == '+') {
+			switch (permission[0]) {
+				case 'r':
+					oflag |= O_RDWR;
+					break;
+				case 'w':
+					oflag |= O_RDWR|O_TRUNC|O_CREAT;
+					break;
+				case 'a':
+					oflag |= O_RDWR|O_APPEND|O_CREAT;
+					break;
+				default:
+					return luaL_error(L, "file_open: invald second argument %s, allowed: r, w, a, r+, w+, a+", lua_tostring(L, 2));
+			}
+		}
+		else {
+			switch (permission[0]) {
+				case 'r':
+					oflag |= O_RDONLY;
+					break;
+				case 'w':
+					oflag |= O_WRONLY|O_CREAT;
+					break;
+				case 'a':
+					oflag |= O_RDWR|O_CREAT;
+					break;
+				default:
+					return luaL_error(L, "file_open: invald second argument %s, allowed: r, w, a, r+, w+, a+", lua_tostring(L, 2));
+			}
+		}
+
+		Poco::evnet::file_handle_p fh = NULL;
+		if (oflag&O_CREAT) {
+			fh = reqHandler->ev_file_open(file_name, oflag, 0644);
+		}
+		else {
+			fh = reqHandler->ev_file_open(file_name, oflag);
+		}
+
+		if (fh == NULL) {
+			DEBUGPOINT("OPEN CALL FAILED %s\n", strerror(errno));
+			char str[1024] = {0};
+			sprintf(str, "file_open: open call failed: %s", strerror(errno));
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			return 2;
+		}
+
+		reqHandler->pollFileOpenStatus(NULL, fh->get_fd());
+		return lua_yieldk(L, 0, (lua_KContext)fh, ev_lua_file_open_complete);
+	}
+
+	static void validate_file_handle(lua_State* L)
+	{
+		if (!lua_isuserdata(L, 1)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+			luaL_error(L, "file_close: invalid argumet type: %s", lua_typename(L, lua_type(L, 1)));
+			return;
+		}
+
+		//DEBUGPOINT("Here %d\n", lua_gettop(L));
+		/*
+		if (1 != lua_getmetatable(L, 1)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+			luaL_error(L, "file_close: No metatable for first argument: %s", lua_typename(L, lua_type(L, 1)));
+			return;
+		}
+
+		lua_pushstring(L, "__name");
+		lua_rawget(L, -2);
+		const char * data_type = lua_tostring(L, -1);
+		if (NULL == data_type || strcmp(data_type, _file_handle_type_name)) {
+			DEBUGPOINT("Here %s\n", data_type);
+			luaL_error(L, "file_close: invalid argumet, %s: not a file handle", data_type);
+			return;
+		}
+
+		lua_pop(L, 2);
+		*/
+		//DEBUGPOINT("Here %d\n", lua_gettop(L));
+
+		Poco::evnet::file_handle_p fh = NULL;
+		void * ptr = luaL_checkudata(L, 1, _file_handle_type_name);
+		fh = *(Poco::evnet::file_handle_p*)ptr;
+		if (!fh) {
+			luaL_error(L, "Invaid file handle ");
+			return;
+		}
+
+		return ;
+	}
+
+	struct _read_s {
+		Poco::evnet::file_handle_p _fh;
+		void * _buf;
+		ssize_t _size;
+	};
+
+	static int ev_lua_file_read_text_complete(lua_State* L, int status, lua_KContext ctx)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		struct _read_s* rp = (struct _read_s*)ctx;
+
+		Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+
+		ssize_t nbyte = usN.getRet();
+		errno = usN.getErrNo();
+		//DEBUGPOINT("Here fd = %d complete nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte < 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_text: file read failed: %s", strerror(errno));
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			reqHandler->ev_file_close(rp->_fh);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte == 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_text: EOF reached");
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+
+		memset(rp->_buf, 0, rp->_size+1);
+		nbyte = reqHandler->ev_file_read(rp->_fh, rp->_buf, rp->_size);
+		//DEBUGPOINT("Here fd = %d complete nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte > 0) {
+			lua_pushstring(L, (const char*)rp->_buf);
+			lua_pushstring(L, NULL);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+		else {
+			free(rp->_buf);
+			free(rp);
+			return luaL_error(L, "file_read_text: failed for unknown reason");
+		}
+	}
+
+	/* local string = fh.read_text(fh, size); */
+	static int ev_lua_file_read_text_initiate(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		int n = lua_gettop(L);
+		if (n != 2) {
+			return luaL_error(L, "read_text: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
+		}
+
+		struct _read_s* rp = (struct _read_s*)malloc(sizeof(struct _read_s));
+
+		rp->_fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
+		rp->_size = luaL_checkinteger(L, 2);
+		if (rp->_size <= 0) {
+			return luaL_error(L, "read_text: size must be greater than 0");
+		}
+
+		rp->_buf = malloc(rp->_size+1);
+		memset(rp->_buf, 0, rp->_size+1);
+
+		ssize_t nbyte = reqHandler->ev_file_read(rp->_fh, rp->_buf, rp->_size);
+		//DEBUGPOINT("Here fd = %d initiate nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte < 0 && errno != EAGAIN) {
+			char str[1024] = {0};
+			sprintf(str, "read_text: file read failed: %s", strerror(errno));
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte == 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_text: EOF reached");
+			lua_pushnil(L);
+			lua_pushstring(L, str);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte > 0) {
+			lua_pushstring(L, (const char*)rp->_buf);
+			lua_pushstring(L, NULL);
+			free(rp->_buf);
+			free(rp);
+			return 2;
+		}
+
+		reqHandler->pollFileReadStatus(NULL, rp->_fh->get_fd());
+		return lua_yieldk(L, 0, (lua_KContext)rp, ev_lua_file_read_text_complete);
+	}
+
+	static int ev_lua_file_read_binary_complete(lua_State* L, int status, lua_KContext ctx)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		struct _read_s* rp = (struct _read_s*)ctx;
+
+		Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+
+		ssize_t nbyte = usN.getRet();
+		errno = usN.getErrNo();
+		//DEBUGPOINT("Here fd = %d complete nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte < 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_binary: file read failed: %s", strerror(errno));
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, str);
+			reqHandler->ev_file_close(rp->_fh);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte == 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_binary: EOF reached");
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, str);
+			free(rp);
+			return 2;
+		}
+
+		memset(rp->_buf, 0, rp->_size);
+		nbyte = reqHandler->ev_file_read(rp->_fh, rp->_buf, rp->_size);
+		//DEBUGPOINT("Here fd = %d complete nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte > 0) {
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, NULL);
+			free(rp);
+			return 2;
+		}
+		else {
+			free(rp);
+			return luaL_error(L, "file_read_binary: failed for unknown reason");
+		}
+	}
+
+	/* local integer = fh.read_binary(fh, buffer, size); */
+	static int ev_lua_file_read_binary_initiate(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		int n = lua_gettop(L);
+		if (n != 3) {
+			return luaL_error(L, "read_binary: invalid number of arguments, expetcted 3, actual %d", lua_gettop(L));
+		}
+
+		struct _read_s* rp = (struct _read_s*)malloc(sizeof(struct _read_s));
+
+		rp->_fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
+		rp->_buf = (Poco::evnet::file_handle_p)luaL_checkudata(L, 2, _memory_buffer_name);
+		rp->_size = luaL_checkinteger(L, 3);
+		if (rp->_size <= 0) {
+			return luaL_error(L, "read_binary: size must be greater than 0");
+		}
+
+		ssize_t nbyte = reqHandler->ev_file_read(rp->_fh, rp->_buf, rp->_size);
+		//DEBUGPOINT("Here fd = %d initiate nbyte = %zd , errno = %d\n", rp->_fh->get_fd(), nbyte, errno);
+		if (nbyte < 0 && errno != EAGAIN) {
+			char str[1024] = {0};
+			sprintf(str, "read_binary: file read failed: %s", strerror(errno));
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, str);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte == 0) {
+			char str[1024] = {0};
+			sprintf(str, "read_binary: EOF reached");
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, str);
+			free(rp);
+			return 2;
+		}
+		else if (nbyte > 0) {
+			lua_pushinteger(L, nbyte);
+			lua_pushstring(L, NULL);
+			free(rp);
+			return 2;
+		}
+
+		reqHandler->pollFileReadStatus(NULL, rp->_fh->get_fd());
+		return lua_yieldk(L, 0, (lua_KContext)rp, ev_lua_file_read_binary_complete);
+	}
+
+	/* local ret = fh.write_text(fh, text); */
+	static int ev_lua_file_write_text(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+		int n = lua_gettop(L);
+		if (n != 2) {
+			return luaL_error(L, "write_text: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
+		}
+
+		Poco::evnet::file_handle_p fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
+		const char * text = (const char *)luaL_checkstring(L, 2);
+		size_t ret = reqHandler->ev_file_write(fh, (void*)text, strlen(text));
+
+		lua_pushinteger(L, ret);
+
+		return 1;
+	}
+
+	/* local ret = fh.write_binary(fh, buffer, size); */
+	static int ev_lua_file_write_binary(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+		int n = lua_gettop(L);
+		if (n != 3) {
+			return luaL_error(L, "write_text: invalid number of arguments, expetcted 3, actual %d", lua_gettop(L));
+		}
+
+		Poco::evnet::file_handle_p fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
+		void * buffer = luaL_checkudata(L, 2, _memory_buffer_name);
+		size_t size = luaL_checkinteger(L, 3);
+
+		//DEBUGPOINT("Here fd = %d\n", fh->get_fd());
+		//DEBUGPOINT("Here buffer = %p\n", buffer);
+		//DEBUGPOINT("%zu +\n", size);
+
+		size_t ret = reqHandler->ev_file_write(fh, buffer, size);
+
+		lua_pushinteger(L, ret);
+
+		return 1;
+	}
+
+	static int ev_lua_file_close(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		int n = lua_gettop(L);
+		if (n != 1) {
+			return luaL_error(L, "file_close: invalid number of arguments, expetcted 1, actual %d", lua_gettop(L));
+		}
+		validate_file_handle(L);
+		Poco::evnet::file_handle_p fh = NULL;
+
+		fh = *(Poco::evnet::file_handle_p*)lua_touserdata(L, 1);
+		reqHandler->ev_file_close(fh);
+
+		return 0;
+	}
+
+	static int alloc_buffer(lua_State* L)
+	{
+		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+		int n = lua_gettop(L);
+
+		if (n != 1) {
+			return luaL_error(L, "alloc_buffer: invalid number of arguments, expetcted 1, actual %d", lua_gettop(L));
+		}
+
+		if (!lua_isinteger(L, 1)) {
+			return luaL_error(L, "alloc_buffer: invalid argument type %s", lua_typename(L, lua_type(L, 1)));
+		}
+
+		if (0 >= lua_tointeger(L, 1)) {
+			return luaL_error(L, "alloc_buffer: invalid argument type %d, should be a positive number", lua_tointeger(L, 1));
+		}
+
+		size_t alloc_size = lua_tointeger(L, 1);
+
+		lua_getglobal(L, S_CURRENT_ALLOC_SIZE);
+		size_t current_allocation = lua_tointeger(L, -1);
+		lua_pop(L, 1);
+
+		lua_getglobal(L, S_MAX_MEMORY_ALLOC_LIMIT);
+		size_t max_allocation_limit = lua_tointeger(L, -1);
+		lua_pop(L, 1);
+
+		if ((current_allocation + alloc_size) > max_allocation_limit) {
+			char str[1024] = {0};
+			sprintf(str,
+				"alloc_buffer: unable to allocate %zd bytes, exceeds memory limit [%zd] \n",
+				alloc_size, max_allocation_limit);
+			return luaL_error(L, str);
+		}
+
+		void * ptr = lua_newuserdata(L, alloc_size);
+		luaL_setmetatable(L, _memory_buffer_name);
+
+		current_allocation += alloc_size;
+		lua_pushinteger(L, current_allocation);
+		lua_setglobal(L, S_CURRENT_ALLOC_SIZE);
+
+		return 1;
 	}
 
 	namespace httpmessage {
@@ -1619,20 +2093,33 @@ namespace evpoco {
 			static int write(lua_State* L)
 			{
 				EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+				int n = lua_gettop(L);
 				if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
 					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
 					luaL_error(L, "ostream:write: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 					return 0;
 				}
-				else if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
-					DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-					luaL_error(L, "ostream:write: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
-				}
-				else {
+
+				if (n==2) {
+					if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
+						DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+						luaL_error(L, "ostream:write: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
+					}
 					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
 					std::ostream& ostr = response.getOStream();
 					ostr << lua_tostring(L, 2);
 				}
+				else if (n== 3) {
+					Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
+					std::ostream& ostr = response.getOStream();
+					void * buf = luaL_checkudata(L, 2, _memory_buffer_name);
+					int size = luaL_checkinteger(L, 3);
+					ostr.write((const char *)buf, size);
+				}
+				else {
+					return luaL_error(L, "ostream:write: invalid number of argumets %d", n);
+				}
+
 				return 0;
 			}
 
@@ -1765,6 +2252,22 @@ static int luaopen_evpoco(lua_State* L)
 	lua_settable(L, -3); // Stack: context meta
 	lua_pop(L, 1); // Stack: context
 
+	luaL_newmetatable(L, _file_handle_type_name); // Stack: meta
+	luaL_newlib(L, evpoco_file_lib); // Stack: meta dummy
+	lua_setfield(L, -2, "__index"); // Stack: meta
+	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
+	lua_settable(L, -3); // Stack: meta
+	lua_pop(L, 1); // Stack:
+
+	luaL_newmetatable(L, _memory_buffer_name); // Stack: meta
+	luaL_newlib(L, dummy); // Stack: meta dummy
+	lua_setfield(L, -2, "__index"); // Stack: meta
+	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
+	lua_settable(L, -3); // Stack: meta
+	lua_pop(L, 1); // Stack:
+
 	return 1;
 }
 
@@ -1794,6 +2297,12 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 	lua_pushlightuserdata(_L, (void*) this);
 	lua_setglobal(_L, "EVLHTTPRequestHandler*");
+
+	lua_pushinteger(_L, MAX_MEMORY_ALLOC_LIMIT);
+	lua_setglobal(_L, S_MAX_MEMORY_ALLOC_LIMIT);
+
+	lua_pushinteger(_L, 0);
+	lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
 
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);

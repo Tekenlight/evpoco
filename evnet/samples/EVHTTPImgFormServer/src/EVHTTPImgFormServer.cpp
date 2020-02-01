@@ -306,7 +306,7 @@ public:
 
 	int handleRequestOne()
 	{
-		c_fd2 = ev_file_open("./cha", O_APPEND|O_WRONLY|O_CREAT, 0644);
+		c_fd2 = ev_file_open("./cha", O_TRUNC|O_APPEND|O_WRONLY|O_CREAT, 0644);
 		if (c_fd2 == NULL) {
 			send_string_response(__LINE__, strerror(errno));
 			return PROCESSING_ERROR;
@@ -381,7 +381,9 @@ public:
 		Poco::Net::HTTPServerResponse& response = (getResponse());
 		std::ostream& ostr = response.getOStream();
 		while ((ret = ev_file_read(c_fd1, buf, 4096)) > 0) {
+			printf("%d +\n",ret);
 			ostr.write(buf, ret);
+			ev_file_write(c_fd2, buf, ret);
 		}
 		if (ret == -1 && errno != EAGAIN) {
 			send_string_response(__LINE__, strerror(errno));
@@ -411,6 +413,7 @@ public:
 		int ret;
 		while ((ret = ev_file_read(c_fd1, buf, 4096)) >0) {
 			ostr.write(buf, ret);
+			ev_file_write(c_fd2, buf, ret);
 		}
 		if (ret == -1 && errno != EAGAIN) {
 			send_string_response(__LINE__, strerror(errno));
@@ -424,6 +427,23 @@ public:
 		return PROCESSING;
 	}
 
+	int giveImage00()
+	{
+		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		if (usN.getRet() < 0) {
+			send_string_response(__LINE__, strerror(usN.getErrNo()));
+			return PROCESSING_COMPLETE;
+		}
+		c_fd2 = ev_file_open("./cha.JPG", O_TRUNC|O_APPEND|O_WRONLY|O_CREAT, 0644);
+		if (c_fd2 == NULL) {
+			send_string_response(__LINE__, strerror(errno));
+			return PROCESSING_ERROR;
+		}
+		pollFileOpenStatus(std::bind(&EVFormRequestHandler::giveImage0, this), c_fd2->get_fd());
+		return PROCESSING;
+	}
+
+
 	int handleRequest()
 	{
 		Poco::Net::HTTPServerRequest& request = (getRequest());
@@ -434,7 +454,7 @@ public:
 				send_string_response(__LINE__, strerror(errno));
 				return PROCESSING_ERROR;
 			}
-			pollFileOpenStatus(std::bind(&EVFormRequestHandler::giveImage0, this), c_fd1->get_fd());
+			pollFileOpenStatus(std::bind(&EVFormRequestHandler::giveImage00, this), c_fd1->get_fd());
 			return PROCESSING;
 		}
 		else {
