@@ -151,6 +151,7 @@ int completion_common_routine(lua_State* L, int status, lua_KContext ctx)
 		return 0;
 	}
 	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)(usN.getTaskReturnValue());
+	usN.setTaskReturnValue(NULL);
 	push_out_params_to_lua_stack(oparams, L);
 	int n = get_num_generic_params(oparams);
 

@@ -87,6 +87,7 @@ static int vs_step_completion(lua_State* L, int status, lua_KContext ctx)
 	}
 
 	int * ip = (int*)(usN.getTaskReturnValue());
+	usN.setTaskReturnValue(NULL);
     if (*ip == 0) {
 		if (sqlite3_reset(statement->stmt) != SQLITE_OK) {
 			/* 

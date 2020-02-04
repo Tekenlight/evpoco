@@ -267,7 +267,8 @@ void EVHTTPRequestProcessor::evrun()
 				if (_reqProcState->getUpstreamEventQ() &&
 						!queue_empty(_reqProcState->getUpstreamEventQ())) {
 					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
-					while (elem) {
+					bool processing_complete = false;
+					while (!processing_complete && elem) {
 						/* Process upstream events here. */
 						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
 						try {
@@ -284,6 +285,7 @@ void EVHTTPRequestProcessor::evrun()
 									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 									case EVHTTPRequestHandler::PROCESSING_ERROR:
 									default:
+										processing_complete = true;
 										_reqProcState->setState(PROCESS_COMPLETE);
 										break;
 								}

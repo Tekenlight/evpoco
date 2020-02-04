@@ -919,34 +919,38 @@ handleConnSocketReadable_finally:
 
 	if ((ret >=0) && cn->rcvDataAvlbl()) {
 		EVUpstreamEventNotification * usN = 0;
-		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
-												cb_ptr->cb_evid_num,
-												(ret)?ret:1, 0);
-		usN->setRecvStream(cn->getRcvMemStream());
-		usN->setSendStream(cn->getSendMemStream());
-		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-		if (!(tn->sockBusy())) {
-			tn->setSockBusy();
-			_pDispatcher->enqueue(tn);
-		}
-		else {
-			tn->setWaitingTobeEnqueued(true);
+		if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+			usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+													cb_ptr->cb_evid_num,
+													(ret)?ret:1, 0);
+			usN->setRecvStream(cn->getRcvMemStream());
+			usN->setSendStream(cn->getSendMemStream());
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
 		}
 	}
 	else if (ret<0) {
 		cn->setSockInError();
 		EVUpstreamEventNotification * usN = 0;
-		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
-												cb_ptr->cb_evid_num,
-												-1, errno);
-		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-		if (!(tn->sockBusy())) {
-			tn->setSockBusy();
-			cn->setSockInError();
-			_pDispatcher->enqueue(tn);
-		}
-		else {
-			tn->setWaitingTobeEnqueued(true);
+		if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+			usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+													cb_ptr->cb_evid_num,
+													-1, errno);
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				cn->setSockInError();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
 		}
 	}
 	else {
@@ -1283,6 +1287,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
+					//DEBUGPOINT("Here\n");
 					monitorDataOnAccSocket(tn);
 				}
 				break;
@@ -1725,16 +1730,19 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 			 * DID NOT FIND CONNECTED SOCKET FOR THE GIVEN NUMBER.
 			 */
 			EVUpstreamEventNotification * usN = 0;
-			usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
-													sr->getCBEVIDNum(), -1, EBADF);
-			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-			if (!(tn->sockBusy())) {
-				tn->setSockBusy();
-				_pDispatcher->enqueue(tn);
+			if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+				usN = new EVUpstreamEventNotification(sr->getSRNum(), (sr->getStreamSocket().impl()->sockfd()), 
+														sr->getCBEVIDNum(), -1, EBADF);
+				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+				if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+				}
+				else {
+					tn->setWaitingTobeEnqueued(true);
+				}
 			}
-			else {
-				tn->setWaitingTobeEnqueued(true);
-			}
+			return -1;
 		}
 
 		socket_watcher_ptr = cn->getSocketWatcher();
@@ -1860,16 +1868,22 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 		usN->setErrNo(dio_ptr->_out._errno);
 		usN->setAddrInfo(dio_ptr->_out._result);
 
-		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-		if (!(tn->sockBusy())) {
-			tn->setSockBusy();
-			_pDispatcher->enqueue(tn);
+		tn->decrNumCSEvents();
+
+		if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
 		}
 		else {
-			tn->setWaitingTobeEnqueued(true);
+			delete usN;
 		}
 
-		tn->decrNumCSEvents();
 		delete ref_data;
 		delete dio_ptr;
 	}
@@ -1951,13 +1965,18 @@ void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 			usN->setFileFd(fe_ptr->_fd);
 			usN->setFileOper(fe_ptr->_completed_oper);
 
-			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-			if (!(tn->sockBusy())) {
-				tn->setSockBusy();
-				_pDispatcher->enqueue(tn);
+			if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+				if (!(tn->sockBusy())) {
+					tn->setSockBusy();
+					_pDispatcher->enqueue(tn);
+				}
+				else {
+					tn->setWaitingTobeEnqueued(true);
+				}
 			}
 			else {
-				tn->setWaitingTobeEnqueued(true);
+				delete usN;
 			}
 
 			tn->decrNumCSEvents();
@@ -2012,13 +2031,19 @@ void EVTCPServer::handleGenericTaskComplete(const bool& ev_occured)
 		}
 		EVUpstreamEventNotification * usN = tc_ptr->_usN;;
 
-		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-		if (!(tn->sockBusy())) {
-			tn->setSockBusy();
-			_pDispatcher->enqueue(tn);
+		if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+			if (!(tn->sockBusy())) {
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+			else {
+				tn->setWaitingTobeEnqueued(true);
+			}
 		}
 		else {
-			tn->setWaitingTobeEnqueued(true);
+			if (usN->getTaskReturnValue()) { free(usN->getTaskReturnValue()); usN->setTaskReturnValue(NULL); }
+			delete usN;
 		}
 
 		tn->decrNumCSEvents();

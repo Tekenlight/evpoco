@@ -67,6 +67,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddr
 	srdata->cb = cb;
 	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
 
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
@@ -106,6 +107,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 		// Set callback to HTTPRH_HTTPCONN_PROXYSOCK_READY here
 	}
 
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -134,6 +136,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAccSockfd(), domain_name, NULL);
 
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -162,6 +165,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAccSockfd(), domain_name, serv_name);
 
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -206,6 +210,7 @@ long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession
 
 	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
 
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -223,6 +228,7 @@ long EVHTTPRequestHandler::resolveHost(TCallback cb,
 	srdata->addr_info_ptr_ptr = addr_info_ptr_ptr;
 
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_DNSR_HOST_RESOLUTION_DONE, getAccSockfd(), domain_name, serv_name);
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -254,6 +260,7 @@ long EVHTTPRequestHandler::pollFileOpenStatus(TCallback cb, int fd)
 	srdata->cb = cb;
 
 	sr_num =  getServer().notifyOnFileOpen(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -269,6 +276,7 @@ long EVHTTPRequestHandler::pollFileReadStatus(TCallback cb, int fd)
 	srdata->cb = cb;
 
 	sr_num =  getServer().notifyOnFileRead(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -285,6 +293,7 @@ long EVHTTPRequestHandler::executeGenericTask(TCallback cb, generic_task_handler
 
 	//DEBUGPOINT("Here\n");
 	sr_num =  getServer().submitRequestForTaskExecution(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), tf, input_data);
+	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
 	return sr_num;
@@ -426,6 +435,8 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		ret = PROCESSING;
 	}
 	else {
+		SRData * old = _srColl[sr_num];
+		_usN->setRefSRNum(old->ref_sr_num);
 		try {
 			if ((_srColl[sr_num])->cb_handler) {
 				ret = (*((_srColl[sr_num])->cb_handler))();
@@ -440,11 +451,11 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		catch (...) {
 			ret = PROCESSING_ERROR;
 		}
-		SRData * old = _srColl[sr_num];
 		_srColl.erase(sr_num);
 		delete old;
 	}
 
+	//DEBUGPOINT("Here ret = %d\n", ret);
 	return (ret<0)?PROCESSING_ERROR:ret;
 }
 

@@ -26,7 +26,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, int cb_evi
 	_addr_info(0),
 	_task_return_value(0),
 	_file_fd(-1),
-	_oper(-1)
+	_oper(-1),
+	_ref_sr_num(-1)
 {
 }
 
@@ -41,7 +42,8 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_addr_info(0),
 	_task_return_value(0),
 	_file_fd(-1),
-	_oper(-1)
+	_oper(-1),
+	_ref_sr_num(-1)
 {
 }
 
@@ -56,7 +58,24 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_addr_info(0),
 	_task_return_value(0),
 	_file_fd(-1),
-	_oper(-1)
+	_oper(-1),
+	_ref_sr_num(-1)
+{
+}
+
+EVUpstreamEventNotification::EVUpstreamEventNotification():
+	_sr_num(-1),
+	_sockfd(-1),
+	_cb_evid_num(-1),
+	_ret(-1),
+	_errno(-1),
+	_send_stream(0),
+	_recv_stream(0),
+	_addr_info(0),
+	_task_return_value(0),
+	_file_fd(-1),
+	_oper(-1),
+	_ref_sr_num(-1)
 {
 }
 
@@ -71,8 +90,30 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_addr_info(0),
 	_task_return_value(0),
 	_file_fd(-1),
-	_oper(-1)
+	_oper(-1),
+	_ref_sr_num(-1)
 {
+}
+
+EVUpstreamEventNotification::EVUpstreamEventNotification(EVUpstreamEventNotification & from)
+{
+	this->_sr_num = from._sr_num;
+	this->_sockfd = from._sockfd;
+	this->_cb_evid_num = from._cb_evid_num;
+	this->_ret = from._ret;
+	this->_errno = from._errno;
+	this->_send_stream = from._send_stream;
+	this->_recv_stream = from._recv_stream;
+	this->_addr_info = from._addr_info;
+	this->_task_return_value = from._task_return_value;
+	this->_file_fd = from._file_fd;
+	this->_oper = from._oper;
+	this->_ref_sr_num = from._ref_sr_num;
+
+	from._send_stream = NULL;
+	from._recv_stream = NULL;
+	from._addr_info = NULL;
+	from._task_return_value = NULL;
 }
 
 EVUpstreamEventNotification::~EVUpstreamEventNotification()
@@ -80,6 +121,10 @@ EVUpstreamEventNotification::~EVUpstreamEventNotification()
 	if (_addr_info) {
 		freeaddrinfo(_addr_info);
 		_addr_info = NULL;
+	}
+	if (_task_return_value) {
+		free(_task_return_value);
+		_task_return_value = NULL;
 	}
 }
 

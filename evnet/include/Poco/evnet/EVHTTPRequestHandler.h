@@ -86,7 +86,7 @@ public:
 	};
 	struct SRData {
 		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
-				  domain_name(0), serv_name(0), port_num(0) {}
+				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1) {}
 		~SRData() {}
 		Net::SocketAddress		addr;
 		EVHTTPClientSession*	session_ptr;
@@ -98,6 +98,7 @@ public:
 		const char*				serv_name;
 		unsigned short			port_num;
 		struct addrinfo**       addr_info_ptr_ptr;
+		long					ref_sr_num;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
 	typedef std::map<int,file_handle*> FilesMapType;

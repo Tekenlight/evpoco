@@ -36,6 +36,8 @@ public:
 	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no = 0);
 	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, int ret, int err_no = 0);
 
+	EVUpstreamEventNotification();
+	EVUpstreamEventNotification(EVUpstreamEventNotification & from);
 	~EVUpstreamEventNotification();
 
 	poco_socket_t sockfd();
@@ -67,6 +69,8 @@ public:
 	int getFileFd();
 	void setFileOper(int oper);
 	int getFileOper();
+	long getRefSRNum();
+	void setRefSRNum(long);
 
 private:
 	poco_socket_t			_sockfd;
@@ -80,7 +84,19 @@ private:
 	void*					_task_return_value;
 	int						_file_fd;
 	int						_oper;
+	long					_ref_sr_num;
 };
+
+inline long EVUpstreamEventNotification::getRefSRNum()
+{
+	return _ref_sr_num;
+}
+
+inline void EVUpstreamEventNotification::setRefSRNum(long ref)
+{
+	_ref_sr_num = ref;
+	return;
+}
 
 inline int EVUpstreamEventNotification::getFileOper()
 {

@@ -30,6 +30,7 @@ extern "C" {
 
 #include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
+#include "Poco/evnet/EVUpstreamEventNotification.h"
 #include "Poco/Net/HTMLForm.h"
 #include "Poco/Net/PartHandler.h"
 
@@ -69,6 +70,23 @@ public:
 	std::string						_name;
 	Poco::Net::NameValueCollection	_params;
 	chunked_memory_stream			_cms;
+};
+
+class evl_async_task {
+	public:
+		typedef enum {
+			NOTSTARTED=-1,
+			SUBMITTED,
+			//AWAITED,
+			COMPLETE,
+		} async_task_state;
+
+		long							_task_srl_num;
+		async_task_state				_task_tracking_state;
+		EVUpstreamEventNotification		*_usN;
+		evl_async_task(): _task_srl_num(0), _task_tracking_state(NOTSTARTED), _usN(0) {}
+		//evl_async_task(): _task_srl_num(0), _usN(0) {}
+		~evl_async_task() { if (_usN) delete _usN; }
 };
 
 class EVLHTTPPartHandler: public Poco::Net::PartHandler {
@@ -152,11 +170,14 @@ class Net_API EVLHTTPRequestHandler : public EVHTTPRequestHandler
 	///
 {
 public:
+	typedef std::map<long,evl_async_task *> async_tasks_t;
+
 	typedef enum {
 		 html_form
 		,part_handler
 		,string_body
 	} mapped_item_type;
+
 	EVLHTTPRequestHandler();
 		/// Creates the EVLHTTPRequestHandler.
 
@@ -179,6 +200,15 @@ public:
 	static const std::string ENABLE_CACHE;
 	Poco::Util::AbstractConfiguration& appConfig();
 
+	void track_async_task(long);
+	evl_async_task::async_task_state get_async_task_status(long);
+	void set_async_task_tracking(long sr_num, evl_async_task::async_task_state st);
+	EVUpstreamEventNotification* get_async_task_notification(long);
+	evl_async_task* get_async_task(long sr_num);
+	EVLHTTPRequestHandler::async_tasks_t& getAsyncTaskList();
+	bool getAsyncTaskAwaited();
+	void setAsyncTaskAwaited(bool);
+
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);
 	EVLHTTPRequestHandler& operator = (const EVLHTTPRequestHandler&);
@@ -200,7 +230,25 @@ private:
 	int										_http_connection_count;
 	int										_variable_instance_count;;
 	char									_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
+	async_tasks_t							_async_tasks;
+	bool									_async_tasks_status_awaited;
 };
+
+inline bool EVLHTTPRequestHandler::getAsyncTaskAwaited()
+{
+	return _async_tasks_status_awaited;
+}
+
+inline void EVLHTTPRequestHandler::setAsyncTaskAwaited(bool b)
+{
+	_async_tasks_status_awaited = b;
+	return;
+}
+
+inline EVLHTTPRequestHandler::async_tasks_t& EVLHTTPRequestHandler::getAsyncTaskList()
+{
+	return _async_tasks;
+}
 
 inline char* EVLHTTPRequestHandler::getEphemeralBuf()
 {
@@ -260,7 +308,6 @@ inline void* EVLHTTPRequestHandler::getFromComponents(mapped_item_type t)
 {
 	return _components[t];
 }
-
 
 } } // namespace Poco::evnet
 
