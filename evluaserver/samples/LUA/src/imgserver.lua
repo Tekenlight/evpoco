@@ -5,20 +5,24 @@ handlers.handle_request = function () -- {
 	local form = request:parse_req_form();
 	local response = platform.get_http_response();
 
-	local srl_num1 = platform.make_http_connection_nb('localhost', 9980);
-	local srl_num2 = platform.make_http_connection_nb('localhost', 9980);
+	local srl_num1 = platform.nb_make_http_connection('localhost', 9980);
+	local srl_num2 = platform.nb_make_http_connection('localhost', 9980);
 	local srl_num = 1;
 	print(srl_num1);
 	print(srl_num2);
 
 	local fh, err = platform.file_open("./Sudheer.JPG", "r");
 	local fh1, err1 = platform.file_open("./cha.JPG", "w+");
+	if (err ~= nil) then error(err); end
+	if (err1 ~= nil) then error(err1); end
 
 	--local compl = platform.wait({srl_num1, srl_num2});
 	local compl = platform.wait();
 	print(compl);
+	local conn1, err = platform.task_return_value(compl);
 	compl = platform.wait();
 	print(compl);
+	local conn1, err1 = platform.task_return_value(compl);
 	--local fh, err = platform.file_open("./Sudheer.JPG", "r");
 	--local fh, err = platform.file_open("/etc/krb5.keytab", "r");
 	if (err ~= nil) then error(err); end

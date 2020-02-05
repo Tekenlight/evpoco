@@ -49,13 +49,15 @@ const static char *_platform_name = "platform";
 namespace evpoco {
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
+	static int task_return_value(lua_State* L);
 	static int get_http_request(lua_State* L);
 	static int get_http_response(lua_State* L);
 	static int resolve_host_address_complete(lua_State* L, int status, lua_KContext ctx);
 	static int resolve_host_address_initiate(lua_State* L);
 	static int make_http_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_http_connection_initiate(lua_State* L);
-	static int make_http_connection_nb_initiate(lua_State* L);
+	static int nb_make_http_connection_initiate(lua_State* L);
+	static int nb_make_http_connection_complete(lua_State* L);
 	static int close_http_connection(lua_State* L);
 	static int new_request(lua_State* L);
 	static int send_request_header(lua_State* L);
@@ -210,11 +212,12 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 
 static const luaL_Reg evpoco_lib[] = {
 	{ "wait", &evpoco::wait_initiate },
+	{ "task_return_value", &evpoco::task_return_value },
 	{ "get_http_request", &evpoco::get_http_request },
 	{ "get_http_response", &evpoco::get_http_response },
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
-	{ "make_http_connection_nb", &evpoco::make_http_connection_nb_initiate },
+	{ "nb_make_http_connection", &evpoco::nb_make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
 	{ "new_request", &evpoco::new_request},
 	{ "send_request_header", &evpoco::send_request_header },
@@ -778,9 +781,94 @@ static int make_http_connection_initiate(lua_State* L)
 	return lua_yieldk(L, 0, (lua_KContext)session, make_http_connection_complete);
 }
 
-static int make_http_connection_nb_initiate(lua_State* L)
+static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_async_task* tp)
 {
-	long sr_srl_num;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	EVHTTPClientSession *session = tp->_session_ptr;
+	Poco::evnet::EVUpstreamEventNotification *usN_ptr = tp->_usN;
+
+	tp->_session_ptr = NULL;
+	tp->_usN = NULL;
+	if (usN_ptr->getRet() < 0) {
+		delete session;
+		delete usN_ptr;
+		char msg[1024];
+		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN_ptr->getErrNo()));
+		lua_pushnil(L);
+		lua_pushstring(L, msg);
+		return 2;
+	}
+
+	//std::string meta_name = reqHandler->getDynamicMetaName();
+	luaL_newmetatable(L, _http_conn_type_name); // Stack: meta
+	luaL_newlib(L, dummy); // Stack: meta dummy
+	lua_setfield(L, -2, "__index"); // Stack: meta
+	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+	lua_pushcfunction(L, http_connection__gc); // Stack: meta "__gc" fptr
+	lua_settable(L, -3); // Stack: meta
+	lua_pop(L, 1); // Stack:
+
+	void * ptr = lua_newuserdata(L, sizeof(EVHTTPClientSession *)); //Stack: ptr
+	*(EVHTTPClientSession **)ptr = session; //Stack: session
+	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
+	lua_pushnil(L); // Stack session nil
+
+	delete usN_ptr;
+	reqHandler->getAsyncTaskList().erase(task_id);
+	return 2;
+}
+
+static int task_return_value(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	int n = lua_gettop(L);
+	if (n != 1) {
+		luaL_error(L, "wait: Invalid number of parameters %d, expected 1", n);
+		return 0;
+	}
+
+	long task_id = luaL_checkinteger(L, 1);
+
+	evl_async_task* tp = reqHandler->get_async_task(task_id);
+	if (!tp) {
+		char str[1024] = {0};
+		lua_pushnil(L);
+		sprintf(str, "No such task [%ld]",task_id);
+		lua_pushstring(L, str);
+		return 2;
+	}
+
+	if (tp->_task_tracking_state != evl_async_task::COMPLETE) {
+		char str[1024] = {0};
+		lua_pushnil(L);
+		sprintf(str, "Task [%ld] is not tracked to completion",task_id);
+		lua_pushstring(L, str);
+		return 2;
+	}
+
+	switch (tp->_task_action) {
+		case evl_async_task::MAKE_HTTP_CONNECTION:
+			{
+				return nb_make_http_connection_complete(L, task_id, tp);
+			}
+			break;
+		default:
+			{
+				char str[1024] = {0};
+				lua_pushnil(L);
+				sprintf(str, "Task type [%d] not supported", tp->_task_action);
+				lua_pushstring(L, str);
+				return 2;
+			}
+	}
+
+	return 0;
+}
+
+static int nb_make_http_connection_initiate(lua_State* L)
+{
+	long sr_num;
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	EVHTTPClientSession *session = NULL;;
@@ -803,12 +891,10 @@ static int make_http_connection_nb_initiate(lua_State* L)
 	unsigned short  port_num = (unsigned short)value;
 
 	session = new EVHTTPClientSession();
-	sr_srl_num = reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
-	reqHandler->track_async_task(sr_srl_num);
+	sr_num = reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
+	reqHandler->track_async_task(sr_num, evl_async_task::MAKE_HTTP_CONNECTION, session);
 
-	//DEBUGPOINT("HERE %p\n",session);
-
-	lua_pushinteger(L, sr_srl_num);
+	lua_pushinteger(L, sr_num);
 
 	return 1;
 }
@@ -2565,6 +2651,15 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 		delete it->second;
 	}
 	_async_tasks.clear();
+}
+
+void EVLHTTPRequestHandler::track_async_task(long sr_num, evl_async_task::async_action action, EVHTTPClientSession* session)
+{
+	evl_async_task * task = new evl_async_task();
+	task->_task_tracking_state = evl_async_task::SUBMITTED;
+	task->_task_action = action;
+	task->_session_ptr = session;
+	_async_tasks[sr_num] = task;
 }
 
 void EVLHTTPRequestHandler::track_async_task(long sr_num)
