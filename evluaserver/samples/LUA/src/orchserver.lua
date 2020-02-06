@@ -19,6 +19,8 @@ function handle_request()
 	echo_request:set_content_length(string.len(s));
 	echo_request:set_expect_continue(true); 
 	local client_session, msg = platform.make_http_connection('localhost', 9980);
+	print(msg);
+	print(client_session);
 	platform.send_request_header(client_session, echo_request);
 
 	echo_request:write(s);

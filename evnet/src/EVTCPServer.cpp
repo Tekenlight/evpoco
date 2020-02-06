@@ -1899,6 +1899,7 @@ int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 	dio_ptr->_in._host_name = sr->getDomainName();
 	dio_ptr->_in._serv_name = sr->getServName();
 
+	//DEBUGPOINT("Here ipv6 = %d\n", _use_ipv6_for_conn);
 	if (_use_ipv6_for_conn)
 		dio_ptr->_in._hints.ai_family = PF_UNSPEC;
 	else

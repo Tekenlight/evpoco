@@ -1,5 +1,5 @@
 local function new_request(request_instance)
-	local req = context.new_request();
+	local req = platform.new_request();
 	return req;
 end
 

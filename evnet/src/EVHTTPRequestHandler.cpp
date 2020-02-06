@@ -403,6 +403,22 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					_srColl.erase(sr_num);
 					delete old;
 					Net::HostEntry he(_usN->getAddrInfo());
+#ifdef NEVER_DEBUG
+					{
+						int i = 0;
+						struct addrinfo *p;
+						char host[256];
+
+						for (p = _usN->getAddrInfo(); p; p = p->ai_next) {
+							i++;
+							getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof (host), NULL, 0, NI_NUMERICHOST);
+							DEBUGPOINT("%d. %s   ", i, host);
+
+							if (p->ai_addr->sa_family == AF_INET) { DEBUGPOINT("IPV4 ADDRESS\n"); }
+							else { DEBUGPOINT("IPV6 ADDRESS\n");}
+						}
+					}
+#endif
 					Net::SocketAddress a(srdata->domain_name, he, srdata->port_num);
 					srdata->addr = a;
 					srdata->session_ptr->setAddr(a);
