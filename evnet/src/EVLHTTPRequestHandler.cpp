@@ -775,8 +775,8 @@ static int make_http_connection_initiate(lua_State* L)
 		int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
 		unsigned short  port_num = (unsigned short)value;
 
-		DEBUGPOINT("Here host = %s\n", server_address);
-		DEBUGPOINT("Here port num = %u\n", port_num);
+		//DEBUGPOINT("Here host = %s\n", server_address);
+		//DEBUGPOINT("Here port num = %u\n", port_num);
 
 		session = new EVHTTPClientSession();
 		reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
