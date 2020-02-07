@@ -59,12 +59,15 @@ namespace evpoco {
 	static int make_http_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_http_connection_initiate(lua_State* L);
 	static int nb_make_http_connection_initiate(lua_State* L);
-	static int nb_make_http_connection_complete(lua_State* L);
+	static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_async_task* tp);
 	static int close_http_connection(lua_State* L);
 	static int new_request(lua_State* L);
 	static int send_request_header(lua_State* L);
 	static int send_request_body(lua_State* L);
 	static int receive_http_response_initiate(lua_State* L);
+	static int nb_subscribe_to_http_response(lua_State* L);
+	static int nb_fetch_arrived_http_response(lua_State* L, long task_id, evl_async_task* tp);
+
 	static int alloc_buffer(lua_State* L);
 	static int ev_lua_file_open_initiate(lua_State* L);
 	static int ev_lua_file_read_text_initiate(lua_State* L);
@@ -225,6 +228,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "send_request_header", &evpoco::send_request_header },
 	{ "send_request_body", &evpoco::send_request_body },
 	{ "receive_http_response", &evpoco::receive_http_response_initiate },
+	{ "subscribe_to_http_response", &evpoco::nb_subscribe_to_http_response },
 	{ "file_open", &evpoco::ev_lua_file_open_initiate },
 	{ "alloc_buffer", &evpoco::alloc_buffer },
 	{ NULL, NULL }
@@ -389,6 +393,24 @@ static int obj__gc(lua_State *L)
 
 namespace evpoco {
 
+static int evpoco_getmtname(lua_State* L)
+{
+	if (lua_gettop(L) != 1) {
+		lua_pushnil(L);
+		lua_pushstring(L, "ev_getmtname: Number of parameters expected: 1");
+		return 2;
+	}
+	else if (!lua_isuserdata(L, 1)) {
+		lua_pushnil(L);
+		lua_pushstring(L, "ev_getmtname: Passed parameter should be user data");
+		return 2;
+	}
+	lua_getmetatable(L, 1);
+    lua_pushstring(L, "__name");
+    lua_rawget(L, 2);
+    return 1;
+}
+
 static int evpoco_sleep(lua_State* L)
 {
 	//DEBUGPOINT("Here\n");
@@ -445,7 +467,6 @@ static int wait_complete(lua_State* L, int status, lua_KContext ctx)
 		reqHandler->set_async_task_tracking(task_id, evl_async_task::COMPLETE);
 		reqHandler->setAsyncTaskAwaited(false);
 		lua_pushinteger(L, task_id);
-		DEBUGPOINT("Here task_id = %ld\n", task_id);
 		return 1;
 	}
 	else {
@@ -733,15 +754,6 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 	}
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 
-	//std::string meta_name = reqHandler->getDynamicMetaName();
-	luaL_newmetatable(L, _http_conn_type_name); // Stack: meta
-	luaL_newlib(L, dummy); // Stack: meta dummy
-	lua_setfield(L, -2, "__index"); // Stack: meta
-	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
-	lua_pushcfunction(L, http_connection__gc); // Stack: meta "__gc" fptr
-	lua_settable(L, -3); // Stack: meta
-	lua_pop(L, 1); // Stack:
-
 	void * ptr = lua_newuserdata(L, sizeof(EVHTTPClientSession *)); //Stack: ptr
 	*(EVHTTPClientSession **)ptr = session; //Stack: session
 	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
@@ -804,15 +816,6 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 		return 2;
 	}
 
-	//std::string meta_name = reqHandler->getDynamicMetaName();
-	luaL_newmetatable(L, _http_conn_type_name); // Stack: meta
-	luaL_newlib(L, dummy); // Stack: meta dummy
-	lua_setfield(L, -2, "__index"); // Stack: meta
-	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
-	lua_pushcfunction(L, http_connection__gc); // Stack: meta "__gc" fptr
-	lua_settable(L, -3); // Stack: meta
-	lua_pop(L, 1); // Stack:
-
 	void * ptr = lua_newuserdata(L, sizeof(EVHTTPClientSession *)); //Stack: ptr
 	*(EVHTTPClientSession **)ptr = session; //Stack: session
 	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
@@ -856,6 +859,11 @@ static int task_return_value(lua_State* L)
 		case evl_async_task::MAKE_HTTP_CONNECTION:
 			{
 				return nb_make_http_connection_complete(L, task_id, tp);
+			}
+			break;
+		case evl_async_task::RECV_HTTP_RESPONSE:
+			{
+				return nb_fetch_arrived_http_response(L, task_id, tp);
 			}
 			break;
 		default:
@@ -1000,6 +1008,56 @@ static int resp__gc(lua_State *L)
 	EVHTTPResponse* response = *(EVHTTPResponse**)lua_touserdata(L, 1);
 	delete response;
 	return 0;
+}
+
+static int nb_fetch_arrived_http_response(lua_State* L, long task_id, evl_async_task* tp)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	EVHTTPResponse* response = tp->_response_ptr;
+	Poco::evnet::EVUpstreamEventNotification *usN_ptr = tp->_usN;
+
+	tp->_response_ptr = NULL;
+	tp->_usN = NULL;
+	if (usN_ptr->getRet() < 0) {
+		delete response;
+		delete usN_ptr;
+		char msg[1024];
+		sprintf(msg, "receive_http_response: could not receieve response: %s", strerror(usN_ptr->getErrNo()));
+		lua_pushnil(L);
+		lua_pushstring(L, msg);
+		return 2;
+	}
+
+	void * ptr = lua_newuserdata(L, sizeof(EVHTTPResponse*));
+	*(EVHTTPResponse**)ptr = response;
+	luaL_setmetatable(L, _http_cresp_type_name);
+	lua_pushnil(L); // Stack response nil
+
+	delete usN_ptr;
+	reqHandler->getAsyncTaskList().erase(task_id);
+
+	return 2;
+}
+
+static int nb_subscribe_to_http_response(lua_State* L)
+{
+	long sr_num = -1;;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+		luaL_error(L, "send_request_header: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+		return 0;
+	}
+	EVHTTPClientSession& session = *(*(EVHTTPClientSession**)lua_touserdata(L, 1));
+	EVHTTPResponse* response = new EVHTTPResponse();
+
+	sr_num = reqHandler->waitForHTTPResponse(NULL, (session), *response);
+	reqHandler->track_async_task(sr_num, evl_async_task::RECV_HTTP_RESPONSE, response);
+
+	lua_pushinteger(L, sr_num);
+
+	return 1;
+
 }
 
 static int receive_http_response_complete(lua_State* L, int status, lua_KContext ctx)
@@ -2533,6 +2591,15 @@ static int luaopen_evpoco(lua_State* L)
 	lua_settable(L, -3); // Stack: meta
 	lua_pop(L, 1); // Stack:
 
+	//std::string meta_name = reqHandler->getDynamicMetaName();
+	luaL_newmetatable(L, _http_conn_type_name); // Stack: meta
+	luaL_newlib(L, dummy); // Stack: meta dummy
+	lua_setfield(L, -2, "__index"); // Stack: meta
+	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+	lua_pushcfunction(L, evpoco::http_connection__gc); // Stack: meta "__gc" fptr
+	lua_settable(L, -3); // Stack: meta
+	lua_pop(L, 1); // Stack:
+
 	// Stack: context
 	luaL_newmetatable(L, _html_form_type_name); // Stack: context meta
 	luaL_newlib(L, form_lib); // Stack: context meta form
@@ -2584,7 +2651,9 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	luaL_openlibs(_L);
 
 	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
+	lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
 	luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
+
 
 	lua_pushlightuserdata(_L, (void*) this);
 	lua_setglobal(_L, "EVLHTTPRequestHandler*");
@@ -2655,6 +2724,15 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 		delete it->second;
 	}
 	_async_tasks.clear();
+}
+
+void EVLHTTPRequestHandler::track_async_task(long sr_num, evl_async_task::async_action action, EVHTTPResponse* response)
+{
+	evl_async_task * task = new evl_async_task();
+	task->_task_tracking_state = evl_async_task::SUBMITTED;
+	task->_task_action = action;
+	task->_response_ptr = response;
+	_async_tasks[sr_num] = task;
 }
 
 void EVLHTTPRequestHandler::track_async_task(long sr_num, evl_async_task::async_action action, EVHTTPClientSession* session)

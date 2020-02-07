@@ -76,7 +76,8 @@ class evl_async_task {
 	public:
 		typedef enum {
 			NOACTION=0,
-			MAKE_HTTP_CONNECTION
+			MAKE_HTTP_CONNECTION,
+			RECV_HTTP_RESPONSE
 		} async_action;
 		typedef enum {
 			NOTSTARTED=-1,
@@ -89,8 +90,10 @@ class evl_async_task {
 		async_action					_task_action;
 		EVUpstreamEventNotification*	_usN;
 		EVHTTPClientSession*			_session_ptr;
-		evl_async_task(): _task_srl_num(0), _task_tracking_state(NOTSTARTED), _task_action(NOACTION), _usN(0), _session_ptr(0) {}
-		~evl_async_task() { if (_usN) delete _usN; if(_session_ptr) delete _session_ptr; }
+		EVHTTPResponse*					_response_ptr;
+		evl_async_task(): _task_srl_num(0), _task_tracking_state(NOTSTARTED),
+						_task_action(NOACTION), _usN(0), _session_ptr(0), _response_ptr(0) {}
+		~evl_async_task() { if (_usN) delete _usN; if(_session_ptr) delete _session_ptr; if (_response_ptr) delete _response_ptr; }
 };
 
 class EVLHTTPPartHandler: public Poco::Net::PartHandler {
@@ -206,6 +209,7 @@ public:
 
 	void track_async_task(long);
 	void track_async_task(long, evl_async_task::async_action, EVHTTPClientSession*);
+	void track_async_task(long, evl_async_task::async_action, EVHTTPResponse*);
 	evl_async_task::async_task_state get_async_task_status(long);
 	void set_async_task_tracking(long sr_num, evl_async_task::async_task_state st);
 	EVUpstreamEventNotification* get_async_task_notification(long);
