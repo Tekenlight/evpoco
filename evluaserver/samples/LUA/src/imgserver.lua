@@ -5,8 +5,10 @@ handlers.handle_request = function () -- {
 	local form = request:parse_req_form();
 	local response = platform.get_http_response();
 
-	local srl_num1 = platform.nb_make_http_connection('localhost', 9980);
-	local srl_num2 = platform.nb_make_http_connection('localhost', 9980);
+	local c1 = platform.nb_make_http_connection('localhost', 9980);
+	local c2 = platform.nb_make_http_connection('localhost', 9980);
+	--[[
+	]]--
 
 	local fh, err = platform.file_open("./Sudheer.JPG", "r");
 	--local fh1, err1 = platform.file_open("./cha.JPG", "w+");
@@ -31,39 +33,44 @@ handlers.handle_request = function () -- {
 	echo_request2:set_content_length(string.len(s));
 	--echo_request2:set_expect_continue(true); 
 
-	local compl = platform.wait();
+	local compl = platform.wait({c1, c2});
 	local conn1, err = platform.task_return_value(compl);
 	platform.send_request_header(conn1, echo_request1);
 	echo_request1:write(s);
 	platform.send_request_body(conn1, echo_request1);
+	local s1 = platform.subscribe_to_http_response(conn1);
 
-	compl = platform.wait();
+	compl = platform.wait({c1, c2});
 	local conn2, err1 = platform.task_return_value(compl);
-	print(ev_getmtname(conn2))
 	platform.send_request_header(conn2, echo_request2);
 	echo_request2:write(s);
 	platform.send_request_body(conn2, echo_request2);
+	local s2 = platform.subscribe_to_http_response(conn2);
+	--[[
+	--]]
 
-	local s1 = platform.nb_receive_http_response(conn1);
-	local s2 = platform.nb_receive_http_response(conn2);
-	--local echo_response1 = platform.receive_http_response(conn1);
-	--local echo_response2 = platform.receive_http_response(conn2);
+	--[[
+	]]--
 
-	local _1 = platform.wait();
+	local _1 = platform.wait({s1, s2});
+
 	local echo_response1, err = platform.task_return_value(_1);
+	if (tostring(echo_response1) == 'httpcresp') then print('IT IS MAKING SENSE'); end
 	local buf1 = echo_response1:read();
 	print(buf1);
 
-	local _2 = platform.wait();
+	local _2 = platform.wait({s1, s2});
 	local echo_response2, err = platform.task_return_value(_2);
 	local buf2 = echo_response2:read();
 	print(buf2);
+	--[[
+	--]]
 
 	if (err ~= nil) then error(err); end
 	if (err1 ~= nil) then error(err1); end
 	local i = 0;
-	local buffer = platform.alloc_buffer(4096);
-	local n, msg = fh:read_binary(buffer, 4096);
+	local buffer = platform.alloc_buffer(1048576);
+	local n, msg = fh:read_binary(buffer, 1048576);
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("image/jpeg");
 	response:send();
@@ -81,7 +88,7 @@ handlers.handle_request = function () -- {
 			print(msg);
 			break;
 		end -- }
-		n, msg = fh:read_binary(buffer, 4096);
+		n, msg = fh:read_binary(buffer, 1048576);
 		--print('chachi');
 		--print(n..' +');
 		--ret = fh1:write_binary(buffer, n);

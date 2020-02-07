@@ -48,6 +48,69 @@ const static char *_http_sresp_type_name = "httpsresp";
 const static char *_http_cresp_type_name = "httpcresp";
 const static char *_platform_name = "platform";
 
+static int platform_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "platform");
+
+	return 1;
+}
+
+static int http_cresp_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "httpcresp");
+
+	return 1;
+}
+
+static int http_sresp_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "httpsresp");
+
+	return 1;
+}
+
+static int http_conn_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "httpconn");
+
+	return 1;
+}
+
+static int http_sreq_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "httpsreq");
+
+	return 1;
+}
+
+static int http_creq_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "httpcreq");
+
+	return 1;
+}
+
+static int html_form_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "htmlform");
+
+	return 1;
+}
+
+static int file_handle_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "filehandle");
+
+	return 1;
+}
+
+static int memory_buffer_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "memorybuffer");
+
+	return 1;
+}
+
 namespace evpoco {
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
@@ -2562,6 +2625,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
 	lua_settable(L, -3); // Stack: context meta
+	lua_pushcfunction(L, http_sreq_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack: context
 
 	//std::string meta_name = reqHandler->getDynamicMetaName();
@@ -2571,6 +2636,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, evpoco::req__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, http_creq_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack: 
 
 	// Stack: context
@@ -2580,6 +2647,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
 	lua_settable(L, -3); // Stack: context meta
+	lua_pushcfunction(L, http_sresp_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack: context
 
 	//std::string meta_name = reqHandler->getDynamicMetaName();
@@ -2589,6 +2658,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, evpoco::resp__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, http_cresp_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack:
 
 	//std::string meta_name = reqHandler->getDynamicMetaName();
@@ -2598,6 +2669,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, evpoco::http_connection__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, http_conn_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack:
 
 	// Stack: context
@@ -2607,6 +2680,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
 	lua_settable(L, -3); // Stack: context meta
+	lua_pushcfunction(L, html_form_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack: context
 
 	luaL_newmetatable(L, _file_handle_type_name); // Stack: meta
@@ -2615,6 +2690,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, file_handle_type_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack:
 
 	luaL_newmetatable(L, _memory_buffer_name); // Stack: meta
@@ -2623,6 +2700,8 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, memory_buffer_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
 	lua_pop(L, 1); // Stack:
 
 	return 1;
@@ -2651,7 +2730,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	luaL_openlibs(_L);
 
 	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
-	lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
+	//lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
 	luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
 
 
