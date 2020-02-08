@@ -22,7 +22,7 @@ Results are as follows
 
 
 We can conculde from this, that LUA server is taking an additional 2ms of CPU time per request
-It is obvious that LUA server will take more time, howver the aim of this experiment is to find
+It is obvious that LUA server will take more time, however the aim of this experiment is to find
 out how much is the degradation due to usage of an interpreted language.
 
 The conclusion is, degradation is not much in the case of serving HTTP requests and LUA can be
