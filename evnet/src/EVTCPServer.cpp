@@ -1002,6 +1002,7 @@ handleDataAvlblOnAccSock_finally:
 			) {
 			if (!(tn->getProcState())) {
 				tn->setProcState(_pConnectionFactory->createReqProcState(this));
+				//DEBUGPOINT("Created processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 				tn->getProcState()->setClientAddress(tn->clientAddress());
 				tn->getProcState()->setServerAddress(tn->serverAddress());
 				/* Session starts when a new processing state is created. */
@@ -1270,6 +1271,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						_file_evt_subscriptions.erase(it->first);
 					}
 					subscriptions.clear();
+					//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					tn->deleteState();
 					tn->setWaitingTobeEnqueued(false);
 					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn->pendingCSEvents()); 
@@ -1284,6 +1286,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					/* If processing state is present, another thread can still be processing
 					 * the request, hence cannot complete housekeeping.
 					 * */
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
@@ -1312,6 +1315,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -1335,6 +1339,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
@@ -2406,7 +2411,8 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 		EVAcceptedStreamSocket *tn = _accssColl[srNF->accSockfd()];
 		if (!tn) {
 			/* This should never happen. */
-			DEBUGPOINT("Did not find entry in _accssColl for [%d] for event = [%d]\n", srNF->sockfd(), event);
+			DEBUGPOINT("Did not find entry in _accssColl for [%d][%d] for event = [%d]\n",
+													srNF->sockfd(), srNF->accSockfd(),  event);
 
 			/* Multiple events can get queued for a socket from another thread.
 			 * In the meanwhile, it is possible that the socket gets into an error state

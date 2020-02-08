@@ -57,6 +57,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 	}
 	if (this->_reqProcState) {
 		delete this->_reqProcState;
+		//DEBUGPOINT("Deleted g state %p for %d\n", this->_reqProcState, this->_sockFd);
 		this->_reqProcState = NULL;
 	}
 	if (this->_req_memory_stream) {
