@@ -15,8 +15,9 @@ handlers.handle_request = function () -- {
 	if (err1 ~= nil) then error(err1); end
 	local i = 0;
 	local j = 0;
-	local buffer = platform.alloc_buffer(4096);
-	local n, msg = fh:read_binary(buffer, 4096);
+	local buffer = platform.alloc_buffer(1048576);
+	--print('This is before read prior to the loop');
+	local n, msg = fh:read_binary(buffer, 1048576);
 	local ret = 0;
 	while (n ~= 0) do -- {
 		i = i + 1;
@@ -31,7 +32,8 @@ handlers.handle_request = function () -- {
 			print(msg);
 			break;
 		end -- }
-		n, msg = fh:read_binary(buffer, 4096);
+		--print('This is before read in the loop');
+		n, msg = fh:read_binary(buffer, 1048576);
 		--print('chachi');
 		--print(n..' +');
 		if (j == 1000) then -- {

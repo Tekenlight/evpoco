@@ -1303,7 +1303,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					tn->setSockInError();
 				}
 				else {
-					//DEBUGPOINT("CLEARING ACC SOCK\n");
+					//DEBUGPOINT("CLEARING ACC SOCK %d\n", pcNf->sockfd());
 					if (tn->getProcState()) {
 						std::map<int,int>& subscriptions = tn->getProcState()->getFileEvtSubscriptions();
 						for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {
@@ -1563,6 +1563,9 @@ void EVTCPServer::run()
 	}
 
 	{
+		/* When host resolution service request completes in an auxillary thread
+		 * the main event loop needs to be woken up for continuing the task.
+		 * */
 		strms_pc_cb_ptr_type cb_ptr = 0;
 		cb_ptr = (strms_pc_cb_ptr_type) malloc(sizeof(strms_pc_cb_struct_type));
 		memset(cb_ptr,0,sizeof(strms_pc_cb_struct_type));
@@ -1576,6 +1579,9 @@ void EVTCPServer::run()
 	}
 
 	{
+		/* When execution of generic task completes in an auxillary thread
+		 * the main event loop needs to be woken up for continuing the task.
+		 * */
 		strms_pc_cb_ptr_type cb_ptr = 0;
 		cb_ptr = (strms_pc_cb_ptr_type) malloc(sizeof(strms_pc_cb_struct_type));
 		memset(cb_ptr,0,sizeof(strms_pc_cb_struct_type));
@@ -1589,6 +1595,9 @@ void EVTCPServer::run()
 	}
 
 	{
+		/* When read/close of a file completes in an auxillary thread
+		 * the main event loop needs to be woken up for continuing the task.
+		 * */
 		strms_pc_cb_ptr_type cb_ptr = 0;
 		cb_ptr = (strms_pc_cb_ptr_type) malloc(sizeof(strms_pc_cb_struct_type));
 		memset(cb_ptr,0,sizeof(strms_pc_cb_struct_type));
@@ -1602,6 +1611,9 @@ void EVTCPServer::run()
 	}
 
 	{
+		/* When a time interval of normal operation completes, housekeeping
+		 * tasks have to be initiated to carryout cleanups wherever necessary.
+		 * */
 		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
 		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
 		pc_cb_ptr->objPtr = this;
@@ -1618,8 +1630,10 @@ void EVTCPServer::run()
 
 	free(stop_watcher_2.data);
 	free(stop_watcher_3.data);
-	free(timeout_watcher.data);
 	free(dns_watcher.data);
+	free(gen_task_compl_watcher.data);
+	free(file_evt_watcher.data);
+	free(timeout_watcher.data);
 
 	return;
 }
