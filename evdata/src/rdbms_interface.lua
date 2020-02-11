@@ -9,7 +9,7 @@ local name_to_module_loader = {
     sqlite = package.loadlib('libevsqlite.dylib','luaopen_evrdbms_sqlite3'),
     db2 = package.loadlib('libevdb2.so','luaopen_evrdbms_db2'),
     oracle = package.loadlib('libevoracle.so','luaopen_evrdbms_oracle'),
-    odbc = package.loadlib('libevoebc.so','luaopen_evrdbms_oebc'),
+    odbc = package.loadlib('libevodbc.so','luaopen_evrdbms_odbc'),
 }
 
 local driver_to_initfuncs = {};

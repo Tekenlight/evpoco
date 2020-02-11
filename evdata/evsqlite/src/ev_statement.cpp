@@ -55,6 +55,7 @@ static int step(statement_t *statement)
 
 static void* vs_step(void* v)
 {
+	//DEBUGPOINT("vs_step() for %p\n", getL(iparams));
 	statement_t* statement = (statement_t*)v;
 	int res = sqlite3_step(statement->stmt);
 	int * ip = (int*)malloc(sizeof(int));
@@ -73,9 +74,10 @@ static void* vs_step(void* v)
 	return ip;
 }
 
-static int vs_step_completion(lua_State* L, int status, lua_KContext ctx)
+static int int_step_completion(lua_State* L, int status, lua_KContext ctx)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("int_step_completion() for %d\n", reqHandler->getAccSockfd());
 	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
 	statement_t* statement = 0;
 	statement = (statement_t*)ctx;
@@ -94,7 +96,7 @@ static int vs_step_completion(lua_State* L, int status, lua_KContext ctx)
 			 * reset needs to be called to retrieve the 'real' error message
 			 */
 			free(ip);
-			luaL_error(L, EV_SQL_ERR_FETCH_FAILED, sqlite3_errmsg(statement->conn->sqlite));
+			return luaL_error(L, EV_SQL_ERR_FETCH_FAILED, sqlite3_errmsg(statement->conn->sqlite));
 		}
     }
 
@@ -161,6 +163,7 @@ static void vs_nr_statement_close(void* v)
 static void * vs_statement_close(void* v)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+	//DEBUGPOINT("vs_statement_close() for %p\n", getL(iparams));
     statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams,1);
 	//DEBUGPOINT("Here udata of statement = %p\n", statement);
     int ok = 0;
@@ -204,6 +207,8 @@ static int initiate_statement_close(lua_State *L)
 static int statement_columns(lua_State *L)
 {
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("statement_columns() for %d\n", reqHandler->getAccSockfd());
 
     int i;
     int num_columns;
@@ -412,6 +417,8 @@ static void* vs_statement_execute(void* v)
 
 static int initiate_statement_execute(lua_State *L)
 {
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("initiate_statement_execute() for %d\n", reqHandler->getAccSockfd());
 	int n = lua_gettop(L);
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
 	int p;
@@ -514,8 +521,8 @@ static int initiate_statement_execute(lua_State *L)
 
 	//DEBUGPOINT("Here\n");
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
-	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
+	//DEBUGPOINT("Here for %d\n", reqHandler->getAccSockfd());
 	reqHandler->executeGenericTask(NULL, &vs_statement_execute, params);
 	return lua_yieldk(L, 0, (lua_KContext)"statement could not be executed", completion_common_routine);
 }
@@ -616,6 +623,9 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 
 static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
 {
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+	//DEBUGPOINT("initiate_statement_fetch_impl() for %d\n", reqHandler->getAccSockfd());
     int num_columns;
 
     if (!statement->stmt) {
@@ -703,11 +713,9 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
 		lua_pushnil(L);
     }
 
-	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	poco_assert(reqHandler != NULL);
 
 	reqHandler->executeGenericTask(NULL, &vs_step, statement);
-	return lua_yieldk(L, 0, (lua_KContext)statement, vs_step_completion);
+	return lua_yieldk(L, 0, (lua_KContext)statement, int_step_completion);
 }
 
 static int next_iterator(lua_State *L)
@@ -715,6 +723,7 @@ static int next_iterator(lua_State *L)
     statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
+    //return statement_fetch_impl(L, statement, named_columns);
     return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
@@ -726,6 +735,7 @@ static int statement_fetch(lua_State *L)
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_SQLITE_STATEMENT);
     int named_columns = lua_toboolean(L, 2);
 
+    //return statement_fetch_impl(L, statement, named_columns);
     return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
@@ -827,6 +837,7 @@ extern "C" void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, g
 void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams,
 																connection_t *conn, const char *sql_query)
 { 
+	//DEBUGPOINT("ev_sqlite3_statement_create() for %p\n", getL(iparams));
     statement_t *statement = NULL;
 
     statement = (statement_t *)malloc(sizeof(statement_t));
@@ -836,18 +847,16 @@ void ev_sqlite3_statement_create(generic_task_params_ptr_t iparams, generic_task
     statement->affected = 0;
 
     if (sqlite3_prepare_v2(statement->conn->sqlite, sql_query, strlen(sql_query), &statement->stmt, NULL) != SQLITE_OK) {
-		free(statement);
 		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
 		char str[1024];
 		sprintf(str, EV_SQL_ERR_PREP_STATEMENT, sqlite3_errmsg(statement->conn->sqlite));	
 		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+		free(statement);
 		return ;
     } 
 
-	//DEBUGPOINT("Here\n");
 	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA,
 				get_generic_lua_userdata(EV_SQLITE_STATEMENT, statement, sizeof(statement_t)));
-	//DEBUGPOINT("Here\n");
 
     return ;
 } 
@@ -858,8 +867,10 @@ int ev_sqlite3_statement(lua_State *L)
     static const luaL_Reg statement_methods[] = {
 	{"affected", statement_affected}, // Not required, only memory operation.
 	{"close", initiate_statement_close}, // Done
+	//{"close", statement_close}, // Done
 	{"columns", statement_columns}, // Not required to do this for sqlite
 	{"execute", initiate_statement_execute}, // Done. The program terminated with SEGV once
+	//{"execute", statement_execute}, // Done. The program terminated with SEGV once
 	{"fetch", statement_fetch}, // Done through initiate_statement_fetch_impl
 	{"rows", statement_rows}, // Done through closure of next_iterator and then initiate_statement_fetch_impl
 	{"rowcount", statement_rowcount}, // Not required

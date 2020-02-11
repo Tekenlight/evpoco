@@ -2301,111 +2301,111 @@ static int get_cookies(lua_State* L) {
 }
 
 namespace htmlform {
-	static int get_form_field(lua_State* L)
-	{
-		//DEBUGPOINT("Here\n");
-		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-		Net::HTTPRequest& request = reqHandler->getRequest();
-		//DEBUGPOINT("Here\n");
-		if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
-			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-			luaL_error(L, "get_form_field: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
-			lua_pushnil(L);
-		}
-		else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
-			luaL_error(L, "get_form_field: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
-			lua_pushnil(L);
-		}
-		else {
-			const char* fld_name = lua_tostring(L, -1);
-			Net::HTMLForm* form = NULL;
-			form =  *((Net::HTMLForm**)lua_touserdata(L, -2));
-			std::string fld_value = form->get(fld_name, "");
-			lua_pushstring(L, fld_value.c_str());
-		}
-
-		return 1;
+static int get_form_field(lua_State* L)
+{
+	//DEBUGPOINT("Here\n");
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Net::HTTPRequest& request = reqHandler->getRequest();
+	//DEBUGPOINT("Here\n");
+	if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+		luaL_error(L, "get_form_field: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+	}
+	else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+		luaL_error(L, "get_form_field: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+		lua_pushnil(L);
+	}
+	else {
+		const char* fld_name = lua_tostring(L, -1);
+		Net::HTMLForm* form = NULL;
+		form =  *((Net::HTMLForm**)lua_touserdata(L, -2));
+		std::string fld_value = form->get(fld_name, "");
+		lua_pushstring(L, fld_value.c_str());
 	}
 
-	static int begin_iteration(lua_State* L)
-	{
-		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-		if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-			luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
-			lua_pushnil(L);
-			lua_pushnil(L);
-			lua_pushnil(L);
-		}
-		else {
-			Net::HTMLForm* form = NULL;
-			form = *((Net::HTMLForm**)lua_touserdata(L, -1));
-			struct form_iterator * iter_ptr = (struct form_iterator *)lua_newuserdata(L, sizeof(struct form_iterator));
+	return 1;
+}
 
-			iter_ptr->it = form->begin();
-			iter_ptr->last = form->end();
-			if (iter_ptr->it == iter_ptr->last) {
-				lua_pop(L, 1);
-				lua_pushnil(L);
-				lua_pushnil(L);
-				lua_pushnil(L);
-			}
-			else {
-				lua_pushstring(L, iter_ptr->it->first.c_str());
-				lua_pushstring(L, iter_ptr->it->second.c_str());
-			}
-		}
-
-		return 3;
+static int begin_iteration(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+		luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+		lua_pushnil(L);
+		lua_pushnil(L);
 	}
+	else {
+		Net::HTMLForm* form = NULL;
+		form = *((Net::HTMLForm**)lua_touserdata(L, -1));
+		struct form_iterator * iter_ptr = (struct form_iterator *)lua_newuserdata(L, sizeof(struct form_iterator));
 
-	static int next_iteration(lua_State* L)
-	{
-		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-		if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-			luaL_error(L, "next_iteration: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		iter_ptr->it = form->begin();
+		iter_ptr->last = form->end();
+		if (iter_ptr->it == iter_ptr->last) {
+			lua_pop(L, 1);
 			lua_pushnil(L);
-			lua_pushnil(L);
-		}
-		else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
-			luaL_error(L, "next_iteration: invalid first argumet %s", lua_typename(L, lua_type(L, -1)));
 			lua_pushnil(L);
 			lua_pushnil(L);
 		}
 		else {
-			Net::HTMLForm* form = NULL;
-
-			form = *(Net::HTMLForm**)lua_touserdata(L, -2);
-			struct form_iterator * iter_ptr = (struct form_iterator *)lua_touserdata(L, -1);
-
-			++(iter_ptr->it);
-			if (iter_ptr->it == iter_ptr->last) {
-				lua_pushnil(L);
-				lua_pushnil(L);
-			}
-			else {
-				lua_pushstring(L, iter_ptr->it->first.c_str());
-				lua_pushstring(L, iter_ptr->it->second.c_str());
-			}
+			lua_pushstring(L, iter_ptr->it->first.c_str());
+			lua_pushstring(L, iter_ptr->it->second.c_str());
 		}
-
-		return 2;
 	}
 
-	static int empty(lua_State* L)
-	{
-		EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-		if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-			luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
+	return 3;
+}
+
+static int next_iteration(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+		luaL_error(L, "next_iteration: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+	else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+		luaL_error(L, "next_iteration: invalid first argumet %s", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+	else {
+		Net::HTMLForm* form = NULL;
+
+		form = *(Net::HTMLForm**)lua_touserdata(L, -2);
+		struct form_iterator * iter_ptr = (struct form_iterator *)lua_touserdata(L, -1);
+
+		++(iter_ptr->it);
+		if (iter_ptr->it == iter_ptr->last) {
+			lua_pushnil(L);
 			lua_pushnil(L);
 		}
 		else {
-			Net::HTMLForm* form = NULL;
-			form = *((Net::HTMLForm**)lua_touserdata(L, -1));
-			lua_pushboolean(L, form->empty());
+			lua_pushstring(L, iter_ptr->it->first.c_str());
+			lua_pushstring(L, iter_ptr->it->second.c_str());
 		}
-		return 1;
 	}
+
+	return 2;
+}
+
+static int empty(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+		luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
+		lua_pushnil(L);
+	}
+	else {
+		Net::HTMLForm* form = NULL;
+		form = *((Net::HTMLForm**)lua_touserdata(L, -1));
+		lua_pushboolean(L, form->empty());
+	}
+	return 1;
+}
 }
 }
 
@@ -2899,7 +2899,6 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 
 	int n = lua_gettop(_L);
 	if (2 > n) {
-		DEBUGPOINT("Here number of return values%d\n", (lua_gettop(_L)-1));
 		send_string_response(__LINE__, "map_request_to_handler: did not return values not OK");
 		return -1;
 	}
@@ -3029,6 +3028,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
+		//DEBUGPOINT("Here for %d\n", getAccSockfd());
 		return PROCESSING;
 	}
 	else {

@@ -762,6 +762,8 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TTABLE:
 				{
+				DEBUGPOINT("DO NOT EXEPECT THIS TO HAPPEN AS YET\n");
+				std::abort();
 				evnet_lua_table_t *p = lua_to_evnet_table(params, L, i+1);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TTABLE);

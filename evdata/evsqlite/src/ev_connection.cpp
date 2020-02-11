@@ -35,6 +35,7 @@ static int commit(connection_t *conn)
 
 static int begin(connection_t *conn)
 {
+	//DEBUGPOINT("begin()\n");
     int err = 0;
 
     if (sqlite3_get_autocommit(conn->sqlite)) {
@@ -99,9 +100,11 @@ static int connection_new(lua_State *L)
     return 1;
 }
 
+extern "C" lua_State* getL(generic_task_params_ptr_t p);
 static void* vs_connection_new(void *v)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+	//DEBUGPOINT("vs_connection_new() for %p\n", getL(iparams));
     int n = get_num_generic_params(iparams);
 	//DEBUGPOINT("Here n = %d\n", n);
 
@@ -128,11 +131,11 @@ static void* vs_connection_new(void *v)
 
     conn = (connection_t *)malloc(sizeof(connection_t));
     if (sqlite3_open_v2(db, &conn->sqlite, flags, NULL) != SQLITE_OK) {
-		free(conn);
 		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
 		char str[1024];
 		sprintf(str, EV_SQL_ERR_CONNECTION_FAILED, sqlite3_errmsg(conn->sqlite));
 		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+		free(conn);
 		return (void*)oparams;
     }
 
@@ -153,6 +156,7 @@ static int initiate_connection_new(lua_State *L)
 	poco_assert(reqHandler != NULL);
     int n = lua_gettop(L);
 
+	//DEBUGPOINT("initiate_connection_new() from %d\n", reqHandler->getAccSockfd());
 	//DEBUGPOINT("Here sqlite thread mode = %d\n", sqlite3_threadsafe());
 
     const char *db = NULL;
@@ -205,6 +209,7 @@ static int connection_autocommit(lua_State *L)
 static void* vs_connection_autocommit(void *v)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+	//DEBUGPOINT("vs_connection_autocommit() for %p\n", getL(iparams));
     int n = get_num_generic_params(iparams);
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams,1);
     int on = (int)(long)((get_generic_task_bool_param(iparams,2)));
@@ -230,6 +235,7 @@ static void* vs_connection_autocommit(void *v)
 static int initiate_connection_autocommit(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("initiate_connection_autocommit() for %d\n", reqHandler->getAccSockfd());
 	poco_assert(reqHandler != NULL);
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     luaL_checktype(L, 2, LUA_TBOOLEAN); 
@@ -409,6 +415,7 @@ static void* vs_connection_prepare(void *v)
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams,1);
 	char * sql_statement = (char*)get_generic_task_ptr_param(iparams,2);
 
+	//DEBUGPOINT("vs_connection_prepare() for %p\n", getL(iparams));
 	generic_task_params_ptr_t oparams = new_generic_task_params();
 	ev_sqlite3_statement_create(iparams, oparams, conn, sql_statement);
 
@@ -423,6 +430,7 @@ static void* vs_connection_prepare(void *v)
 static int initiate_connection_prepare(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("initiate_connection_prepare() for %d\n", reqHandler->getAccSockfd());
 	poco_assert(reqHandler != NULL);
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
 
@@ -433,6 +441,7 @@ static int initiate_connection_prepare(lua_State *L)
 	}
 
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	//DEBUGPOINT("Here for %d\n", reqHandler->getAccSockfd());
 	reqHandler->executeGenericTask(NULL, &vs_connection_prepare, params);
 	return lua_yieldk(L, 0, (lua_KContext)"statement could not be prepared", completion_common_routine);
 }
@@ -478,6 +487,7 @@ static int connection_rollback(lua_State *L)
 static void* vs_connection_rollback(void * inp)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)inp;
+	//DEBUGPOINT("vs_connection_rollback() for %p\n", getL(iparams));
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams,1);
 	int err = 1;
 	err = rollback(conn);
@@ -494,6 +504,7 @@ static void* vs_connection_rollback(void * inp)
 static int initiate_connection_rollback(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("initiate_connection_rollback() for %d\n", reqHandler->getAccSockfd());
 	poco_assert(reqHandler != NULL);
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_SQLITE_CONNECTION);
     if (!(conn->sqlite)) {
@@ -595,12 +606,17 @@ int ev_sqlite3_connection(lua_State *L)
      */
     static const luaL_Reg connection_methods[] = {
 	{"autocommit", initiate_connection_autocommit}, // Done
+	//{"autocommit", connection_autocommit}, // Done
 	{"close", initiate_connection_close}, // Done
+	//{"close", connection_close}, // Done
 	{"commit", initiate_connection_commit}, // Done
+	//{"commit", connection_commit}, // Done
 	{"ping", connection_ping}, // Only memory operation
 	{"prepare", initiate_connection_prepare}, // Done
+	//{"prepare", connection_prepare}, // Done
 	{"quote", connection_quote}, // Only memory operation
 	{"rollback", initiate_connection_rollback}, // Done
+	//{"rollback", connection_rollback}, // Done
 	{"last_id", connection_lastid}, //Only memory operation
 	{NULL, NULL}
     };

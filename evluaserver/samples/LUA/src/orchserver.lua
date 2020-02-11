@@ -18,14 +18,17 @@ function handle_request()
 	local s = 'this is a random request body';
 	echo_request:set_content_length(string.len(s));
 	echo_request:set_expect_continue(true); 
+	print("ONE");
 	local client_session, msg = platform.make_http_connection('localhost', 9980);
-	print(msg);
-	print(client_session);
+	print("TWO");
+	--print(msg);
+	--print(client_session);
 	platform.send_request_header(client_session, echo_request);
 
 	echo_request:write(s);
 	platform.send_request_body(client_session, echo_request);
 	local echo_response = platform.receive_http_response(client_session);
+	print("THREE");
 
 	--for n,v in pairs(request:get_cookies()) do
 		--print(n, v);
