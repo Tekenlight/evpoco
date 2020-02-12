@@ -98,7 +98,12 @@ inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
 inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
 inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd)
 {
-	EVConnectedStreamSocket * cn = _cssMap[fd];
+	EVConnectedStreamSocket * cn = NULL;
+	try {
+		cn = _cssMap.at(fd);
+	} catch (...) {
+		cn = NULL;
+	}
 	return (cn);
 }
 inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs)
@@ -107,8 +112,10 @@ inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs)
 }
 inline void EVProcessingState::eraseEVConnSock(int fd)
 {
-	EVConnectedStreamSocket * cn = _cssMap[fd];
-	if (cn) {
+	EVConnectedStreamSocket * cn = NULL;
+	auto it = _cssMap.find(fd);
+	if (_cssMap.end() != it) {
+		cn = it->second;
 		_cssMap.erase(fd);
 		delete cn;
 	}

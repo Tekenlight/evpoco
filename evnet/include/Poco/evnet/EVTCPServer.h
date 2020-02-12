@@ -100,7 +100,7 @@ struct _strms_io_struct_type {
 };
 
 typedef struct _cb_ref_data {
-	_cb_ref_data() : _instance(0), _usN(0) {}
+	_cb_ref_data() : _instance(0), _usN(0), _acc_fd(-1) {}
 	EVTCPServer* _instance;
 	EVUpstreamEventNotification *_usN;
 	poco_socket_t _acc_fd;
@@ -277,19 +277,23 @@ public:
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
 
-	virtual long submitRequestForConnection(int sr_num, poco_socket_t acc_fd,
+	void justEnqueue(EVAcceptedStreamSocket* tn);
+	void srCompleteEnqueue(EVAcceptedStreamSocket* tn);
+	void srComplete(EVAcceptedStreamSocket* );
+	void enqueueSR(EVAcceptedSocket *tn, EVTCPServiceRequest * sr);
+	virtual long submitRequestForConnection(int sr_num, EVAcceptedSocket *tn,
 								Net::SocketAddress& addr, Net::StreamSocket & css);
-	virtual long submitRequestForHostResolution(int cb_evid_num, poco_socket_t acc_fd,
+	virtual long submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *tn,
 								const char* domain_name, const char* serv_name);
 		/// To be called whenever another thread wants to make a new connection.
 
-	virtual long submitRequestForClose(poco_socket_t acc_fd, Net::StreamSocket& css);
+	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css);
 		/// To be called whenever another thread wants to close an existing connection.
 
-	virtual long submitRequestForSendData(poco_socket_t acc_fd, Net::StreamSocket& css);
+	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css);
 		/// To be called whenver a worker thread wants to send data
 		/// to a server it has opened connection with.
-	virtual long submitRequestForRecvData(int cb_evid_num, poco_socket_t acc_fd, Net::StreamSocket& css);
+	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css);
 		/// To be called whenver a worker thread wants to recv data
 		/// to a server it has opened connection with.
 	void postHostResolution(dns_io_ptr_type dio_ptr);
@@ -301,14 +305,14 @@ public:
 	void pushFileEvent(int fd, int completed_oper);
 		/// To handle the event of file operation completion
 
-	virtual long submitRequestForTaskExecution(int cb_evid_num, poco_socket_t acc_fd, generic_task_handler_t tf, void* input_data);
+	virtual long submitRequestForTaskExecution(int cb_evid_num, EVAcceptedSocket *tn, generic_task_handler_t tf, void* input_data);
 		/// Function to submit a generic task for asynchronous execution
 
 	virtual  long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data);
 		/// Function to submit a generic task for asynchronous execution, this function does not call back or return.
 
-	virtual long notifyOnFileOpen(int cb_evid_num, poco_socket_t acc_fd, int fd);
-	virtual long notifyOnFileRead(int cb_evid_num, poco_socket_t acc_fd, int fd);
+	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd);
+	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 		/// Functions needed for asynchronous file operations.
 
 protected:
@@ -378,6 +382,7 @@ private:
 		/// Function to add the StreamSocket back to listening mode
 	void handleServiceRequest(const bool& ev_occured);
 		// Function to request a service from TCP Server
+	void errorInAuxProcesing(poco_socket_t fd, bool connInErr);
 	virtual void errorInReceivedData(poco_socket_t fd, bool connInErr);
 		/// Function to handle the event of completion of one request with exceptions.
 	void errorWhileReceiving(poco_socket_t fd, bool connInErr);

@@ -19,6 +19,7 @@
 #include <ev_queue.h>
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
+#include "Poco/evnet/EVAcceptedSocket.h"
 #include "Poco/evnet/EVProcessingState.h"
 
 using Poco::Net::StreamSocket;
@@ -29,7 +30,7 @@ using Poco::Net::StreamSocket;
 namespace Poco{ namespace evnet {
 
 
-class Net_API EVAcceptedStreamSocket
+class Net_API EVAcceptedStreamSocket : public EVAcceptedSocket
 	/// This class is acts as an element of the list of
 	/// StreamSockets opened in an event driven TCP server
 	///
@@ -60,8 +61,8 @@ public:
 
 	ev_io * getSocketWatcher();
 	/// This method gets the socket watcher that was associated with this socket.
-	
-	poco_socket_t getSockfd();
+
+	virtual poco_socket_t getSockfd();
 	/// This returns the socket fd of the stream socket
 	/// The fd is needed to interface with libev.
 
@@ -117,6 +118,9 @@ public:
 	void decrNumCSEvents();
 	void incrNumCSEvents();
 	bool pendingCSEvents();
+	void newdecrNumCSEvents();
+	virtual void newincrNumCSEvents();
+	bool newpendingCSEvents();
 	bool srInSession(unsigned long sr_srl_num);
 	void setBaseSRSrlNum(unsigned long sr_srl_num);
 	void setWaitingTobeEnqueued(bool flg);
@@ -144,6 +148,7 @@ private:
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
 	//int						_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	std::atomic_int				_active_cs_events; /* Tells how many SR requests are pending on this sock */
+	std::atomic_int				_new_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
 };
@@ -205,6 +210,29 @@ inline bool EVAcceptedStreamSocket::pendingCSEvents()
 {
 	int cs_events = std::atomic_load(&_active_cs_events);
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
+	return (cs_events>0);
+}
+
+inline void EVAcceptedStreamSocket::newdecrNumCSEvents()
+{
+	//_new_active_cs_events--;
+	std::atomic_fetch_add(&_new_active_cs_events, -1);
+	int cs_events = std::atomic_load(&_new_active_cs_events);
+	//DEBUGPOINT("ACTIVE EVENTS = %d for %d\n", cs_events, getSockfd());
+}
+
+inline void EVAcceptedStreamSocket::newincrNumCSEvents()
+{
+	//_new_active_cs_events++;
+	std::atomic_fetch_add(&_new_active_cs_events, 1);
+	int cs_events = std::atomic_load(&_new_active_cs_events);
+	//DEBUGPOINT("ACTIVE EVENTS = %d for %d\n", cs_events, getSockfd());
+}
+
+inline bool EVAcceptedStreamSocket::newpendingCSEvents()
+{
+	int cs_events = std::atomic_load(&_new_active_cs_events);
+	//DEBUGPOINT("ACTIVE EVENTS = %d for %d\n", cs_events, getSockfd());
 	return (cs_events>0);
 }
 

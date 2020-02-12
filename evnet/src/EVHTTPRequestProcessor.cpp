@@ -236,6 +236,7 @@ void EVHTTPRequestProcessor::evrun()
 				_reqProcState->setRequestHandler(pHandler);
 				pHandler->setServer(_reqProcState->getServer());
 				pHandler->setAccSockfd(socket().impl()->sockfd());
+				pHandler->setAcceptedSocket(getAcceptedSocket());
 				pHandler->setRequest(request);
 				pHandler->setResponse(response);
 
@@ -295,6 +296,7 @@ void EVHTTPRequestProcessor::evrun()
 							DEBUGPOINT("Here\n");
 							throw e;
 						}
+						//elem = NULL;
 						elem = dequeue(_reqProcState->getUpstreamEventQ());
 					}
 				}

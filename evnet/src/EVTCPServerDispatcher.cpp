@@ -150,10 +150,12 @@ void EVTCPServerDispatcher::run()
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
 					pCNf->socket()->getProcState()->setUpstreamEventQ(pCNf->socket()->getUpstreamIoEventQueue());
+					pConnection->setAcceptedSocket(pCNf->socket());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);
 					//pConnection->start();
 					endConnection();
+					//DEBUGPOINT("Here\n");
 					_server->receivedDataConsumed(pCNf->sockfd());
 				}
 				catch (NoMessageException&) {
@@ -227,6 +229,7 @@ void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 		 * It means that the server is overwhelmed.
 		 * Closing connection in that case.
 		 * */
+		DEBUGPOINT("Here\n");
 		_server->errorInReceivedData(evAccSocket->getSockfd(),true);
 	}
 }

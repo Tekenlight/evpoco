@@ -65,7 +65,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddr
 	srdata->addr = addr;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
-	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), addr, css);
+	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), addr, css);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -77,7 +77,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddr
 long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 {
 	sess.setState(EVHTTPClientSession::CLOSED);
-	getServer().submitRequestForClose(getAccSockfd(), sess.getSS());
+	getServer().submitRequestForClose(getAcceptedSocket(), sess.getSS());
 	return 0;
 }
 
@@ -100,7 +100,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
 	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAccSockfd(), sess.getAddr(), sess.getSS());
+		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAcceptedSocket(), sess.getAddr(), sess.getSS());
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
@@ -134,7 +134,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 	srdata->port_num = port_num;
 	srdata->session_ptr = &sess;
 
-	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAccSockfd(), domain_name, NULL);
+	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, NULL);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -163,7 +163,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 	srdata->port_num = -1;
 	srdata->session_ptr = &sess;
 
-	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAccSockfd(), domain_name, serv_name);
+	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, serv_name);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -177,7 +177,7 @@ long EVHTTPRequestHandler::sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPReque
 	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 	req.prepareHeaderForSend();
 	sess.getSendStream()->transfer(req.getMessageHeader());
-	getServer().submitRequestForSendData(getAccSockfd(), sess.getSS());
+	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS());
 
 	return 0;
 }
@@ -188,7 +188,7 @@ long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession &sess, EVHTTP
 	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
 	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 	sess.getSendStream()->transfer(req.getMessageBody());
-	getServer().submitRequestForSendData(getAccSockfd(), sess.getSS());
+	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS());
 
 	return 0;
 }
@@ -208,7 +208,7 @@ long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession
 	srdata->cb = cb;
 	srdata->response = &res;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAccSockfd(), sess.getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAcceptedSocket(), sess.getSS());
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -227,7 +227,7 @@ long EVHTTPRequestHandler::resolveHost(TCallback cb,
 	srdata->cb = cb;
 	srdata->addr_info_ptr_ptr = addr_info_ptr_ptr;
 
-	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_DNSR_HOST_RESOLUTION_DONE, getAccSockfd(), domain_name, serv_name);
+	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_DNSR_HOST_RESOLUTION_DONE, getAcceptedSocket(), domain_name, serv_name);
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
@@ -259,7 +259,7 @@ long EVHTTPRequestHandler::pollFileOpenStatus(TCallback cb, int fd)
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
 
-	sr_num =  getServer().notifyOnFileOpen(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	sr_num =  getServer().notifyOnFileOpen(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), fd);
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
@@ -275,7 +275,7 @@ long EVHTTPRequestHandler::pollFileReadStatus(TCallback cb, int fd)
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
 
-	sr_num =  getServer().notifyOnFileRead(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), fd);
+	sr_num =  getServer().notifyOnFileRead(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), fd);
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
@@ -292,7 +292,7 @@ long EVHTTPRequestHandler::executeGenericTask(TCallback cb, generic_task_handler
 	srdata->cb = cb;
 
 	//DEBUGPOINT("Here\n");
-	sr_num =  getServer().submitRequestForTaskExecution(HTTPRH_CALL_CB_HANDLER, getAccSockfd(), tf, input_data);
+	sr_num =  getServer().submitRequestForTaskExecution(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), tf, input_data);
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
@@ -377,7 +377,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						delete old;
 						Poco::evnet::EVServer & server = getServer();
 						sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST,
-											getAccSockfd(), srdata->session_ptr->getSS());
+											getAcceptedSocket(), srdata->session_ptr->getSS());
 						_srColl[sr_num] = srdata;
 						continue_event_loop = true;
 					}
@@ -426,7 +426,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					if (proxyConfig().host.empty() || bypassProxy(srdata->session_ptr->getAddr().host().toString())) {
 
 						sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED,
-									getAccSockfd(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS());
+									getAcceptedSocket(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS());
 					}
 					else {
 						// TBD : Connect to proxy server first over here. TBD

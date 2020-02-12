@@ -30,6 +30,12 @@ EVTCPServerConnection::EVTCPServerConnection(StreamSocket& socket):
 {
 }
 
+EVTCPServerConnection::EVTCPServerConnection(EVAcceptedStreamSocket* tn):
+	_socket(tn->getStreamSocket()),
+	_tn(tn)
+{
+}
+
 
 EVTCPServerConnection::~EVTCPServerConnection()
 {

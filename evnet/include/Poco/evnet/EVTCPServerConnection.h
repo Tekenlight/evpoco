@@ -21,6 +21,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVProcessingState.h"
+#include "Poco/evnet/EVAcceptedStreamSocket.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Runnable.h"
 
@@ -50,6 +51,7 @@ class Net_API EVTCPServerConnection: public Poco::Runnable
 {
 public:
 	EVTCPServerConnection(StreamSocket& socket);
+	EVTCPServerConnection(EVAcceptedStreamSocket *tn);
 		/// Creates the EVTCPServerConnection using the given
 		/// stream socket.
 
@@ -78,13 +80,18 @@ protected:
 		/// In order to hold it and continue the same upon
 		/// data being available.
 
+	void setAcceptedSocket(EVAcceptedStreamSocket * tn);
+	EVAcceptedStreamSocket* getAcceptedSocket();
+
 private:
 	EVTCPServerConnection();
 	EVTCPServerConnection(const EVTCPServerConnection&);
 	EVTCPServerConnection& operator = (const EVTCPServerConnection&);
 	
 	StreamSocket &_socket;
-	
+
+	EVAcceptedStreamSocket * _tn;
+
 	friend class EVTCPServerDispatcher;
 };
 
@@ -95,6 +102,16 @@ private:
 inline StreamSocket& EVTCPServerConnection::socket()
 {
 	return _socket;
+}
+
+inline void EVTCPServerConnection::setAcceptedSocket(EVAcceptedStreamSocket * tn)
+{
+	_tn = tn;
+}
+
+inline EVAcceptedStreamSocket* EVTCPServerConnection::getAcceptedSocket()
+{
+	return _tn;
 }
 
 

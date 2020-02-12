@@ -33,6 +33,7 @@
 #include "Poco/evnet/EVHTTPClientSession.h"
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVAcceptedStreamSocket.h"
 #include "Poco/evnet/EVServer.h"
 
 
@@ -152,6 +153,8 @@ public:
 	void setRequest(Net::HTTPServerRequest* req);
 	Net::HTTPServerResponse& getResponse();
 	void setResponse(Net::HTTPServerResponse* res);
+	void setAcceptedSocket(EVAcceptedStreamSocket * tn);
+	EVAcceptedStreamSocket* getAcceptedSocket();
 
 	/*
 	long waitForHTTPResponse(int cb_evid_num, EVHTTPClientSession& sess, EVHTTPResponse &req);
@@ -202,11 +205,22 @@ private:
 	EVUpstreamEventNotification*	_usN;
 	EVServer*						_server;
 	poco_socket_t					_acc_fd;
+	EVAcceptedStreamSocket*			_tn;
 	Net::HTTPServerRequest*			_req = NULL;
 	Net::HTTPServerResponse*		_rsp = NULL;
 	SRColMapType					_srColl;
 	FilesMapType					_opened_files;
 };
+
+inline void EVHTTPRequestHandler::setAcceptedSocket(EVAcceptedStreamSocket * tn)
+{
+	_tn = tn;
+}
+
+inline EVAcceptedStreamSocket* EVHTTPRequestHandler::getAcceptedSocket()
+{
+	return _tn;
+}
 
 inline file_handle_p EVHTTPRequestHandler::ev_get_file_handle(int fd)
 {
