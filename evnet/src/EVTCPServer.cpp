@@ -486,6 +486,7 @@ void EVTCPServer::stop()
 		ev_async_send(_loop, this->_stop_watcher_ptr1);
 		_thread.join();
 		_pDispatcher->stop();
+		destroy_thread_pool(this->_thread_pool);
 	}
 }
 
