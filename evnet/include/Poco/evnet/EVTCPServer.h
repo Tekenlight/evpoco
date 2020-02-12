@@ -339,7 +339,9 @@ private:
 	ssize_t handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	int makeTCPConnection(EVTCPServiceRequest *);
 	int resolveHost(EVTCPServiceRequest * sr);
+	int resolveHost(EVAcceptedStreamSocket* tn, EVTCPServiceRequest* sr);
 	int initiateGenericTask(EVTCPServiceRequest * sr);
+	int initiateGenericTask(EVAcceptedStreamSocket * tn, EVTCPServiceRequest * sr);
 	int initiateGenericTaskNR(EVTCPServiceRequest * sr);
 	int pollFileOpenEvent(EVTCPServiceRequest * sr);
 	int pollFileReadEvent(EVTCPServiceRequest * sr);

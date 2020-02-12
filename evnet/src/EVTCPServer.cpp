@@ -580,6 +580,10 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 			tn->setWaitingTobeEnqueued(true);
 		}
 	}
+	else {
+		DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+		std::abort();
+	}
 
 	return 1;
 }
@@ -957,6 +961,10 @@ handleConnSocketReadable_finally:
 				tn->setWaitingTobeEnqueued(true);
 			}
 		}
+		else {
+			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+			std::abort();
+		}
 	}
 	else if (ret<0) {
 		cn->setSockInError();
@@ -976,6 +984,10 @@ handleConnSocketReadable_finally:
 			else {
 				tn->setWaitingTobeEnqueued(true);
 			}
+		}
+		else {
+			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+			std::abort();
 		}
 	}
 	else {
@@ -1324,6 +1336,9 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					subscriptions.clear();
 					//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					tn->deleteState();
+					/* Should reset of number of CS events be done at all
+					 * tn->newresetNumCSEvents();
+					 * */
 					tn->setWaitingTobeEnqueued(false);
 					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn->pendingCSEvents()); 
 				}
@@ -1848,6 +1863,10 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 					tn->setWaitingTobeEnqueued(true);
 				}
 			}
+			else {
+				DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+				std::abort();
+			}
 			return -1;
 		}
 
@@ -1995,6 +2014,8 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 		}
 		else {
 			delete usN;
+			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+			std::abort();
 		}
 
 		delete ref_data;
@@ -2008,6 +2029,39 @@ int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 	dns_io_ptr_type dio_ptr = new dns_io_struct_type();
 	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
 
+
+	dio_ptr->_in._host_name = sr->getDomainName();
+	dio_ptr->_in._serv_name = sr->getServName();
+
+	//DEBUGPOINT("Here ipv6 = %d\n", _use_ipv6_for_conn);
+	if (_use_ipv6_for_conn)
+		dio_ptr->_in._hints.ai_family = PF_UNSPEC;
+	else
+		dio_ptr->_in._hints.ai_family = PF_INET;
+
+	dio_ptr->_in._hints.ai_socktype = SOCK_STREAM;
+	dio_ptr->_in._hints.ai_protocol = IPPROTO_TCP;
+	dio_ptr->_in._hints.ai_flags = AI_DEFAULT;
+	//dio_ptr->_in._hints.ai_flags = AI_ALL|AI_V4MAPPED;
+	//dio_ptr->_in._hints.ai_flags = AI_ALL;
+
+	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
+	ref_data->_usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	ref_data->_instance = this;
+	ref_data->_acc_fd = sr->accSockfd();
+	dio_ptr->_in._ref_data = ref_data;
+
+	enqueue_task(_thread_pool, &(host_resolution), dio_ptr);
+
+	tn->incrNumCSEvents();
+
+	return 0;
+}
+
+/* Fill in code for this method to trigger a getaddrinfo asynchronously */
+int EVTCPServer::resolveHost(EVAcceptedStreamSocket* tn, EVTCPServiceRequest* sr)
+{
+	dns_io_ptr_type dio_ptr = new dns_io_struct_type();
 
 	dio_ptr->_in._host_name = sr->getDomainName();
 	dio_ptr->_in._serv_name = sr->getServName();
@@ -2093,6 +2147,8 @@ void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 			}
 			else {
 				delete usN;
+				DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+				std::abort();
 			}
 
 			tn->decrNumCSEvents();
@@ -2161,10 +2217,10 @@ void EVTCPServer::handleGenericTaskComplete(const bool& ev_occured)
 			}
 		}
 		else {
+			delete usN;
+			if (usN->getTaskReturnValue()) { free(usN->getTaskReturnValue()); usN->setTaskReturnValue(NULL); }
 			DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
 			std::abort();
-			if (usN->getTaskReturnValue()) { free(usN->getTaskReturnValue()); usN->setTaskReturnValue(NULL); }
-			delete usN;
 		}
 
 		tn->decrNumCSEvents();
@@ -2215,6 +2271,25 @@ int EVTCPServer::initiateGenericTask(EVTCPServiceRequest * sr)
 {
 	void* task_input_data = sr->getTaskInputData();
 	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+
+	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
+
+	ref_data->_usN = new EVUpstreamEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	ref_data->_instance = this;
+	ref_data->_acc_fd = sr->accSockfd();
+
+	enqueue_task_function(_thread_pool, (sr->getTaskFunc()), task_input_data, ref_data, &post_task_completion);
+
+	tn->incrNumCSEvents();
+
+	//DEBUGPOINT("Here func = %p, notification_func = %p, inp = %p %s\n", sr->getTaskFunc(), &post_task_completion, task_input_data, (char*)task_input_data);
+	//DEBUGPOINT("Here\n");
+	return 0;
+}
+
+int EVTCPServer::initiateGenericTask(EVAcceptedStreamSocket * tn, EVTCPServiceRequest * sr)
+{
+	void* task_input_data = sr->getTaskInputData();
 
 	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
 
@@ -2286,6 +2361,10 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 			else {
 				tn->setWaitingTobeEnqueued(true);
 			}
+		}
+		else {
+			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+			std::abort();
 		}
 		return ret;
 	}
@@ -2659,15 +2738,27 @@ long EVTCPServer::submitRequestForHostResolution(int cb_evid_num, EVAcceptedSock
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
-	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
-										EVTCPServiceRequest::HOST_RESOLUTION, en->getSockfd(), domain_name, serv_name));
+	EVTCPServiceRequest sr(sr_num, cb_evid_num,
+							EVTCPServiceRequest::HOST_RESOLUTION, en->getSockfd(), domain_name, serv_name);
+	en->newincrNumCSEvents();
+	resolveHost((EVAcceptedStreamSocket*)en, &sr);
 
-	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->_stop_watcher_ptr2);
-	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
+
+//long EVTCPServer::submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *en, const char* domain_name, const char* serv_name)
+//{
+	//long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	//enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+										//EVTCPServiceRequest::HOST_RESOLUTION, en->getSockfd(), domain_name, serv_name));
+
+	/* And then wake up the loop calls process_service_request */
+	//ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+	//return sr_num;
+//}
 
 long EVTCPServer::submitRequestForConnection(int cb_evid_num, EVAcceptedSocket *en, Net::SocketAddress& addr, Net::StreamSocket& css)
 {
@@ -2708,16 +2799,29 @@ long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num,
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
-	//DEBUGPOINT("Here loop = %p, sw = %p on socket %d\n", _loop, this->_stop_watcher_ptr2, en->getSockfd());
-	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
-							EVTCPServiceRequest::GENERIC_TASK, en->getSockfd(), tf, input_data));
+	EVTCPServiceRequest sr(sr_num, cb_evid_num,
+                            EVTCPServiceRequest::GENERIC_TASK, en->getSockfd(), tf, input_data);
+	en->newincrNumCSEvents();
+	initiateGenericTask((EVAcceptedStreamSocket*)en, &sr);
 
-	/* And then wake up the loop calls process_service_request */
-	ev_async_send(_loop, this->_stop_watcher_ptr2);
-	/* This will result in invocation of handleServiceRequest */
 	return sr_num;
 }
+
+//long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num,
+							//EVAcceptedSocket *en, generic_task_handler_t tf, void* input_data)
+//{
+	//long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	//DEBUGPOINT("Here loop = %p, sw = %p on socket %d\n", _loop, this->_stop_watcher_ptr2, en->getSockfd());
+	//enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+							//EVTCPServiceRequest::GENERIC_TASK, en->getSockfd(), tf, input_data));
+
+	/* And then wake up the loop calls process_service_request */
+	//ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+	//return sr_num;
+//}
 
 long EVTCPServer::submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data)
 {

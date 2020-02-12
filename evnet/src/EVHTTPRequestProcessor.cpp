@@ -298,6 +298,7 @@ void EVHTTPRequestProcessor::evrun()
 						}
 						//elem = NULL;
 						elem = dequeue(_reqProcState->getUpstreamEventQ());
+						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
 				}
 				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());

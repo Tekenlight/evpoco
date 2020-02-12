@@ -119,6 +119,7 @@ public:
 	void incrNumCSEvents();
 	bool pendingCSEvents();
 	void newdecrNumCSEvents();
+	void newresetNumCSEvents();
 	virtual void newincrNumCSEvents();
 	bool newpendingCSEvents();
 	bool srInSession(unsigned long sr_srl_num);
@@ -211,6 +212,12 @@ inline bool EVAcceptedStreamSocket::pendingCSEvents()
 	int cs_events = std::atomic_load(&_active_cs_events);
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
 	return (cs_events>0);
+}
+
+inline void EVAcceptedStreamSocket::newresetNumCSEvents()
+{
+	std::atomic_store(&_new_active_cs_events, 0);
+	return;
 }
 
 inline void EVAcceptedStreamSocket::newdecrNumCSEvents()
