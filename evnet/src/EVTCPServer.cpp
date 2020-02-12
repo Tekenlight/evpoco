@@ -1186,7 +1186,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 {
 	ev_io * socket_watcher_ptr = 0;
 	if (tn->sockInError()) {
-		DEBUGPOINT("SOCK IN ERROR RETURNING\n");
+		DEBUGPOINT("SOCK IN ERROR RETURNING for %d\n", tn->getSockfd());
 		return;
 	}
 	socket_watcher_ptr = tn->getSocketWatcher();
@@ -1306,7 +1306,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		 * over here
 		 * */
 		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError())) {
-			DEBUGPOINT("Here for %d\n", tn->getSockfd());
+			//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
 		}
 
@@ -1379,14 +1379,14 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				break;
 
 			case EVTCPServerNotification::ERROR_IN_AUX_PROCESSING:
-				DEBUGPOINT("ERROR_IN_AUX_PROCESSING on socket %d\n", pcNf->sockfd());
+				//DEBUGPOINT("ERROR_IN_AUX_PROCESSING on socket %d\n", pcNf->sockfd());
 				if (tn->newpendingCSEvents() || tn->sockBusy()) {
-					DEBUGPOINT("RETAINING  ACC SOCK\n");
-					DEBUGPOINT("Here for %d\n", tn->getSockfd());
+					//DEBUGPOINT("RETAINING  ACC SOCK\n");
+					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 					tn->setSockInError();
 				}
 				else {
-					DEBUGPOINT("CLEARING ACC SOCK %d\n", pcNf->sockfd());
+					//DEBUGPOINT("CLEARING ACC SOCK %d\n", pcNf->sockfd());
 					if (tn->getProcState()) {
 						std::map<int,int>& subscriptions = tn->getProcState()->getFileEvtSubscriptions();
 						for (auto it = subscriptions.begin(); it != subscriptions.end(); ++it) {

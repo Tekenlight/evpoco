@@ -1176,6 +1176,8 @@ static int ev_lua_file_open_complete(lua_State* L, int status, lua_KContext ctx)
 		return 2;
 	}
 
+	//DEBUGPOINT("Opening file id %d\n", fh->get_fd());
+
 	void * ptr = lua_newuserdata(L, sizeof(Poco::evnet::file_handle_p));
 	*(Poco::evnet::file_handle_p*)ptr = fh;
 	luaL_setmetatable(L, _file_handle_type_name);
