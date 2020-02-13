@@ -347,10 +347,10 @@ int EVHTTPProcessingState::continueRead()
 	size_t parsed = 0;
 	http_parser_settings settings = {
 		 .on_message_begin = message_begin_cb
-		,.on_header_field = header_field_cb
-		,.on_header_value = header_value_cb
 		,.on_url = request_url_cb
 		,.on_status = response_status_cb
+		,.on_header_field = header_field_cb
+		,.on_header_value = header_value_cb
 		,.on_headers_complete = headers_complete_cb
 		,.on_body = body_cb
 		,.on_message_complete = message_complete_cb

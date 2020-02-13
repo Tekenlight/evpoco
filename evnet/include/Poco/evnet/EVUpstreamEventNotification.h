@@ -200,11 +200,11 @@ inline int EVUpstreamEventNotification::getCBEVIDNum()
 
 inline void EVUpstreamEventNotification::debug(const char* file, const int lineno)
 {
-	printf("[%p][%s:%d] _sockfd = %d\n", pthread_self(), file, lineno, _sockfd);
-	printf("[%p][%s:%d] _ret = %zd\n", pthread_self(), file, lineno, _ret);
-	printf("[%p][%s:%d] _cb_evid_num = %d\n", pthread_self(), file, lineno, _cb_evid_num);
-	printf("[%p][%s:%d] _errno = %d, %s\n", pthread_self(), file, lineno, _errno, strerror(_errno));
-	printf("[%p][%s:%d] _task_return_value = %p\n", pthread_self(), file, lineno, _task_return_value);
+	printf("[%p][%s:%d] _sockfd = %d\n", (void*)pthread_self(), file, lineno, _sockfd);
+	printf("[%p][%s:%d] _ret = %zd\n", (void*)pthread_self(), file, lineno, _ret);
+	printf("[%p][%s:%d] _cb_evid_num = %d\n", (void*)pthread_self(), file, lineno, _cb_evid_num);
+	printf("[%p][%s:%d] _errno = %d, %s\n", (void*)pthread_self(), file, lineno, _errno, strerror(_errno));
+	printf("[%p][%s:%d] _task_return_value = %p\n", (void*)pthread_self(), file, lineno, _task_return_value);
 }
 
 } } // namespace evnet and Poco end.

@@ -78,13 +78,23 @@ free(strs);
 #define EV_YIELD()  pthread_yield();
 #endif
 
-
+#ifdef __linux__
+#define DEBUGPOINT(...) { \
+	char filename[512]; \
+	char *fpath; \
+	fflush(stdout); \
+	strcpy(filename, __FILE__); \
+    fpath = basename(filename); printf("[%p][%s:%d] Reached:",(void*)pthread_self(), fpath, __LINE__); \
+    printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
+}
+#else
 #define DEBUGPOINT(...) { \
 	char fpath[256]; \
 	fflush(stdout); \
     basename_r(__FILE__,fpath); printf("[%p][%s:%d] Reached:",(void*)pthread_self(), fpath, __LINE__); \
     printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
 }
+#endif
 
 #ifndef ULLONG_MAX
 #define ULLONG_MAX ((uint64_t) -1) /* 2^64-1 */
