@@ -100,6 +100,11 @@ free(strs);
 #define ULLONG_MAX ((uint64_t) -1) /* 2^64-1 */
 #endif
 
+
+#ifdef __linux__
+#define AI_DEFAULT AI_V4MAPPED | AI_ADDRCONFIG
+#endif
+
 /*
 #define DEBUGPOINT(s) {\
 	printf("%s:%d:%p %s\n",__FILE__,__LINE__,pthread_self(),s); \

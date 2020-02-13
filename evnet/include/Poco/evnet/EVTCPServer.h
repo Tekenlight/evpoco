@@ -400,6 +400,7 @@ private:
 	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 	void handlePeriodicWakeup(const bool& ev_occured);
 	unsigned long getNextSRSrlNum();
+	EVAcceptedStreamSocket* getTn(poco_socket_t fd);
 
 	ServerSocket						_socket;
 	EVTCPServerDispatcher*				_pDispatcher;
@@ -440,6 +441,14 @@ private:
 //
 // inlines
 //
+
+inline EVAcceptedStreamSocket* EVTCPServer::getTn(poco_socket_t fd)
+{
+	auto it = _accssColl.find(fd);
+	if (_accssColl.end() != it) return it->second;
+	else return NULL;
+}
+
 inline unsigned long EVTCPServer::getNextSRSrlNum()
 {
 	unsigned long sr_srl_num = 0L;

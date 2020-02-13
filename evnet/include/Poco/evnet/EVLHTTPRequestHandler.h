@@ -280,29 +280,32 @@ inline int EVLHTTPRequestHandler::addHTTPConnection(EVHTTPClientSession* p)
 
 inline EVHTTPClientSession* EVLHTTPRequestHandler::getHTTPConnection(int i)
 {
-	return _http_connections[i];
+	auto it = _http_connections.find(i);
+	if (_http_connections.end() != it) return _http_connections[i];
+	else return NULL;
 }
 
 inline void EVLHTTPRequestHandler::addToComponents(mapped_item_type t, void* p)
 {
-	if (_components[t]) {
+	auto it = _components.find(t);
+	if (_components.end() != it) {
 		// This is to prevent inadvertent memory leakage
 		switch (t) {
 			case html_form:
 				{
-					Net::HTMLForm* form = (Net::HTMLForm*)_components[t];
+					Net::HTMLForm* form = (Net::HTMLForm*)it->second;
 					delete form;
 				}
 				break;
 			case part_handler:
 				{
-					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)_components[t];
+					EVLHTTPPartHandler* ph = (EVLHTTPPartHandler*)it->second;
 					delete ph;
 				}
 				break;
 			case string_body:
 				{
-					char* str = (char*)_components[t];
+					char* str = (char*)it->second;
 					free(str);
 				}
 				break;
@@ -315,7 +318,9 @@ inline void EVLHTTPRequestHandler::addToComponents(mapped_item_type t, void* p)
 
 inline void* EVLHTTPRequestHandler::getFromComponents(mapped_item_type t)
 {
-	return _components[t];
+	auto it = _components.find(t);
+	if ( _components.end() != it) return it->second;
+	else return NULL;
 }
 
 } } // namespace Poco::evnet

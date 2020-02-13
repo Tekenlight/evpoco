@@ -330,20 +330,22 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	 * no action needs to be taken here.
 	 * */
 	//DEBUGPOINT("Here event = %d, SRP = %p\n", getEvent(), _srColl[sr_num]);
-	if (!_srColl[sr_num]) return PROCESSING;
+	//if (!_srColl[sr_num]) return PROCESSING; Linux porting change
+	auto it = _srColl.find(sr_num);
+	if (_srColl.end() == it) return PROCESSING;
 	//DEBUGPOINT("Here event = %d, \n", getEvent());
 
 	switch (getEvent()) {
 		case HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED:
-			_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+			_usN->setCBEVIDNum((it->second)->cb_evid_num);
 			if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
+				it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
 			}
 			else {
 				/* No proxy or it has to be bypassed. */
-				_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::CONNECTED);
-				_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
-				_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
+				it->second->session_ptr->setState(EVHTTPClientSession::CONNECTED);
+				it->second->session_ptr->setRecvStream(_usN->getRecvStream());
+				it->second->session_ptr->setSendStream(_usN->getSendStream());
 			}
 			break;
 		case HTTPRH_HTTPCONN_PROXYSOCK_READY:
@@ -358,20 +360,20 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			{
 				int parse_ret = 0;
 				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-					_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
-					_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+					it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
+					_usN->setCBEVIDNum((it->second)->cb_evid_num);
 				}
 				else {
-					_srColl[sr_num]->session_ptr->setRecvStream(_usN->getRecvStream());
-					_srColl[sr_num]->session_ptr->setSendStream(_usN->getSendStream());
-					parse_ret = _srColl[sr_num]->session_ptr->continueRead(*(_srColl[sr_num]->response));
+					it->second->session_ptr->setRecvStream(_usN->getRecvStream());
+					it->second->session_ptr->setSendStream(_usN->getSendStream());
+					parse_ret = it->second->session_ptr->continueRead(*(it->second->response));
 					if (parse_ret < 0) {
 						_usN->setRet(-1);
-						closeHTTPSession(*(_srColl[sr_num]->session_ptr));
-						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+						closeHTTPSession(*(it->second->session_ptr));
+						_usN->setCBEVIDNum((it->second)->cb_evid_num);
 					}
 					else if (parse_ret < MESSAGE_COMPLETE) {
-						SRData * old = _srColl[sr_num];
+						SRData * old = it->second;
 						SRData * srdata = new SRData(*old);
 						_srColl.erase(sr_num);
 						delete old;
@@ -382,11 +384,11 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						continue_event_loop = true;
 					}
 					else {
-						if (!(_srColl[sr_num]->response->getVersion().compare("HTTP/1.0"))) {
+						if (!(it->second->response->getVersion().compare("HTTP/1.0"))) {
 							//DEBUGPOINT("Got a response of version 1.0\n");
-							closeHTTPSession(*(_srColl[sr_num]->session_ptr));
+							closeHTTPSession(*(it->second->session_ptr));
 						}
-						_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+						_usN->setCBEVIDNum((it->second)->cb_evid_num);
 					}
 				}
 			}
@@ -394,11 +396,11 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		case HTTPRH_HTTPCONN_HOSTRESOLVED:
 			{
 				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-					_srColl[sr_num]->session_ptr->setState(EVHTTPClientSession::ERROR);
-					_usN->setCBEVIDNum((_srColl[sr_num])->cb_evid_num);
+					it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
+					_usN->setCBEVIDNum((it->second)->cb_evid_num);
 				}
 				else {
-					SRData * old = _srColl[sr_num];
+					SRData * old = it->second;
 					SRData * srdata = new SRData(*old);
 					_srColl.erase(sr_num);
 					delete old;
@@ -440,7 +442,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		case HTTPRH_HTTPCONN_PROXY_RESPONSE:
 			break;
 		case HTTPRH_DNSR_HOST_RESOLUTION_DONE:
-			*(_srColl[sr_num]->addr_info_ptr_ptr) = _usN->getAddrInfo();
+			*(it->second->addr_info_ptr_ptr) = _usN->getAddrInfo();
 			break;
 		case HTTPRH_CALL_CB_HANDLER:
 		default:
@@ -451,14 +453,14 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		ret = PROCESSING;
 	}
 	else {
-		SRData * old = _srColl[sr_num];
+		SRData * old = it->second;
 		_usN->setRefSRNum(old->ref_sr_num);
 		try {
-			if ((_srColl[sr_num])->cb_handler) {
-				ret = (*((_srColl[sr_num])->cb_handler))();
+			if ((it->second)->cb_handler) {
+				ret = (*((it->second)->cb_handler))();
 			}
-			else if (0 != (_srColl[sr_num])->cb) {
-				ret = (_srColl[sr_num])->cb();
+			else if (0 != (it->second)->cb) {
+				ret = (it->second)->cb();
 			}
 			else {
 				ret = handleRequest();

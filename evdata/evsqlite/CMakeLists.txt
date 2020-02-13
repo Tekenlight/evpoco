@@ -40,6 +40,7 @@ add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 #VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
 #These flags are not supported in .so mode MODULE instead of SHARED (for .dylib files on macosx)
 
+if(APPLE)
 set_target_properties( "${LIBNAME}"
     PROPERTIES
 	LINK_FLAGS "-bind_at_load"
@@ -47,6 +48,14 @@ set_target_properties( "${LIBNAME}"
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evsqlite_EXPORTS
     )
+else(APPLE)
+set_target_properties( "${LIBNAME}"
+    PROPERTIES
+    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+    OUTPUT_NAME ${POCO_LIBNAME}
+    DEFINE_SYMBOL evsqlite_EXPORTS
+    )
+endif(APPLE)
 
 foreach(lib ${ADD_LIBRARY_PATH})
 string(APPEND LINK_TIME_FLAGS " ")

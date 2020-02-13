@@ -448,7 +448,7 @@ void EVTCPServer::freeClear()
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 {
-	EVAcceptedStreamSocket *tn = _accssColl[fd];
+	EVAcceptedStreamSocket *tn = getTn(fd);
 	_accssColl.erase(fd);
 	_ssLRUList.remove(tn);
 	{
@@ -552,7 +552,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 	ev_io_stop(_loop, cn->getSocketWatcher());
 	ev_clear_pending(_loop, cn->getSocketWatcher());
 
-	EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	tn->decrNumCSEvents();
 
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
@@ -718,7 +718,7 @@ handleConnSocketWritable_finally:
 ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured)
 {
 	ssize_t ret = 0;
-	EVAcceptedStreamSocket *tn = _accssColl[streamSocket.impl()->sockfd()];
+	EVAcceptedStreamSocket *tn = getTn(streamSocket.impl()->sockfd());
 	if (!tn) return -1;
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
@@ -878,7 +878,7 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 	cn->setTimeOfLastUse();
 	errno = 0;
 
-	EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	if (!tn) {
 		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
 		std::abort();
@@ -1001,7 +1001,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 {
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
-	EVAcceptedStreamSocket *tn = _accssColl[ss.impl()->sockfd()];
+	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
 
@@ -1299,7 +1299,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		EVTCPServerNotification * pcNf = dynamic_cast<EVTCPServerNotification*>(pNf.get());
 
 		EVTCPServerNotification::what event = pcNf->getEvent();
-		EVAcceptedStreamSocket *tn = _accssColl[pcNf->sockfd()];
+		EVAcceptedStreamSocket *tn = getTn(pcNf->sockfd());
 		if (!tn) {
 			/* This should never happen. */
 			DEBUGPOINT("Did not find entry in _accssColl for [%d] for event = [%d]\n", pcNf->sockfd(), event);
@@ -1312,7 +1312,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			 * */
 			continue;
 		}
-		socket_watcher_ptr = _accssColl[pcNf->sockfd()]->getSocketWatcher();
+		socket_watcher_ptr = getTn(pcNf->sockfd())->getSocketWatcher();
 		StreamSocket ss = tn->getStreamSocket();
 
 		/* If some error has been noticed on this socket, dispose it off cleanly
@@ -1834,7 +1834,7 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 	int optval = 0;
 	unsigned int optlen = sizeof(optval);
 
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	errno = 0;
 	if (tn->getProcState()) {
 
@@ -1908,7 +1908,7 @@ int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
 	int optval = 0;
 	unsigned int optlen = sizeof(optval);
 
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	errno = 0;
 	if (tn->getProcState()) {
 
@@ -1990,7 +1990,7 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 		cb_ref_data_ptr_type ref_data = 0;
 
 		ref_data = (cb_ref_data_ptr_type)dio_ptr->_in._ref_data;
-		EVAcceptedStreamSocket *tn = _accssColl[ref_data->_acc_fd];
+		EVAcceptedStreamSocket *tn = getTn(ref_data->_acc_fd);
 
 		EVUpstreamEventNotification * usN = ref_data->_usN;;
 		dio_ptr->_in._ref_data = NULL;
@@ -2028,7 +2028,7 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 int EVTCPServer::resolveHost(EVTCPServiceRequest * sr)
 {
 	dns_io_ptr_type dio_ptr = new dns_io_struct_type();
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 
 
 	dio_ptr->_in._host_name = sr->getDomainName();
@@ -2105,7 +2105,7 @@ void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 
 		try {
 			file_event_status_s& fes = _file_evt_subscriptions.at(fe_ptr->_fd);
-			EVAcceptedStreamSocket *tn = _accssColl[fes._acc_fd];
+			EVAcceptedStreamSocket *tn = getTn(fes._acc_fd);
 
 			if (!tn) {
 				DEBUGPOINT("Here tn has become null while task was being processed\n");
@@ -2197,7 +2197,7 @@ void EVTCPServer::handleGenericTaskComplete(const bool& ev_occured)
 	for  (pNf = dequeue(_aux_tc_queue); pNf ; pNf = dequeue(_aux_tc_queue)) {
 		tc_enqueued_struct_ptr tc_ptr = ((tc_enqueued_struct_ptr)(pNf));
 
-		EVAcceptedStreamSocket *tn = _accssColl[tc_ptr->_acc_fd];
+		EVAcceptedStreamSocket *tn = getTn(tc_ptr->_acc_fd);
 		if (!tn) {
 			DEBUGPOINT("Here tn has become null while task was being processed\n");
 			delete tc_ptr;
@@ -2271,7 +2271,7 @@ static void post_task_completion(void* return_data, void* ref_data)
 int EVTCPServer::initiateGenericTask(EVTCPServiceRequest * sr)
 {
 	void* task_input_data = sr->getTaskInputData();
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 
 	cb_ref_data_ptr_type ref_data  = new cb_ref_data_type();
 
@@ -2324,7 +2324,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	int optval = 0;
 	unsigned int optlen = sizeof(optval);
 
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	errno = 0;
 	try {
 		sr->getStreamSocket().connectNB(sr->getAddr());
@@ -2407,7 +2407,7 @@ int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
 	ev_io * socket_watcher_ptr = 0;
 	strms_io_cb_ptr_type cb_ptr = 0;
 
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	if (tn->getProcState()) {
 		EVConnectedStreamSocket * cn = tn->getProcState()->getEVConnSock(sr->sockfd());
 		if (cn) {
@@ -2438,7 +2438,7 @@ int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
 
 int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 {
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	errno = 0;
 	if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
 		//DEBUGPOINT("Here\n");
@@ -2518,7 +2518,7 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 
 int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 {
-	EVAcceptedStreamSocket *tn = _accssColl[sr->accSockfd()];
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 
 	if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
 		//DEBUGPOINT("Here\n");
@@ -2604,7 +2604,7 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 	for  (pNf = _service_request_queue.dequeueNotification(); pNf ; pNf = _service_request_queue.dequeueNotification()) {
 		EVTCPServiceRequest * srNF = dynamic_cast<EVTCPServiceRequest*>(pNf.get());
 		EVTCPServiceRequest::what event = srNF->getEvent();
-		EVAcceptedStreamSocket *tn = _accssColl[srNF->accSockfd()];
+		EVAcceptedStreamSocket *tn = getTn(srNF->accSockfd());
 		if (!tn) {
 			/* This should never happen. */
 			DEBUGPOINT("Did not find entry in _accssColl for [%d][%d] for event = [%d]\n",

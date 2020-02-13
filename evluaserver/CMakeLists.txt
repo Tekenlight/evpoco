@@ -9,9 +9,12 @@ set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 add_executable( ${SAMPLE_NAME} ${LOCAL_SRCS} )
 #target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation evdata evsqlite )
-target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation )
+target_link_libraries( ${SAMPLE_NAME} PocoNet evnet PocoUtil PocoJSON PocoXML PocoFoundation evglobals evsqlite )
 
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	string(APPEND INC_DIRS " -I${dir} ")
 endforeach(dir)
 set_target_properties("${SAMPLE_NAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
+#if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+#set_target_properties("${SAMPLE_NAME}" PROPERTIES APPEND PROPERTY LINK_FLAGS  "-rpath-link")
+#endif()

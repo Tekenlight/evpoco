@@ -349,8 +349,11 @@ static int cacheCB(lua_State *L, void * p, size_t sz, void* ud)
 
 static int luaL_checkfilecacheexists(lua_State *L, const char *name)
 {
+	chunked_memory_stream *cms = NULL;
 	ev_rwlock_rdlock(sg_file_cache.cached_files_lock);
-	chunked_memory_stream *cms = sg_file_cache.cached_files[name];
+	auto it = sg_file_cache.cached_files.find(name);
+	if (sg_file_cache.cached_files.end() != it)
+		chunked_memory_stream *cms = sg_file_cache.cached_files[name];
 	ev_rwlock_rdunlock(sg_file_cache.cached_files_lock);
 	if (!cms) {
 		//DEBUGPOINT("CH_FILE:Here no %s\n", name);
@@ -1990,7 +1993,15 @@ static int get_part(lua_State* L)
 		std::string s = lua_tostring(L, -1);
 	
 		auto parts = ph->getParts();
-		PartData * pd = parts[s];
+		PartData * pd = NULL;
+		auto it = parts.find(s);
+		if (parts.end() != it)
+			PartData * pd = parts[s];
+
+		if (!pd) {
+			lua_pushnil(L);
+			return 1;
+		}
 
 		lua_newtable(L);
 
@@ -2939,8 +2950,9 @@ int EVLHTTPRequestHandler::loadReqMapper()
 	 * Subsequent calls will be without FILE IO
 	 * */
 	int ret = luaL_loadfile(_L, _mapping_script.c_str());
-	if (0 != ret)
+	if (0 != ret) {
 		send_string_response(__LINE__, lua_tostring(_L, -1));
+	}
 	return ret;
 }
 
@@ -2970,7 +2982,6 @@ int EVLHTTPRequestHandler::handleRequest()
 	if (INITIAL == getState()) {
 		_mapping_script = getMappingScript(getRequest());
 		if (0 != loadReqMapper()) {
-			DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
 		if (0 != deduceReqHandler()) {

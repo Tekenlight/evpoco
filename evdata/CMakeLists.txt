@@ -28,6 +28,7 @@ add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 #add_library( "${LIBNAME}" STATIC ${SRCS} )
 #add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 
+if(APPLE)
 set_target_properties( "${LIBNAME}"
     PROPERTIES
 	LINK_FLAGS "-bind_at_load"
@@ -35,6 +36,14 @@ set_target_properties( "${LIBNAME}"
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evdata_EXPORTS
     )
+else(APPLE)
+set_target_properties( "${LIBNAME}"
+    PROPERTIES
+    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+    OUTPUT_NAME ${POCO_LIBNAME}
+    DEFINE_SYMBOL evdata_EXPORTS
+    )
+endif(APPLE)
 
 foreach(lib ${ADD_LIBRARY_PATH})
 string(APPEND LINK_TIME_FLAGS "-L${lib}")
