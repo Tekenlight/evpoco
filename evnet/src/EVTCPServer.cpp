@@ -2464,23 +2464,42 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 				tn->setWaitingTobeEnqueued(true);
 			}
 		}
+		else {
 
-		int ret = ef_open_status(sr->getFileFd());
-		if (ret == -1) {
-		//DEBUGPOINT("Here\n");
-			if (errno == EAGAIN) {
-		//DEBUGPOINT("Here %d\n", ret);
-				file_event_status_s fes;
-				fes._usN = usN;
-				fes._acc_fd = sr->accSockfd();
-				_file_evt_subscriptions[sr->getFileFd()] = fes;
-				(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
-				tn->incrNumCSEvents();
+			int ret = ef_open_status(sr->getFileFd());
+			if (ret == -1) {
+			//DEBUGPOINT("Here\n");
+				if (errno == EAGAIN) {
+			//DEBUGPOINT("Here %d\n", ret);
+					file_event_status_s fes;
+					fes._usN = usN;
+					fes._acc_fd = sr->accSockfd();
+					_file_evt_subscriptions[sr->getFileFd()] = fes;
+					(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
+					tn->incrNumCSEvents();
+				}
+				else {
+			//DEBUGPOINT("Here %d\n", ret);
+					usN->setErrNo(errno);
+					usN->setRet(ret);
+
+					enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+					tn->newdecrNumCSEvents();
+					if (!(tn->sockBusy())) {
+						//tn->setSockBusy();
+						//_pDispatcher->enqueue(tn);
+						srCompleteEnqueue(tn);
+					}
+					else {
+						tn->setWaitingTobeEnqueued(true);
+					}
+				}
 			}
 			else {
-		//DEBUGPOINT("Here %d\n", ret);
-				usN->setErrNo(errno);
+			//DEBUGPOINT("Here %d errno %d\n", ret, errno);
+				usN->setErrNo(0);
 				usN->setRet(ret);
+				usN->setFileFd(sr->getFileFd());
 
 				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
@@ -2492,23 +2511,6 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 				else {
 					tn->setWaitingTobeEnqueued(true);
 				}
-			}
-		}
-		else {
-		//DEBUGPOINT("Here %d errno %d\n", ret, errno);
-			usN->setErrNo(0);
-			usN->setRet(ret);
-			usN->setFileFd(sr->getFileFd());
-
-			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-			tn->newdecrNumCSEvents();
-			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
-				srCompleteEnqueue(tn);
-			}
-			else {
-				tn->setWaitingTobeEnqueued(true);
 			}
 		}
 	}
@@ -2545,24 +2547,42 @@ int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 				tn->setWaitingTobeEnqueued(true);
 			}
 		}
+		else {
 
-		errno = 0;
-		int ret = ef_file_ready_for_read(sr->getFileFd());
-		if (ret < 0) {
-			//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
-			if (errno == EAGAIN) {
+			errno = 0;
+			int ret = ef_file_ready_for_read(sr->getFileFd());
+			if (ret < 0) {
 				//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
-				file_event_status_s fes;
-				fes._usN = usN;
-				fes._acc_fd = sr->accSockfd();
-				_file_evt_subscriptions[sr->getFileFd()] = fes;
-				(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
-				tn->incrNumCSEvents();
+				if (errno == EAGAIN) {
+					//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+					file_event_status_s fes;
+					fes._usN = usN;
+					fes._acc_fd = sr->accSockfd();
+					_file_evt_subscriptions[sr->getFileFd()] = fes;
+					(tn->getProcState()->getFileEvtSubscriptions())[sr->getFileFd()] = sr->getFileFd();
+					tn->incrNumCSEvents();
+				}
+				else {
+					//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
+					usN->setErrNo(errno);
+					usN->setRet(ret);
+
+					enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+					tn->newdecrNumCSEvents();
+					if (!(tn->sockBusy())) {
+						//tn->setSockBusy();
+						//_pDispatcher->enqueue(tn);
+						srCompleteEnqueue(tn);
+					}
+					else {
+						tn->setWaitingTobeEnqueued(true);
+					}
+				}
 			}
 			else {
 				//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
-				usN->setErrNo(errno);
-				usN->setRet(ret);
+				usN->setErrNo(0);
+				usN->setRet(ret); /* >0 means data available, 0 means EOF */
 
 				enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
@@ -2574,22 +2594,6 @@ int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 				else {
 					tn->setWaitingTobeEnqueued(true);
 				}
-			}
-		}
-		else {
-			//DEBUGPOINT("Here ret = %d errno = %d\n", ret, errno);
-			usN->setErrNo(0);
-			usN->setRet(ret); /* >0 means data available, 0 means EOF */
-
-			enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
-			tn->newdecrNumCSEvents();
-			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
-				srCompleteEnqueue(tn);
-			}
-			else {
-				tn->setWaitingTobeEnqueued(true);
 			}
 		}
 	}

@@ -281,7 +281,7 @@ inline int EVLHTTPRequestHandler::addHTTPConnection(EVHTTPClientSession* p)
 inline EVHTTPClientSession* EVLHTTPRequestHandler::getHTTPConnection(int i)
 {
 	auto it = _http_connections.find(i);
-	if (_http_connections.end() != it) return _http_connections[i];
+	if (_http_connections.end() != it) return it->second;
 	else return NULL;
 }
 
