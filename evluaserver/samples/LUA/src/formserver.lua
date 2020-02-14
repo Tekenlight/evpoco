@@ -195,6 +195,7 @@ handlers.handle_upload = function ()
 		end
 		response:write('</p>');
 	end
+
 	local parts = request:get_part_names();
 	for _, p in ipairs(parts) do
 		local part = request:get_part(p);

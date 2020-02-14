@@ -1996,7 +1996,7 @@ static int get_part(lua_State* L)
 		PartData * pd = NULL;
 		auto it = parts.find(s);
 		if (parts.end() != it)
-			PartData * pd = parts[s];
+			pd = parts[s];
 
 		if (!pd) {
 			lua_pushnil(L);
