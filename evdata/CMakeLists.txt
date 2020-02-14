@@ -24,7 +24,11 @@ if(WIN32)
     endif()    
 endif(WIN32)
 
+if (APPLE)
+	add_library( "${LIBNAME}" STATIC ${SRCS} ) #This is needed to creare .so file
+else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
+endif(APPLE)
 #add_library( "${LIBNAME}" STATIC ${SRCS} )
 #add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 
@@ -32,7 +36,7 @@ if(APPLE)
 set_target_properties( "${LIBNAME}"
     PROPERTIES
 	LINK_FLAGS "-bind_at_load"
-    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evdata_EXPORTS
     )

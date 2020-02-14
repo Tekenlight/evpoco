@@ -4,9 +4,9 @@ local _M = {}
 
 -- Driver to module_loader mapping
 local name_to_module_loader = {
-    mysql = package.loadlib('libevsqlite.so','luaopen_evrdbms_mysql'),
+    mysql = package.loadlib('libevmysql.so','luaopen_evrdbms_mysql'),
     postgresql = package.loadlib('libevpostgresql.so','luaopen_evrdbms_postgresql'),
-    sqlite = package.loadlib('libevsqlite.dylib','luaopen_evrdbms_sqlite3'),
+    sqlite = package.loadlib('libevsqlite.so','luaopen_evrdbms_sqlite3'),
     db2 = package.loadlib('libevdb2.so','luaopen_evrdbms_db2'),
     oracle = package.loadlib('libevoracle.so','luaopen_evrdbms_oracle'),
     odbc = package.loadlib('libevodbc.so','luaopen_evrdbms_odbc'),

@@ -27,8 +27,11 @@ if(WIN32)
     endif()    
 endif(WIN32)
 
-#add_library( "${LIBNAME}" MODULE ${SRCS} ) This is needed to creare .so file
+if(APPLE)
+add_library( "${LIBNAME}" MODULE ${SRCS} ) #This is needed to creare .so file
+else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
+endif(APPLE)
 #add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
 #set_target_properties( "${LIBNAME}"
 #    PROPERTIES
@@ -44,7 +47,7 @@ if(APPLE)
 set_target_properties( "${LIBNAME}"
     PROPERTIES
 	LINK_FLAGS "-bind_at_load"
-    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL evsqlite_EXPORTS
     )
@@ -65,6 +68,7 @@ endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 #message(STATUS "Here ${LTF}")
+#target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata sqlite3)
 target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata sqlite3)
 target_include_directories( "${LIBNAME}"
     PUBLIC
