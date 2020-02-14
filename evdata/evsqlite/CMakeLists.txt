@@ -65,7 +65,7 @@ endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 #message(STATUS "Here ${LTF}")
-target_link_libraries( "${LIBNAME}" "${LTF}" evnet lua evdata sqlite3)
+target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata sqlite3)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
