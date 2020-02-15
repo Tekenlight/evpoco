@@ -25,7 +25,7 @@ if(WIN32)
 endif(WIN32)
 
 if (APPLE)
-	add_library( "${LIBNAME}" STATIC ${SRCS} ) #This is needed to creare .so file
+add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} ) #This is needed to creare .so file
 else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 endif(APPLE)
