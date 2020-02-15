@@ -385,7 +385,10 @@ static int luaL_cacheloadedfile(lua_State *L, const char *name)
 	if (!get_cached_lua_file(L, name)) {
 		//DEBUGPOINT("CHACHE_REQ:Here caching %s\n", name);
 		ev_rwlock_wrlock(sg_file_cache.cached_files_lock);
-		sg_file_cache.cached_files[name] = cms;
+		if (sg_file_cache.cached_files.end() == sg_file_cache.cached_files.find(name))
+			sg_file_cache.cached_files[name] = cms;
+		else
+			delete cms;
 		ev_rwlock_wrunlock(sg_file_cache.cached_files_lock);
 	}
 	else {
@@ -424,9 +427,7 @@ static int luaL_addfilepathtocache(lua_State *L, const char *name, const char * 
 static int luaL_loadcachedbufferx(lua_State *L, const char *name, const char *mode)
 {
 	LoadS ls;
-	ev_rwlock_rdlock(sg_file_cache.cached_files_lock);
 	ls._cms = get_cached_lua_file(L, name);
-	ev_rwlock_rdunlock(sg_file_cache.cached_files_lock);
 	if (!ls._cms) return LUA_ERRRUN;
 	ls._buffer_node = NULL;
 	ls._size = 0;
