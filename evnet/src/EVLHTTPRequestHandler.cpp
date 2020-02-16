@@ -380,7 +380,8 @@ static int luaL_cacheloadedfile(lua_State *L, const char *name)
 	ls._cms = cms;
 	ls._buffer_node = NULL;
 	ls._size=0;
-	lua_dump(L, (lua_Writer)cacheCB, (void*)&ls, 0);
+	if (0 != lua_dump(L, (lua_Writer)cacheCB, (void*)&ls, 0))
+		return LUA_ERRRUN;
 
 	if (!get_cached_lua_file(L, name)) {
 		//DEBUGPOINT("CHACHE_REQ:Here caching %s\n", name);

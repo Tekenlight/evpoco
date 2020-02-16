@@ -146,7 +146,7 @@ handlers.handle_request = function () -- {
 end -- }
 
 handlers.handle_upload = function ()
-	print('Hello from LUA handler');
+	--print('Hello from LUA handler');
 	local request = platform.get_http_request();
 	local form = request:parse_req_form();
 	local response = platform.get_http_response();
