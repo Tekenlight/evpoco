@@ -2641,7 +2641,7 @@ static int luaopen_evpoco(lua_State* L)
 
 	// Stack: context
 	luaL_newmetatable(L, _http_sreq_type_name); // Stack: context meta
-	luaL_newlib(L, evpoco_httpreq_lib); // Stack: context meta httpreq
+	luaL_newlib(L, evpoco_httpreq_lib); // Stack: context meta httspreq
 	lua_setfield(L, -2, "__index"); // Stack: context meta
 	lua_pushstring(L, "__gc"); // Stack: context meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: context meta "__gc" fptr
@@ -2652,7 +2652,7 @@ static int luaopen_evpoco(lua_State* L)
 
 	//std::string meta_name = reqHandler->getDynamicMetaName();
 	luaL_newmetatable(L, _http_creq_type_name); // Stack: meta
-	luaL_newlib(L, evpoco_httpreq_lib); // Stack: meta httpreq
+	luaL_newlib(L, evpoco_httpreq_lib); // Stack: meta httpcreq
 	lua_setfield(L, -2, "__index"); // Stack: meta
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, evpoco::req__gc); // Stack: meta "__gc" fptr

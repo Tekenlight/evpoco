@@ -5,7 +5,7 @@
 // Package: EVHTTPServer
 // Module:  EVHTTPRequestProcessor
 //
-// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
+// Copyright (c) 2019-2020, Tekenlight Solutions Pvt. Ltd.
 // and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0

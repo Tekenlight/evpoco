@@ -113,7 +113,8 @@ private:
 static void * hello_world(void * data)
 {
 	DEBUGPOINT("%s\n", (char*)data);
-	return (void*)("PRINTED HELLO WORLD");
+	void * p = (void*)strdup("PRINTED HELLO WORLD");
+	return p;
 }
 
 class EVFormRequestHandler: public EVHTTPRequestHandler

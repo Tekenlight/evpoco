@@ -94,7 +94,8 @@ handlers.list= function (self, db_handle, url_parts, query_params)
 		end -- }
 		result[i] = record;
 	end -- }
-	return result, err;
+	local out = { companies = result };
+	return out, err;
 end
 -- }
 
