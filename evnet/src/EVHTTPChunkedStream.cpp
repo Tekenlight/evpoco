@@ -110,8 +110,14 @@ void EVHTTPChunkedStreamBuf::get_prefix(char* buffer, std::streamsize bytes, cha
 		buf0.clear();
 		if (_closed_state) {
 			NumberFormatter::appendHex(buf0, 0);
-			if (strncmp("\r\n", buffer, 2)) std::abort();
-			if (('\r' != buffer[0]) || ('\n' != buffer[1])) std::abort();
+			if (strncmp("\r\n", buffer, 2)) {
+				DEBUGPOINT("ABORTING BECAUSE buffer != \\r\\n\n");
+				std::abort();
+			}
+			if (('\r' != buffer[0]) || ('\n' != buffer[1])) {
+				DEBUGPOINT("ABORTING BECAUSE buffer != \\r\\n\n");
+				std::abort();
+			}
 		}
 		else {
 			NumberFormatter::appendHex(buf0, bytes);
@@ -122,7 +128,10 @@ void EVHTTPChunkedStreamBuf::get_prefix(char* buffer, std::streamsize bytes, cha
 			while (prefix_len>(buf0.size()+buf.size())) {
 				buf.append("0",1);
 				i++;
-				if (i>10) std::abort();
+				if (i>10) {
+					DEBUGPOINT("VIOLATING A HTTP CHUNKED STREAM FORMAT CONDITION\n");
+					std::abort();
+				}
 			}
 		}
 		buf.append(buf0);

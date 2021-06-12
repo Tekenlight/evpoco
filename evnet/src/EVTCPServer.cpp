@@ -87,7 +87,7 @@ static void periodic_call_for_housekeeping(EV_P_ ev_timer *w, int revents)
 
 	cb_ptr = (strms_pc_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
-	 * EVTCPServer::handlePeriodicWakup(const bool&)
+	 * EVTCPServer::handlePeriodicWakeup(const bool&)
 	 */
 	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
 	return;

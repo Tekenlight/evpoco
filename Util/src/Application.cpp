@@ -262,7 +262,7 @@ int Application::loadConfiguration(int priority)
 }
 
 
-void Application::loadConfiguration(const std::string& path, int priority)
+int Application::loadConfiguration(const std::string& path, int priority)
 {
 	int n = 0;
 	Path confPath(path);

@@ -201,7 +201,7 @@ public:
 		/// This method must not be called before init(argc, argv)
 		/// has been called.
 
-	void loadConfiguration(const std::string& path, int priority = PRIO_DEFAULT);
+	int loadConfiguration(const std::string& path, int priority = PRIO_DEFAULT);
 		/// Loads configuration information from the file specified by
 		/// the given path. The file type is determined by the file
 		/// extension. The following extensions are supported:

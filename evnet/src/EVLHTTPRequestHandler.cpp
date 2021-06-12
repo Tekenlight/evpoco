@@ -1865,6 +1865,7 @@ static int set_hdr_field(lua_State* L)
 			luaL_error(L, "set_hdr_field: Invalid (name=%s, value=%s)", name, value);
 			return 0;
 		}
+		//DEBUGPOINT("%s:%d [%s][%s]\n", __FILE__, __LINE__, name, value);
 		message.set(name, value);
 	}
 
@@ -2765,6 +2766,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
 
 	Poco::Util::AbstractConfiguration& config = appConfig();
+	//DEBUGPOINT("Here =[%p]\n", &config);
 	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
 
 	//DEBUGPOINT("Here enable_lua_cache=%d\n", enable_lua_cache);

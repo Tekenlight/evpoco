@@ -168,10 +168,13 @@ public:
 protected:
 	void initialize(Application& self)
 	{
-		loadConfiguration(); // load default configuration files, if present
+		DEBUGPOINT("Here\n");
+		if (!loadConfiguration("evluaserver.properties")) { // load default configuration files, if present in current directory
+			loadConfiguration(); // load default configuration files, if present in executable directory
+		}
 		ServerApplication::initialize(self);
 	}
-		
+
 	void uninitialize()
 	{
 		ServerApplication::uninitialize();
