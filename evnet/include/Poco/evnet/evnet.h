@@ -31,6 +31,9 @@ for (i = 0; i < frames; ++i) {
 free(strs);
 */
 
+#ifdef STACK_TRACE
+#undef STACK_TRACE
+#endif
 #include <execinfo.h>
 #define STACK_TRACE() {\
 	void* callstack[128]; \

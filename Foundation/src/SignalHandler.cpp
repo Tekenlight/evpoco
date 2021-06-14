@@ -84,6 +84,16 @@ void SignalHandler::install()
 }
 
 
+#include <execinfo.h>
+#ifdef STACK_TRACE
+#undef STACK_TRACE
+#endif
+#define STACK_TRACE() {\
+	void* callstack[128]; \
+	int i, frames = backtrace(callstack, 128); \
+	backtrace_symbols_fd(callstack, frames, 2); \
+}
+
 void SignalHandler::handleSignal(int sig)
 {
 	JumpBufferVec& jb = jumpBufferVec();
@@ -91,6 +101,7 @@ void SignalHandler::handleSignal(int sig)
 		siglongjmp(jb.back().buf, sig);
 		
 	// Abort if no jump buffer registered
+	STACK_TRACE();
 	printf("[%p:%s:%d] signal %d\n", pthread_self(), __FILE__, __LINE__, sig);
 	std::abort();
 }

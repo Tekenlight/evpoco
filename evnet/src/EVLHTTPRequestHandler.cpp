@@ -18,6 +18,8 @@
 #include <ev_rwlock.h>
 #include <chunked_memory_stream.h>
 
+#include <ev_queue.h>
+
 #include "Poco/Util/Application.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
 #include "Poco/Net/HTTPServerResponse.h"
@@ -322,6 +324,25 @@ public:
 };
 
 static LUAFileCache sg_file_cache;
+
+class LUAStateCache {
+public:
+	ev_queue_type _queue;
+	LUAStateCache() {
+		//DEBUGPOINT("Constructor\n");
+		_queue = create_ev_queue();
+	}
+	~LUAStateCache() {
+		lua_State* l = NULL;
+		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
+			DEBUGPOINT("Destructor\n");
+			lua_close(l);
+		}
+		destroy_ev_queue(_queue);
+	}
+};
+
+static LUAStateCache sg_lua_state_cache;
 
 static const char *getCB (lua_State *L, void *ud, size_t *size)
 {
@@ -2748,6 +2769,12 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_L = lua_newthread(_L0);
 	luaL_openlibs(_L);
 	*/
+	if ((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) {
+		//DEBUGPOINT("Found a state element\n");
+		lua_pushlightuserdata(_L, (void*) this);
+		lua_setglobal(_L, "EVLHTTPRequestHandler*");
+		return;
+	}
 	_L = luaL_newstate();
 	luaL_openlibs(_L);
 
@@ -2791,7 +2818,12 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
-	lua_close(_L);
+	//lua_close(_L);
+	lua_pushlightuserdata(_L, (void*) NULL);
+	lua_setglobal(_L, "EVLHTTPRequestHandler*");
+	//lua_gc(_L, LUA_GCCOLLECT, 0);
+	//lua_gc(_L, LUA_GCCOLLECT, 0);
+	enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -2927,9 +2959,11 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 	}
 
 	for (int i = 2; i <= n ; i++) {
-		std::string* s = new (std::string);
-		*s = lua_tostring(_L, i);
-		_url_parts.push_back(*s);
+		//std::string* s = new (std::string);
+		const char * _s = NULL;
+		_s = lua_tostring(_L, i);
+		std::string s(_s);
+		_url_parts.push_back(s);
 	}
 
 	if (lua_isnil(_L, 2) || !lua_isstring(_L, 2)) {

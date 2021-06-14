@@ -76,6 +76,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 			delete usN;
 			usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
 		}
+		destroy_ev_queue(this->_upstream_io_event_queue);
 		this->_upstream_io_event_queue = NULL;
 	}
 }
