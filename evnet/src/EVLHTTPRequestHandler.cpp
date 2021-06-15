@@ -393,7 +393,8 @@ static int luaL_checkfilecacheexists(lua_State *L, const char *name)
 static int luaL_cacheloadedfile(lua_State *L, const char *name)
 {
 	if (luaL_checkfilecacheexists(L, name)) {
-		//DEBUGPOINT("CHACHE_REQ:Already cached %s\n", name);
+		static int i = 0;
+		i++;
 		return LUA_OK;
 	}
 	chunked_memory_stream * cms = new chunked_memory_stream();
@@ -401,8 +402,10 @@ static int luaL_cacheloadedfile(lua_State *L, const char *name)
 	ls._cms = cms;
 	ls._buffer_node = NULL;
 	ls._size=0;
-	if (0 != lua_dump(L, (lua_Writer)cacheCB, (void*)&ls, 0))
+	if (0 != lua_dump(L, (lua_Writer)cacheCB, (void*)&ls, 0)) {
+		delete cms;
 		return LUA_ERRRUN;
+	}
 
 	if (!get_cached_lua_file(L, name)) {
 		//DEBUGPOINT("CHACHE_REQ:Here caching %s\n", name);
@@ -776,12 +779,9 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
 		lua_seti(L, -2, i);
 	}
 
-	//DEBUGPOINT("Here\n");
 	freeaddrinfo(*(addr_info_ptr_ptr));
 	usN.setAddrInfo(NULL);
-	//DEBUGPOINT("Here\n");
 	free(addr_info_ptr_ptr);
-	//DEBUGPOINT("Here\n");
 
 	return 1;
 }
@@ -882,14 +882,10 @@ static int make_http_connection_initiate(lua_State* L)
 		int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
 		unsigned short  port_num = (unsigned short)value;
 
-		//DEBUGPOINT("Here host = %s\n", server_address);
-		//DEBUGPOINT("Here port num = %u\n", port_num);
-
 		session = new EVHTTPClientSession();
 		reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
 	}
 
-	//DEBUGPOINT("HERE %p\n",session);
 	return lua_yieldk(L, 0, (lua_KContext)session, make_http_connection_complete);
 }
 
@@ -1462,7 +1458,12 @@ static int ev_lua_file_read_binary_complete(lua_State* L, int status, lua_KConte
 		return 2;
 	}
 	else {
+		if (errno == EAGAIN) {
+			DEBUGPOINT("file_read_binary: failed for unknown reason [nbyte=%zd][errno=%d][%s]\n",nbyte, errno, strerror(errno));
+			return ev_lua_file_read_binary_initiate(L);
+		}
 		free(rp);
+		DEBUGPOINT("file_read_binary: failed for unknown reason [nbyte=%zd][errno=%d][%s]\n",nbyte, errno, strerror(errno));
 		return luaL_error(L, "file_read_binary: failed for unknown reason");
 	}
 }
@@ -2515,7 +2516,6 @@ static int send(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
 		luaL_error(L, "set_date: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
 		return 0;
 	}
@@ -2761,69 +2761,70 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_async_tasks_status_awaited(false)
 {
 	*_ephemeral_buffer = 0;
-	/*
-	It is really not required to have _L0 and a new thread _L
-	_L0 = luaL_newstate();
-	luaL_openlibs(_L0);
+	{
+		if ((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) {
+			//DEBUGPOINT("Found a state element\n");
+			lua_pushlightuserdata(_L, (void*) this);
+			lua_setglobal(_L, "EVLHTTPRequestHandler*");
 
-	_L = lua_newthread(_L0);
-	luaL_openlibs(_L);
-	*/
-	if ((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) {
-		//DEBUGPOINT("Found a state element\n");
+			lua_pushinteger(_L, 0);
+			lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
+
+			return;
+		}
+	}
+	{
+		_L = luaL_newstate();
+		luaL_openlibs(_L);
+
+		lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
+		//lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
+		luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
+
 		lua_pushlightuserdata(_L, (void*) this);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
-		return;
+
+		lua_pushinteger(_L, MAX_MEMORY_ALLOC_LIMIT);
+		lua_setglobal(_L, S_MAX_MEMORY_ALLOC_LIMIT);
+
+		lua_pushinteger(_L, 0);
+		lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
+
+		Poco::Util::AbstractConfiguration& config = appConfig();
+		//DEBUGPOINT("Here =[%p]\n", &config);
+		bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
+
+		if (enable_lua_cache) {
+			lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
+			lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
+
+			lua_pushlightuserdata(_L, (void*)luaL_cacheloadedfile);
+			lua_setglobal(_L, LUA_FILE_CACHING_FUNCTION);
+
+			lua_pushlightuserdata(_L, (void*)luaL_checkfilecacheexists);
+			lua_setglobal(_L, LUA_CACHED_FILE_EXISTS_FUNCTION);
+
+			lua_pushlightuserdata(_L, (void*)luaL_getcachedpath);
+			lua_setglobal(_L, LUA_CACHED_PATH_FUNCTION);
+
+			lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
+			lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
+		}
 	}
-	_L = luaL_newstate();
-	luaL_openlibs(_L);
-
-	lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
-	//lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
-	luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
-
-
-	lua_pushlightuserdata(_L, (void*) this);
-	lua_setglobal(_L, "EVLHTTPRequestHandler*");
-
-	lua_pushinteger(_L, MAX_MEMORY_ALLOC_LIMIT);
-	lua_setglobal(_L, S_MAX_MEMORY_ALLOC_LIMIT);
-
-	lua_pushinteger(_L, 0);
-	lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
-
-	Poco::Util::AbstractConfiguration& config = appConfig();
-	//DEBUGPOINT("Here =[%p]\n", &config);
-	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
-
-	//DEBUGPOINT("Here enable_lua_cache=%d\n", enable_lua_cache);
-	if (enable_lua_cache) {
-		lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
-		lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
-
-		lua_pushlightuserdata(_L, (void*)luaL_cacheloadedfile);
-		lua_setglobal(_L, LUA_FILE_CACHING_FUNCTION);
-
-		lua_pushlightuserdata(_L, (void*)luaL_checkfilecacheexists);
-		lua_setglobal(_L, LUA_CACHED_FILE_EXISTS_FUNCTION);
-
-		lua_pushlightuserdata(_L, (void*)luaL_getcachedpath);
-		lua_setglobal(_L, LUA_CACHED_PATH_FUNCTION);
-
-		lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
-		lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
-	}
-
 }
 
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
-	//lua_close(_L);
-	lua_pushlightuserdata(_L, (void*) NULL);
-	lua_setglobal(_L, "EVLHTTPRequestHandler*");
-	//lua_gc(_L, LUA_GCCOLLECT, 0);
-	//lua_gc(_L, LUA_GCCOLLECT, 0);
-	enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+	{
+		//lua_close(_L);
+	}
+	{
+		lua_pushlightuserdata(_L, (void*) NULL);
+		lua_setglobal(_L, "EVLHTTPRequestHandler*");
+		//lua_gc(_L, LUA_GCCOLLECT, 0);
+		//lua_gc(_L, LUA_GCCOLLECT, 0);
+		enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+	}
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -2959,10 +2960,15 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 	}
 
 	for (int i = 2; i <= n ; i++) {
-		//std::string* s = new (std::string);
+		/*
 		const char * _s = NULL;
 		_s = lua_tostring(_L, i);
 		std::string s(_s);
+		_url_parts.push_back(s);
+		*/
+		//std::string s = new (std::string);
+		std::string s;
+		s = lua_tostring(_L, i);
 		_url_parts.push_back(s);
 	}
 
@@ -3072,6 +3078,7 @@ int EVLHTTPRequestHandler::handleRequest()
 	}
 
 
+	//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
 		if (getResponse().sent()) {

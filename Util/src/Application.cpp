@@ -302,6 +302,7 @@ int Application::loadConfiguration(const std::string& path, int priority)
 		else
 			_pConfig->setString("application.configDir", confPath.parent().toString());
 	}
+	return n;
 }
 
 

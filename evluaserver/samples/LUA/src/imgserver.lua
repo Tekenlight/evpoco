@@ -5,9 +5,9 @@ handlers.handle_request = function () -- {
 	local form = request:parse_req_form();
 	local response = platform.get_http_response();
 
+	--[[
 	local c1 = platform.nb_make_http_connection('localhost', 9980);
 	local c2 = platform.nb_make_http_connection('localhost', 9980);
-	--[[
 	]]--
 
 	local fh, err = platform.file_open("./Sudheer.JPG", "r");
@@ -33,6 +33,7 @@ handlers.handle_request = function () -- {
 	echo_request2:set_content_length(string.len(s));
 	--echo_request2:set_expect_continue(true); 
 
+	--[[
 	local compl = platform.wait({c1, c2});
 	local conn1, err = platform.task_return_value(compl);
 	platform.send_request_header(conn1, echo_request1);
@@ -46,11 +47,9 @@ handlers.handle_request = function () -- {
 	echo_request2:write(s);
 	platform.send_request_body(conn2, echo_request2);
 	local s2 = platform.subscribe_to_http_response(conn2);
-	--[[
 	--]]
 
 	--[[
-	]]--
 
 	local _1 = platform.wait({s1, s2});
 
@@ -63,11 +62,12 @@ handlers.handle_request = function () -- {
 	local echo_response2, err = platform.task_return_value(_2);
 	local buf2 = echo_response2:read();
 	print(buf2);
+	]]--
 	--[[
-	--]]
 
 	if (err ~= nil) then error(err); end
 	if (err1 ~= nil) then error(err1); end
+	--]]
 	local i = 0;
 	local buffer = platform.alloc_buffer(1048576);
 	local n, msg = fh:read_binary(buffer, 1048576);
