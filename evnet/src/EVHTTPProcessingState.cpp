@@ -461,6 +461,7 @@ int EVHTTPProcessingState::continueRead()
 		return -1;
 	}
 
+	_request->setMessageBodySize(len2);
 	if (_state == MESSAGE_COMPLETE) {
 		/* This is a hack to circumvent the issue caused by combination of
 		 * http_parser_execute when on_headers_complete event is registered and
@@ -474,13 +475,9 @@ int EVHTTPProcessingState::continueRead()
 		n = _req_memory_stream->copy(0, &c, 1);
 		if (n && (c == 10)) {
 			_req_memory_stream->erase(1);
-			len2 -= 1;
 		}
 		noMoreDataNecessary();
 		//DEBUGPOINT("MESSAGE_COMPLETE\n");
-	}
-	_request->setMessageBodySize(len2);
-	if (_state == MESSAGE_COMPLETE) {
 		_request->formInputStream(_req_memory_stream);
 		memset(_parser,0,sizeof(http_parser));
 		_parser->data = (void*)this;

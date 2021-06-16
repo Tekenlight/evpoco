@@ -2309,7 +2309,7 @@ static int get_message_body_str(lua_State* L)
 			EVHTTPServerRequestImpl& request = *(*(EVHTTPServerRequestImpl**)lua_touserdata(L, 1));
 			size_t body_size = request.getMessageBodySize();
 			if (body_size) {
-				str_buf = (char*)calloc(body_size+1, 1);
+				str_buf = (char*)calloc(1, body_size+1);
 				std::istream& istr = request.stream();
 				istr.read(str_buf, body_size);
 				lua_pushstring(L, str_buf);

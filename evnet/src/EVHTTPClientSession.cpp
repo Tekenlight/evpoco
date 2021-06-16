@@ -98,7 +98,7 @@ static int header_value_cb (http_parser *p, const char *buf, size_t len, int int
 
 static int headers_complete_cb (http_parser *p)
 {
-	char v[EVHTTPResponse::MAX_VERSION_LENGTH] = {'\0'};
+	char v[EVHTTPResponse::MAX_VERSION_LENGTH+10] = {'\0'};
 	EVHTTPResponse * e = (EVHTTPResponse *)(p->data);
 
 	http_version(v, p);
