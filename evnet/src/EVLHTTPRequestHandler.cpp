@@ -1362,6 +1362,9 @@ static int ev_lua_file_read_text_complete(lua_State* L, int status, lua_KContext
 		return 2;
 	}
 	else {
+		if (errno == EAGAIN) {
+			return ev_lua_file_read_text_initiate(L);
+		}
 		free(rp->_buf);
 		free(rp);
 		return luaL_error(L, "file_read_text: failed for unknown reason");
@@ -1459,7 +1462,6 @@ static int ev_lua_file_read_binary_complete(lua_State* L, int status, lua_KConte
 	}
 	else {
 		if (errno == EAGAIN) {
-			DEBUGPOINT("file_read_binary: failed for unknown reason [nbyte=%zd][errno=%d][%s]\n",nbyte, errno, strerror(errno));
 			return ev_lua_file_read_binary_initiate(L);
 		}
 		free(rp);
@@ -2591,7 +2593,7 @@ static int get_message_body_str(lua_State* L)
 		EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
 		size_t body_size = response.getMessageBodySize();
 		if (body_size) {
-			char * str_buf = (char*)calloc(body_size+1, 1);
+			char * str_buf = (char*)calloc(1, body_size+1);
 			std::istream& istr = *(response.getStream());
 			istr.read(str_buf, body_size);
 			lua_pushstring(L, str_buf);
@@ -2762,8 +2764,10 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 {
 	*_ephemeral_buffer = 0;
 	{
-		if ((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) {
+		if (((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) &&
+			(lua_status(_L) == LUA_OK)) {
 			//DEBUGPOINT("Found a state element\n");
+			lua_settop(_L, 0);
 			lua_pushlightuserdata(_L, (void*) this);
 			lua_setglobal(_L, "EVLHTTPRequestHandler*");
 
@@ -2772,7 +2776,14 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 			return;
 		}
+		else {
+			if (_L) {
+				lua_close(_L);
+			}
+		}
 	}
+	/*
+	*/
 	{
 		_L = luaL_newstate();
 		luaL_openlibs(_L);
@@ -2780,6 +2791,11 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		lua_register(_L, "ev_sleep", evpoco::evpoco_sleep);
 		//lua_register(_L, "ev_getmtname", evpoco::evpoco_getmtname);
 		luaL_requiref(_L, _platform_name, &luaopen_evpoco, 1);
+		/*
+		 * luaL_requiref leaves a copy of the table on top of the stack.
+		 * We dont require it here, so setting the top of stack back to 0.
+		 */
+		lua_settop(_L, 0);
 
 		lua_pushlightuserdata(_L, (void*) this);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
@@ -2816,15 +2832,24 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
 	{
-		//lua_close(_L);
-	}
-	{
 		lua_pushlightuserdata(_L, (void*) NULL);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 		//lua_gc(_L, LUA_GCCOLLECT, 0);
 		//lua_gc(_L, LUA_GCCOLLECT, 0);
-		enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+		lua_settop(_L, 0);
+		//DEBUGPOINT("Here _L=[%p] status = [%d]\n", _L);
+		if (lua_status(_L) == LUA_OK) enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+		else {
+			if (_L) {
+				lua_close(_L);
+			}
+		}
 	}
+	/*
+	{
+		lua_close(_L);
+	}
+	*/
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:
@@ -2949,7 +2974,6 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 	int status = 0;
 	status = lua_pcall(_L, 0, 2, 0); 
 	if (LUA_OK != status) {
-		DEBUGPOINT("Here %s\n", lua_tostring(_L, -1));
 		return -1;
 	}
 
@@ -2959,7 +2983,7 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 		return -1;
 	}
 
-	for (int i = 2; i <= n ; i++) {
+	for (int i = 1; i <= n ; i++) {
 		/*
 		const char * _s = NULL;
 		_s = lua_tostring(_L, i);
@@ -2972,12 +2996,11 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 		_url_parts.push_back(s);
 	}
 
-	if (lua_isnil(_L, 2) || !lua_isstring(_L, 2)) {
+	if (lua_isnil(_L, 1) || !lua_isstring(_L, 1)) {
 		send_string_response(__LINE__, "map_request_to_handler: did not return request handler");
 		return -1;
 	}
-	_request_handler = lua_tostring(_L, 2);
-
+	_request_handler = lua_tostring(_L, 1);
 
 	if ((n>2) && !lua_isnil(_L, 3) && lua_isstring(_L, 3)) {
 		_url_part = lua_tostring(_L, 3);
@@ -3014,10 +3037,10 @@ int EVLHTTPRequestHandler::loadReqHandler()
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	//DEBUGPOINT("Here %s\n", _request_handler.c_str());
 	int ret = luaL_loadfile(_L, _request_handler.c_str());
-	if (0 != ret)
+	if (0 != ret) {
 		send_string_response(__LINE__, lua_tostring(_L, -1));
+	}
 	return ret;
 }
 
@@ -3035,11 +3058,9 @@ int EVLHTTPRequestHandler::handleRequest()
 			return PROCESSING_ERROR;
 		}
 		if (0 != deduceReqHandler()) {
-			//DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
 		if (0 != loadReqHandler()) {
-			//DEBUGPOINT("Here\n");
 			return PROCESSING_ERROR;
 		}
 		int i = 0;
@@ -3092,7 +3113,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
-		//DEBUGPOINT("Here for %d\n", getAccSockfd());
+		//DEBUGPOINT("Here processing for %d\n", getAccSockfd());
 		return PROCESSING;
 	}
 	else {
@@ -3108,6 +3129,7 @@ int EVLHTTPRequestHandler::handleRequest()
 				send_string_response(__LINE__, output.c_str());
 			}
 		}
+		//DEBUGPOINT("Here complete for %d\n", getAccSockfd());
 		return PROCESSING_COMPLETE;
 	}
 }
