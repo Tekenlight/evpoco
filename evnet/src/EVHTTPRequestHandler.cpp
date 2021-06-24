@@ -56,6 +56,26 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
+long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for)
+{
+	Net::StreamSocket css;
+	Poco::evnet::EVServer & server = getServer();
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	css.setFd(fd);
+	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	//DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	return sr_num;
+}
+
 long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css)
 {
 	Poco::evnet::EVServer & server = getServer();
@@ -238,14 +258,6 @@ void EVHTTPRequestHandler::executeGenericTaskNR(generic_task_handler_nr_t tf, vo
 {
 	//DEBUGPOINT("Here\n");
 	Poco::evnet::EVServer & server = getServer();
-	server.submitRequestForTaskExecutionNR(tf, input_data);
-
-	return ;
-}
-
-void EVHTTPRequestHandler::executeGenericTaskNR(Poco::evnet::EVServer & server, generic_task_handler_nr_t tf, void * input_data)
-{
-	//DEBUGPOINT("Here\n");
 	server.submitRequestForTaskExecutionNR(tf, input_data);
 
 	return ;

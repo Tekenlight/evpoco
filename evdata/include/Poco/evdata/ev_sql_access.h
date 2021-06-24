@@ -1,6 +1,8 @@
 #ifndef EV_SQL_ACCESS_H_INCLUDED
 #define EV_SQL_ACCESS_H_INCLUDED
 
+#include <string>
+
 #include <sys/cdefs.h>
 #include <string.h>
 #include <stdio.h>
@@ -153,6 +155,20 @@ typedef enum lua_push_type {
 #define EV_SQL_ERR_NOT_IMPLEMENTED      "Method %s.%s is not implemented"
 #define EV_SQL_ERR_QUOTING_STR          "Error quoting string: %s"
 #define EV_SQL_ERR_STATEMENT_BROKEN     "Statement unavailable: database closed"
+
+
+
+
+#define POSTGRES_DB_TYPE_NAME "POSTGRESQL"
+#define SQLITE_DB_TYPE_NAME "SQLITE"
+#define MYSQL_DB_TYPE_NAME "MYSQL"
+
+#define DB_TYPES_MAP "DBTYPES"
+#define STATEMENTS_MAP "STATEMENTS"
+
+
+
+
 
 __BEGIN_DECLS
 /*

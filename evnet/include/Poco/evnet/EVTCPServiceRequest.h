@@ -32,6 +32,7 @@ class EVTCPServiceRequest: public Notification
 public:
 	typedef enum {
 		HOST_RESOLUTION
+		,POLL_REQUEST
 		,CONNECTION_REQUEST
 		,SENDDATA_REQUEST
 		,RECVDATA_REQUEST
@@ -41,6 +42,12 @@ public:
 		,GENERIC_TASK
 		,GENERIC_TASK_NR
 	} what;
+	typedef enum {
+		NONE = 0
+		,READ = 0x01
+		,WRITE = 0x02
+		,READWRITE = 0x01 | 0x02
+	} poll_for;
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, int file_fd);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
@@ -78,6 +85,8 @@ public:
 
 	int getFileFd();
 	void setFileFd(int fd);
+	void setPollFor(int);
+	int getPollFor();
 
 private:
 	long						_sr_num;
@@ -91,7 +100,18 @@ private:
 	task_func_with_return_t		_task_func;
 	void*						_task_input_data; // Input data for generic task
 	int							_file_fd; // File descriptor of the disk file
+	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ss
 };
+
+inline int EVTCPServiceRequest::getPollFor()
+{
+	return _poll_for;
+}
+
+inline void EVTCPServiceRequest::setPollFor(int poll_for)
+{
+	_poll_for = (EVTCPServiceRequest::poll_for)poll_for;
+}
 
 inline int EVTCPServiceRequest::getFileFd()
 {

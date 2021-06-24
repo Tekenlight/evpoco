@@ -87,6 +87,9 @@ public:
 		/// the TCP server at the given address. Prior to opening the
 		/// connection the socket is set to nonblocking mode.
 
+	virtual void setFd(int fd);
+		/// Initializes the socket
+
 	void shutdownReceive();
 		/// Shuts down the receiving part of the socket connection.
 		

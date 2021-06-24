@@ -118,6 +118,7 @@ namespace evpoco {
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
 	static int get_http_request(lua_State* L);
+	static int get_lua_state(lua_State* L);
 	static int get_http_response(lua_State* L);
 	static int resolve_host_address_complete(lua_State* L, int status, lua_KContext ctx);
 	static int resolve_host_address_initiate(lua_State* L);
@@ -296,6 +297,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "subscribe_to_http_response", &evpoco::nb_subscribe_to_http_response },
 	{ "file_open", &evpoco::ev_lua_file_open_initiate },
 	{ "alloc_buffer", &evpoco::alloc_buffer },
+	{ "get_lua_state", &evpoco::get_lua_state },
 	{ NULL, NULL }
 };
 
@@ -322,6 +324,18 @@ public:
 		ev_rwlock_destroy(cached_filepaths_lock);
 	}
 };
+
+evl_db_conn_pool EVLHTTPRequestHandler::_db_conn_pool;
+evl_db_conn_pool* EVLHTTPRequestHandler::getDbConnPool()
+{
+	evl_db_conn_pool* ret =  &_db_conn_pool;
+	return ret;
+}
+std::map<std::string, void*> EVLHTTPRequestHandler::_map_of_maps;
+std::map<std::string, void*> * EVLHTTPRequestHandler::getMapOfMaps()
+{
+	return &_map_of_maps;
+}
 
 static LUAFileCache sg_file_cache;
 
@@ -718,6 +732,12 @@ static int get_http_request(lua_State* L)
 	*(Net::HTTPServerRequest**)ptr = &request;
 	luaL_setmetatable(L, _http_sreq_type_name);
 
+	return 1;
+}
+
+static int get_lua_state(lua_State* L)
+{
+	lua_pushlightuserdata(L, L);
 	return 1;
 }
 
@@ -2762,9 +2782,13 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_variable_instance_count(0),
 	_async_tasks_status_awaited(false)
 {
+	Poco::Util::AbstractConfiguration& config = appConfig();
+	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
+
 	*_ephemeral_buffer = 0;
 	{
-		if (((_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) &&
+		if ((enable_lua_cache &&
+			(_L = (lua_State*)dequeue(sg_lua_state_cache._queue)) != NULL) &&
 			(lua_status(_L) == LUA_OK)) {
 			//DEBUGPOINT("Found a state element\n");
 			lua_settop(_L, 0);
@@ -2806,10 +2830,6 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		lua_pushinteger(_L, 0);
 		lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
 
-		Poco::Util::AbstractConfiguration& config = appConfig();
-		//DEBUGPOINT("Here =[%p]\n", &config);
-		bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
-
 		if (enable_lua_cache) {
 			lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
 			lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
@@ -2831,7 +2851,10 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 {
-	{
+	Poco::Util::AbstractConfiguration& config = appConfig();
+	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
+
+	if (enable_lua_cache) {
 		lua_pushlightuserdata(_L, (void*) NULL);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 		//lua_gc(_L, LUA_GCCOLLECT, 0);
@@ -2845,11 +2868,9 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 			}
 		}
 	}
-	/*
-	{
+	else {
 		lua_close(_L);
 	}
-	*/
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
 		switch (it->first) {
 			case html_form:

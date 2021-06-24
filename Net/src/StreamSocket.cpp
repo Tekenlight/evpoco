@@ -90,6 +90,11 @@ void StreamSocket::connectNB(const SocketAddress& address)
 	impl()->connectNB(address);
 }
 
+void StreamSocket::setFd(int fd)
+{
+	impl()->setFd(fd);
+}
+
 
 void StreamSocket::shutdownReceive()
 {

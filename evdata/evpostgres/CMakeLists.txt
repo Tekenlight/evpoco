@@ -1,4 +1,4 @@
-set(LIBNAME "evsqlite")
+set(LIBNAME "evpostgres")
 set(POCO_LIBNAME "${LIBNAME}")
 
 # Sources
@@ -27,11 +27,23 @@ if(WIN32)
     endif()    
 endif(WIN32)
 
+#message(STATUS "${LIBNAME} " " ${SHARED_LIBRARY_VERSION}" " ${POCO_LIBNAME}" )
 if(APPLE)
 add_library( "${LIBNAME}" MODULE ${SRCS} ) #This is needed to creare .so file
+#add_library( "${LIBNAME}" "${LIB_MODE}" "${SRCS}" ) #This is needed to creare .so file
 else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 endif(APPLE)
+#add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
+#set_target_properties( "${LIBNAME}"
+#    PROPERTIES
+#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+#    OUTPUT_NAME ${POCO_LIBNAME}
+#    DEFINE_SYMBOL evpostgres_EXPORTS
+#    )
+
+#VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
+#These flags are not supported in .so mode MODULE instead of SHARED (for .dylib files on macosx)
 
 if(APPLE)
 set_target_properties( "${LIBNAME}"
@@ -39,14 +51,14 @@ set_target_properties( "${LIBNAME}"
 	LINK_FLAGS "-bind_at_load"
 #    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
-    DEFINE_SYMBOL evsqlite_EXPORTS
+    DEFINE_SYMBOL evpostgres_EXPORTS
     )
 else(APPLE)
 set_target_properties( "${LIBNAME}"
     PROPERTIES
     VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
     OUTPUT_NAME ${POCO_LIBNAME}
-    DEFINE_SYMBOL evsqlite_EXPORTS
+    DEFINE_SYMBOL evpostgres_EXPORTS
     )
 endif(APPLE)
 
@@ -57,7 +69,9 @@ string(APPEND LINK_TIME_FLAGS " ")
 endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
-target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata sqlite3)
+#message(STATUS "Here ${LTF}")
+#target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata "-L/opt/local/lib/postgresql13" pq)
+target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata pq)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -68,7 +82,7 @@ foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	#include_directories(SYSTEM ${dir})
 	string(APPEND INC_DIRS "-I${dir} ")
 endforeach(dir)
-#string(STRIP ${INC_DIRS} INC_DIRS)
+string(APPEND INC_DIRS " -I/opt/local/include/postgresql13 ")
 set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
 
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})

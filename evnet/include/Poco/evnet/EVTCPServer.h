@@ -281,6 +281,7 @@ public:
 	void srCompleteEnqueue(EVAcceptedStreamSocket* tn);
 	void srComplete(EVAcceptedStreamSocket* );
 	void enqueueSR(EVAcceptedSocket *tn, EVTCPServiceRequest * sr);
+	long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int poll_for);
 	virtual long submitRequestForConnection(int sr_num, EVAcceptedSocket *tn,
 								Net::SocketAddress& addr, Net::StreamSocket & css);
 	virtual long submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *tn,
@@ -331,8 +332,10 @@ protected:
 private:
 	void init();
 	void clearAcceptedSocket(poco_socket_t);
+	ssize_t handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
-	ssize_t handleConnSocketWritable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	void handleHostResolved(const bool& ev_occured);
 	void handleGenericTaskComplete(const bool& ev_occured);
 	void handleFileEvtOccured(const bool& ev_occured);
@@ -349,6 +352,7 @@ private:
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
 	int closeTCPConnection(EVTCPServiceRequest * sr);
+	int pollSocketForReadOrWrite(EVTCPServiceRequest * sr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 	typedef std::map<int,file_event_status_s> FileEvtSubscrMap;

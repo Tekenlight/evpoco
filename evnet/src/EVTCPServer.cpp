@@ -223,7 +223,8 @@ static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 
 	cb_ptr = (strms_io_cb_ptr_type)w->data;
 	/* The below line of code essentially calls
-	 * EVTCPServer::handleConnSocketWritable(const bool)
+	 * EVTCPServer::handleConnSocketWriteable(const bool) or
+	 * EVTCPServer::handleConnSocketWriteReady(const bool)
 	 */
 	ssize_t ret = 0;
 	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
@@ -249,6 +250,7 @@ static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 		cb_ptr = (strms_io_cb_ptr_type)w->data;
 		/* The below line of code essentially calls
 		 * EVTCPServer::handleConnSocketReadable(const bool)
+		 * EVTCPServer::handleConnSocketReadReady(const bool) or
 		 */
 		((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))(cb_ptr , true);
 		// Suspending interest in events of this fd until one request is processed
@@ -589,7 +591,7 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 	return 1;
 }
 
-ssize_t EVTCPServer::handleConnSocketWritable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
+ssize_t EVTCPServer::handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
 	ssize_t ret = 0;
 	EVConnectedStreamSocket * cn = cb_ptr->cn;
@@ -867,6 +869,108 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 			return -1;
 		}
 	}
+	return ret;
+}
+
+ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
+{
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	ssize_t ret = 0;
+	size_t received_bytes = 0;
+	EVConnectedStreamSocket *cn = cb_ptr->cn;
+	cn->setTimeOfLastUse();
+	errno = 0;
+
+	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
+	if (!tn) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+	EVConnectedStreamSocket *ref_cn = tn->getProcState()->getEVConnSock(cn->getSockfd());
+	if ((!ref_cn) || (ref_cn->getSockfd() != cn->getSockfd())) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	EVUpstreamEventNotification * usN = 0;
+	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+												cb_ptr->cb_evid_num,
+												(ret)?ret:1, 0);
+		usN->setConnSockState(EVUpstreamEventNotification::READY_FOR_WRITE);
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+		std::abort();
+	}
+	ev_io * socket_watcher_ptr = cn->getSocketWatcher();
+	ev_io_stop(_loop, socket_watcher_ptr);
+	ev_clear_pending(_loop, socket_watcher_ptr);
+	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+
+	return ret;
+}
+
+ssize_t EVTCPServer::handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
+{
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadReady\n");
+	ssize_t ret = 0;
+	size_t received_bytes = 0;
+	EVConnectedStreamSocket *cn = cb_ptr->cn;
+	cn->setTimeOfLastUse();
+	errno = 0;
+
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadReady\n");
+	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
+	if (!tn) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+	EVConnectedStreamSocket *ref_cn = tn->getProcState()->getEVConnSock(cn->getSockfd());
+	if ((!ref_cn) || (ref_cn->getSockfd() != cn->getSockfd())) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+
+	EVUpstreamEventNotification * usN = 0;
+	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+												cb_ptr->cb_evid_num,
+												(ret)?ret:1, 0);
+		usN->setConnSockState(EVUpstreamEventNotification::READY_FOR_READ);
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+		std::abort();
+	}
+	ev_io * socket_watcher_ptr = cn->getSocketWatcher();
+	ev_io_stop(_loop, socket_watcher_ptr);
+	ev_clear_pending(_loop, socket_watcher_ptr);
+	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadReady\n");
+
 	return ret;
 }
 
@@ -1900,6 +2004,63 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 	return ret;
 }
 
+int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
+{
+	//DEBUGPOINT("EVTCPServer::pollSocketForReadOrWrite\n");
+	int ret = -1;
+	ev_io * socket_watcher_ptr = 0;
+	strms_io_cb_ptr_type cb_ptr = 0;
+	int optval = 0;
+	unsigned int optlen = sizeof(optval);
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+
+	if ((tn->getProcState()) && tn->srInSession(sr->getSRNum())) {
+		socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
+		memset(socket_watcher_ptr,0,sizeof(ev_io));
+
+		EVConnectedStreamSocket * connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), sr->getStreamSocket());
+		// Since this method is for making connection to a given socket address
+		// There is no need for the address resolution step.
+		connectedSock->setState(EVConnectedStreamSocket::BEFORE_CONNECT);
+		connectedSock->setSocketWatcher(socket_watcher_ptr);
+		connectedSock->setEventLoop(_loop);
+
+		tn->getProcState()->setEVConnSock(connectedSock);
+		connectedSock->setTimeOfLastUse();
+
+		cb_ptr = (strms_io_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
+		memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
+
+		cb_ptr->objPtr = this;
+		cb_ptr->sr_num = sr->getSRNum();
+		cb_ptr->cb_evid_num = sr->getCBEVIDNum();
+		cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadReady;
+		cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWriteReady;
+		cb_ptr->cn = connectedSock;
+		socket_watcher_ptr->data = (void*)cb_ptr;
+
+		int waitfor = 0;
+		switch (sr->getPollFor()) {
+			case EVTCPServiceRequest::READ:
+				waitfor = EV_READ;
+				break;
+			case EVTCPServiceRequest::WRITE:
+				waitfor = EV_WRITE;
+				break;
+			case EVTCPServiceRequest::READWRITE:
+			default:
+				waitfor = EV_WRITE|EV_READ;
+		}
+		ev_io_init(socket_watcher_ptr, async_stream_socket_cb_3, sr->getStreamSocket().impl()->sockfd(), waitfor);
+		ev_io_start (_loop, socket_watcher_ptr);
+		tn->incrNumCSEvents();
+
+		ret = 0;
+	}
+
+	return ret;
+}
+
 int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
 {
 	int ret = 0;
@@ -1943,7 +2104,7 @@ int EVTCPServer::sendDataOnConnSocket(EVTCPServiceRequest * sr)
 			/* Connected socket writable does not invoke any call back.
 			 * Hence there is no service request number or event number relevant for this
 			 * */
-			/* This will invoke the call back EVTCPServer::handleConnSocketWritable. */
+			/* This will invoke the call back EVTCPServer::handleConnSocketWriteable. */
 			ev_io_stop(_loop, socket_watcher_ptr);
 			ev_io_init(socket_watcher_ptr, async_stream_socket_cb_3, cn->getSockfd(), events);
 			ev_io_start (_loop, socket_watcher_ptr);
@@ -2390,7 +2551,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 	cb_ptr->sr_num = sr->getSRNum();
 	cb_ptr->cb_evid_num = sr->getCBEVIDNum();
 	cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
-	cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWritable;
+	cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWriteable;
 	cb_ptr->cn = connectedSock;
 	socket_watcher_ptr->data = (void*)cb_ptr;
 
@@ -2635,6 +2796,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("HOST_RESOLUTION from %d\n", tn->getSockfd());
 				resolveHost(srNF);
 				break;
+			case EVTCPServiceRequest::POLL_REQUEST:
+				//DEBUGPOINT("POLL_REQUEST from %d\n", tn->getSockfd());
+				pollSocketForReadOrWrite(srNF);
+				break;
 			case EVTCPServiceRequest::CONNECTION_REQUEST:
 				//DEBUGPOINT("CONNECTION_REQUEST from %d\n", tn->getSockfd());
 				makeTCPConnection(srNF);
@@ -2772,6 +2937,23 @@ long EVTCPServer::submitRequestForConnection(int cb_evid_num, EVAcceptedSocket *
 	/* Enque the socket */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 										EVTCPServiceRequest::CONNECTION_REQUEST, en->getSockfd(), css, addr));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest */
+	return sr_num;
+}
+
+long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& css, int poll_for)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the socket */
+	//DEBUGPOINT("sr_num = [%ld][%d]\n", sr_num, poll_for);
+	EVTCPServiceRequest *sr = new EVTCPServiceRequest(sr_num, cb_evid_num,
+                                        EVTCPServiceRequest::POLL_REQUEST, en->getSockfd(), css);
+	sr->setPollFor(poll_for);
+	enqueueSR(en, sr);
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(_loop, this->_stop_watcher_ptr2);

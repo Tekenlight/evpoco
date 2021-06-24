@@ -31,6 +31,12 @@ namespace Poco{ namespace evnet {
 class EVUpstreamEventNotification: public Notification
 {
 public:
+	typedef enum {
+		NOT_READY = 0
+		,READY_FOR_READ
+		,READY_FOR_WRITE
+		,READY_FOR_READWRITE
+	} sock_state;
 	EVUpstreamEventNotification(long sr_num, int cb_evid_num);
 	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no = 0);
 	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no = 0);
@@ -71,6 +77,8 @@ public:
 	int getFileOper();
 	long getRefSRNum();
 	void setRefSRNum(long);
+	sock_state getConnSockState();
+	void setConnSockState(int);
 
 private:
 	poco_socket_t			_sockfd;
@@ -85,7 +93,19 @@ private:
 	int						_file_fd;
 	int						_oper;
 	long					_ref_sr_num;
+	sock_state				_conn_sock_state;
 };
+
+inline EVUpstreamEventNotification::sock_state EVUpstreamEventNotification::getConnSockState()
+{
+	return _conn_sock_state;
+}
+
+inline void EVUpstreamEventNotification::setConnSockState(int state)
+{
+	_conn_sock_state = (EVUpstreamEventNotification::sock_state)state;
+}
+
 
 inline long EVUpstreamEventNotification::getRefSRNum()
 {

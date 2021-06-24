@@ -76,7 +76,11 @@ POCO_INSTALL("${LIBNAME}")
 
 POCO_GENERATE_PACKAGE("${LIBNAME}")
 
-if (ENABLE_SQLITE)
+if (ENABLE_EVSQLITE)
     add_subdirectory(evsqlite)
+#	add_subdirectory(testsuite)
+endif ()
+if (ENABLE_EVPOSTGRES)
+    add_subdirectory(evpostgres)
 #	add_subdirectory(testsuite)
 endif ()

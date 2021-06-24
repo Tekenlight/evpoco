@@ -74,6 +74,9 @@ public:
 		/// the TCP server at the given address. Prior to opening the
 		/// connection the socket is set to nonblocking mode.
 
+	virtual void setFd(int fd);
+		/// Initializes the socket
+
 	virtual void bind(const SocketAddress& address, bool reuseAddress = false);
 		/// Bind a local address to the socket.
 		///

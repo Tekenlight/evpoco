@@ -77,6 +77,12 @@ class Net_API EVHTTPRequestHandler
 	/// each new HTTP request that is received by the HTTPServer.
 {
 public:
+	typedef enum {
+		NONE = 0
+		,READ = 1
+		,WRITE = 2
+		,READWRITE = 3
+	} poll_for;
 	typedef std::function<int ()> TCallback;
 	typedef std::function<void ()> VTCallback;
 
@@ -181,6 +187,7 @@ public:
 	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
 
 	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
+	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for);
 
 	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 

@@ -26,6 +26,8 @@ extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include <ev_queue.h>
+#include <ev_rwlock.h>
 }
 
 #include "Poco/Util/AbstractConfiguration.h"
@@ -168,6 +170,63 @@ private:
 	std::map<std::string, PartData*>	_parts;
 };
 
+class evl_db_conn_pool {
+public:
+	class queue_holder {
+		public:
+		queue_holder() { _queue = create_ev_queue(); }
+		virtual ~queue_holder() { }
+		virtual queue_holder * clone() = 0;
+		ev_queue_type _queue;
+	};
+	evl_db_conn_pool()
+	{
+		_lock = ev_rwlock_init();
+	}
+
+	~evl_db_conn_pool()
+	{
+		ev_rwlock_destroy(_lock);
+	}
+	queue_holder * get_queue_holder(std::string db_name);
+	queue_holder * add_queue_holder(std::string db_name, queue_holder *);
+
+private:
+	std::map<std::string, queue_holder*> _db_map;
+	ev_rwlock_type _lock;
+};
+
+inline evl_db_conn_pool::queue_holder * evl_db_conn_pool::get_queue_holder(std::string db_name)
+{
+	evl_db_conn_pool::queue_holder *qh = NULL;
+
+	ev_rwlock_rdlock(_lock);
+	{
+		auto it = _db_map.find(db_name);
+		if (_db_map.end() != it) qh = it->second;
+		else qh =  NULL;
+	}
+	ev_rwlock_rdunlock(_lock);
+
+	return qh;
+}
+
+inline evl_db_conn_pool::queue_holder* evl_db_conn_pool::add_queue_holder(std::string db_name, evl_db_conn_pool::queue_holder *qh)
+{
+	evl_db_conn_pool::queue_holder * i_qh = NULL;
+	ev_rwlock_wrlock(_lock);
+	auto it = _db_map.find(db_name);
+	if (it == _db_map.end()) {
+		i_qh = qh->clone();
+		_db_map[db_name] = i_qh;
+	} else {
+		i_qh = it->second;
+	}
+	ev_rwlock_wrunlock(_lock);
+
+	return i_qh;
+}
+
 class EVLHTTPRequestHandler;
 
 class Net_API EVLHTTPRequestHandler : public EVHTTPRequestHandler
@@ -217,6 +276,8 @@ public:
 	EVLHTTPRequestHandler::async_tasks_t& getAsyncTaskList();
 	bool getAsyncTaskAwaited();
 	void setAsyncTaskAwaited(bool);
+	evl_db_conn_pool* getDbConnPool();
+	std::map<std::string, void*> * getMapOfMaps();
 
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);
@@ -228,19 +289,21 @@ private:
 	int loadReqMapper();
 	Poco::evnet::EVHTTPClientSession session;
 
-	lua_State*								_L0;
-	lua_State*								_L;
-	std::string								_mapping_script;
-	std::string								_request_handler;
-	std::string								_url_part;
-	std::map<mapped_item_type, void*>		_components;
-	std::map<int,EVHTTPClientSession*>		_http_connections;
-	std::list<std::string>					_url_parts;
-	int										_http_connection_count;
-	int										_variable_instance_count;;
-	char									_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
-	async_tasks_t							_async_tasks;
-	bool									_async_tasks_status_awaited;
+	lua_State*									_L0;
+	lua_State*									_L;
+	std::string									_mapping_script;
+	std::string									_request_handler;
+	std::string									_url_part;
+	std::map<mapped_item_type, void*>			_components;
+	std::map<int,EVHTTPClientSession*>			_http_connections;
+	std::list<std::string>						_url_parts;
+	int											_http_connection_count;
+	int											_variable_instance_count;;
+	char										_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
+	async_tasks_t								_async_tasks;
+	bool										_async_tasks_status_awaited;
+	static evl_db_conn_pool						_db_conn_pool;
+	static std::map<std::string, void*>			_map_of_maps;
 };
 
 inline bool EVLHTTPRequestHandler::getAsyncTaskAwaited()

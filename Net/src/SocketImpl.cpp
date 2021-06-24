@@ -185,6 +185,11 @@ void SocketImpl::connectNB(const SocketAddress& address)
 	}
 }
 
+void SocketImpl::setFd(int fd)
+{
+	_sockfd = fd;
+}
+
 
 void SocketImpl::bind(const SocketAddress& address, bool reuseAddress)
 {
