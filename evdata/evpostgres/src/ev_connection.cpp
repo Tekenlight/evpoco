@@ -7,9 +7,9 @@
 #include <execinfo.h>
 
 int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *stmt_id, const char *sql_query);
-void init_db_type(lua_State * L, const char * db_type, Poco::evnet::evl_db_conn_pool::queue_holder *qhf);
-void * get_conn_from_pool(lua_State* L, const char * db_type, const char * host, const char * dbname);
-void add_conn_to_pool(lua_State* L, const char * db_type, const char * host, const char * dbname, void * conn);
+void init_db_type(const char * db_type, Poco::evnet::evl_db_conn_pool::queue_holder *qhf);
+void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname);
+void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
 
 static PGconn * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);
@@ -114,7 +114,7 @@ static int open_connection_initiate(lua_State *L)
 	const char * user = luaL_checkstring(L, 3);
 	const char * password = luaL_checkstring(L, 4);
 
-	connection_t * conn = (connection_t *) get_conn_from_pool(L, POSTGRES_DB_TYPE_NAME, host, dbname);
+	connection_t * conn = (connection_t *) get_conn_from_pool(POSTGRES_DB_TYPE_NAME, host, dbname);
 
 	if (conn == NULL) {
 		//DEBUGPOINT("DID NOT FIND CONNECTION from pool\n");
@@ -165,8 +165,8 @@ static int connection_close(lua_State *L)
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 	connection_t *n_conn = (connection_t *)malloc(sizeof(connection_t));
 	memcpy(n_conn, conn, sizeof(connection_t));
-	add_conn_to_pool(L, POSTGRES_DB_TYPE_NAME, n_conn->s_host.c_str(), n_conn->s_dbname.c_str(), n_conn);
-	//DEBUGPOINT("ADDED CONNECTION [%p] TO POOL\n", n_conn->pg_conn);
+	add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host.c_str(), n_conn->s_dbname.c_str(), n_conn);
+	DEBUGPOINT("ADDED CONNECTION [%p] TO POOL\n", n_conn->pg_conn);
 	return 0;
 }
 
@@ -232,7 +232,7 @@ int ev_postgres_connection(lua_State *L)
 	lua_newtable(L);
 	luaL_setfuncs(L, connection_class_methods, 0);
 
-	if (!db_initialized) init_db_type(L, POSTGRES_DB_TYPE_NAME, &qhf);
+	if (!db_initialized) init_db_type(POSTGRES_DB_TYPE_NAME, &qhf);
 	db_initialized = 1;
 
 	return 1;    

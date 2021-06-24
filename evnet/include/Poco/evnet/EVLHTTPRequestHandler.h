@@ -276,8 +276,8 @@ public:
 	EVLHTTPRequestHandler::async_tasks_t& getAsyncTaskList();
 	bool getAsyncTaskAwaited();
 	void setAsyncTaskAwaited(bool);
-	evl_db_conn_pool* getDbConnPool();
-	std::map<std::string, void*> * getMapOfMaps();
+	static evl_db_conn_pool* getDbConnPool();
+	static std::map<std::string, void*> * getMapOfMaps();
 
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);

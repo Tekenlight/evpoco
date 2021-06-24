@@ -2857,7 +2857,7 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 	if (enable_lua_cache) {
 		lua_pushlightuserdata(_L, (void*) NULL);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
-		//lua_gc(_L, LUA_GCCOLLECT, 0);
+		lua_gc(_L, LUA_GCCOLLECT, 0);
 		//lua_gc(_L, LUA_GCCOLLECT, 0);
 		lua_settop(_L, 0);
 		//DEBUGPOINT("Here _L=[%p] status = [%d]\n", _L);

@@ -1,8 +1,8 @@
 #include "Poco/evdata/evpostgres/ev_postgres.h"
 #include "Poco/evnet/evnet_lua.h"
 
-void add_stmt_id_to_chache(lua_State* L, const char * statement, std::string *p);
-const std::string * get_stmt_id_from_cache(lua_State* L, const char * statement);
+void add_stmt_id_to_chache(const char * statement, char*p);
+const char* get_stmt_id_from_cache(const char * statement);
 
 static int crete_statement(lua_State *L, connection_t *conn, const char *stmt_id, const char *sql)
 {
@@ -42,16 +42,12 @@ int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *s
 
 	statement_t *statement = NULL;
 
-	std::string * p = (std::string*)get_stmt_id_from_cache(L, sql_stmt);
+	char* p = (char*)get_stmt_id_from_cache(sql_stmt);
 	int cp = 0;
 	if (p) {
 		sprintf(stmt_id, "%p", p);
 		auto it = conn->cached_stmts->find(std::string(stmt_id));
 		if (it != conn->cached_stmts->end()) cp = it->second;
-	}
-	else {
-		p = new std::string("");
-		sprintf(stmt_id, "%p", p);
 	}
 
 	if (!cp) {
@@ -65,11 +61,15 @@ int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *s
 		if (1 != ret) {
 			DEBUGPOINT("ret = [%d]\n", ret);
 			free(new_stmt);
-			delete p;
+			free(p);
 			return ret;
 		}
 		free(new_stmt);
-		add_stmt_id_to_chache(L, sql_stmt, p);
+		if (!p) {
+			p =(char*)malloc(sizeof(char));
+			sprintf(stmt_id, "%p", p);
+			add_stmt_id_to_chache(sql_stmt, p);
+		}
 		(*conn->cached_stmts)[std::string(stmt_id)] = 1;
 	}
 	else {

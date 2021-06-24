@@ -28,8 +28,10 @@ void sg_dbtmm_lock_rd_lock(int l);
 }
 
 typedef std::map<std::string, evl_db_conn_pool::queue_holder *> db_type_map_type;
-typedef std::map<std::string, std::string*> statements_map_type;
+typedef std::map<std::string, char*> statements_map_type;
 typedef std::map<std::string, void*> map_of_maps_type;
+
+static map_of_maps_type * sg_m_o_m = NULL;;
 
 const char *ev_sql_strlower(char *in)
 {
@@ -209,14 +211,7 @@ static std::string form_db_name_key(const char * host, const char * dbname)
 	return key;
 }
 
-static map_of_maps_type* get_map_of_maps(lua_State *L)
-{
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	poco_assert(reqHandler != NULL);
-
-	map_of_maps_type* m_o_m = reqHandler->getMapOfMaps();
-	return m_o_m;
-}
+#define get_map_of_maps() sg_m_o_m;
 
 static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 {
@@ -255,12 +250,25 @@ static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 	return dbtm;
 }
 
-void init_db_type(lua_State * L, const char * db_type, evl_db_conn_pool::queue_holder *qhf)
+void init_db_type(const char * db_type, evl_db_conn_pool::queue_holder *qhf)
 {
 	init_locks_if_not_done();
 
-	map_of_maps_type* m_o_m = get_map_of_maps(L);
-	//DEBUGPOINT("\n");
+	{
+		sg_m_o_m_lock_rd_lock(1);
+		if (sg_m_o_m == NULL) {
+			sg_m_o_m_lock_rd_lock(0);
+			sg_m_o_m_lock_wr_lock(1);
+			if (sg_m_o_m == NULL) {
+				sg_m_o_m = EVLHTTPRequestHandler::getMapOfMaps();
+			}
+			sg_m_o_m_lock_wr_lock(0);
+			sg_m_o_m_lock_rd_lock(1);
+		}
+		sg_m_o_m_lock_rd_lock(0);
+	}
+
+	map_of_maps_type* m_o_m = get_map_of_maps();
 	db_type_map_type * dbtm = get_db_type_map(m_o_m);
 
 	sg_dbtmm_lock_rd_lock(1);
@@ -286,14 +294,11 @@ void init_db_type(lua_State * L, const char * db_type, evl_db_conn_pool::queue_h
 }
 
 static evl_db_conn_pool::queue_holder *
-get_queue_holder(lua_State* L, const char * db_type, const char * host, const char * dbname)
+get_queue_holder(const char * db_type, const char * host, const char * dbname)
 {
-	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	poco_assert(reqHandler != NULL);
-
-	evl_db_conn_pool* pool = reqHandler->getDbConnPool();
-	map_of_maps_type* m_o_m = get_map_of_maps(L);
-	db_type_map_type * dbtm = get_db_type_map(m_o_m);
+	evl_db_conn_pool* pool = EVLHTTPRequestHandler::getDbConnPool();
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	db_type_map_type* dbtm = get_db_type_map(m_o_m);
 
 	std::string db_key = form_db_name_key(host, dbname);
 	evl_db_conn_pool::queue_holder *qh = (evl_db_conn_pool::queue_holder*)pool->get_queue_holder(db_key);
@@ -310,27 +315,27 @@ get_queue_holder(lua_State* L, const char * db_type, const char * host, const ch
 	return qh;
 }
 
-void * get_conn_from_pool(lua_State* L, const char * db_type, const char * host, const char * dbname)
+void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname)
 {
-	evl_db_conn_pool::queue_holder * qh = get_queue_holder(L, db_type, host, dbname);
+	evl_db_conn_pool::queue_holder * qh = get_queue_holder(db_type, host, dbname);
 	void * conn = dequeue(qh->_queue);
 
 	//DEBUGPOINT("FOUND CONNECTION [%p] from pool\n", conn);
 	return conn;
 }
 
-void add_conn_to_pool(lua_State* L, const char * db_type, const char * host, const char * dbname, void * conn)
+void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn)
 {
-	evl_db_conn_pool::queue_holder * qh = get_queue_holder(L, db_type, host, dbname);
+	evl_db_conn_pool::queue_holder * qh = get_queue_holder(db_type, host, dbname);
 	enqueue(qh->_queue, conn);
 
 	//DEBUGPOINT("ADDED CONNECTION [%p] to pool\n", conn);
 	return ;
 }
 
-static statements_map_type * get_statements_map(lua_State *L)
+static statements_map_type * get_statements_map()
 {
-	map_of_maps_type* m_o_m = get_map_of_maps(L);
+	map_of_maps_type* m_o_m = get_map_of_maps();
 	statements_map_type * sm;
 	{
 		auto it = m_o_m->find(STATEMENTS_MAP);
@@ -345,12 +350,12 @@ static statements_map_type * get_statements_map(lua_State *L)
 	return sm;
 }
 
-static const std::string * core_get_stmt_id_from_cache(lua_State *L, const char * statement)
+static const char* core_get_stmt_id_from_cache(const char * statement)
 {
 	std::string s = statement;
-	statements_map_type * sm = get_statements_map(L);
+	statements_map_type * sm = get_statements_map();
 
-	const std::string * ret = NULL;
+	const char* ret = NULL;
 	auto it = sm->find(s);
 	if (sm->end() == it) {
 		ret = NULL;
@@ -362,28 +367,28 @@ static const std::string * core_get_stmt_id_from_cache(lua_State *L, const char 
 	return ret;
 }
 
-void add_stmt_id_to_chache(lua_State* L, const char * statement, std::string * p)
+void add_stmt_id_to_chache(const char * statement, char* p)
 {
-	statements_map_type * sm = get_statements_map(L);
+	statements_map_type * sm = get_statements_map();
 
 	init_locks_if_not_done();
 
 	std::string s = statement;
 	sg_stmt_lock_wr_lock(1);
-	if (core_get_stmt_id_from_cache(L, statement) == NULL) {
+	if (core_get_stmt_id_from_cache(statement) == NULL) {
 		(*sm)[s] = p;
 	}
 	sg_stmt_lock_wr_lock(0);
 	return;
 }
 
-const std::string * get_stmt_id_from_cache(lua_State* L, const char * statement)
+const char* get_stmt_id_from_cache(const char * statement)
 {
 	init_locks_if_not_done();
 
-	const std::string * ret = NULL;
+	const char* ret = NULL;
 	sg_stmt_lock_rd_lock(1);
-	ret = core_get_stmt_id_from_cache(L, statement);
+	ret = core_get_stmt_id_from_cache(statement);
 	sg_stmt_lock_rd_lock(0);
 	return ret;
 }
