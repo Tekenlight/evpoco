@@ -4,7 +4,7 @@
 void add_stmt_id_to_chache(const char * statement, char*p);
 const char* get_stmt_id_from_cache(const char * statement);
 
-static int crete_statement(lua_State *L, connection_t *conn, const char *stmt_id, const char *sql)
+static int crete_statement(lua_State *L, connection_t *conn, const char *stmt_id, char *sql, char *pv)
 {
 	ExecStatusType status;
 	PGresult *result = NULL;
@@ -12,22 +12,50 @@ static int crete_statement(lua_State *L, connection_t *conn, const char *stmt_id
 	result = PQprepare(conn->pg_conn, stmt_id, sql, 0, NULL);
 
 	if (!result) {
+
 		lua_pushnil(L);
 		lua_pushfstring(L, EV_SQL_ERR_ALLOC_STATEMENT, PQerrorMessage(conn->pg_conn));
+
+		DEBUGPOINT("ret = [2]\n");
+		free(sql);
+		if (pv) free(pv);
+
 		return 2;
 	}
 
 	status = PQresultStatus(result);
 	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+
 		const char *err_string = PQresultErrorMessage(result);
 
 		lua_pushnil(L);
 		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, err_string);
 		PQclear(result);
+
+		DEBUGPOINT("ret = [2]\n");
+		free(sql);
+		if (pv) free(pv);
+
 		return 2;
 	}
 
 	PQclear(result);
+	free(sql);
+
+	if (pv) {
+		add_stmt_id_to_chache(luaL_checkstring(L, 3), pv);
+	}
+	(*(conn->cached_stmts))[std::string(stmt_id)] = 1;
+
+	statement_t *statement = NULL;
+	statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
+	statement->conn = conn;
+	statement->result = NULL;
+	statement->tuple = 0;
+	statement->name = strdup(stmt_id);
+	statement->source = strdup(luaL_checkstring(L, 2));
+	luaL_getmetatable(L, EV_POSTGRES_STATEMENT);
+	lua_setmetatable(L, -2);
 
 	return 1;
 }
@@ -56,36 +84,28 @@ int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *s
 		 * convert SQL string into a PSQL API compatible SQL statement
 		 * should free converted statement after use
 		 */ 
-		new_stmt = ev_sql_replace_placeholders(L, '$', sql_stmt);
-		ret = crete_statement(L, conn, stmt_id, new_stmt);
-		if (1 != ret) {
-			DEBUGPOINT("ret = [%d]\n", ret);
-			free(new_stmt);
-			free(p);
-			return ret;
-		}
-		free(new_stmt);
+		char * pv = NULL;
 		if (!p) {
 			p =(char*)malloc(sizeof(char));
 			sprintf(stmt_id, "%p", p);
-			add_stmt_id_to_chache(sql_stmt, p);
+			pv = p;
 		}
-		(*conn->cached_stmts)[std::string(stmt_id)] = 1;
+		new_stmt = ev_sql_replace_placeholders(L, '$', sql_stmt);
+		return crete_statement(L, conn, stmt_id, new_stmt, pv);
 	}
 	else {
 		DEBUGPOINT("RETRIEVED stmt[%p] [%s] from cache\n", p, sql_stmt);
 		ret = 1;
+
+		statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
+		statement->conn = conn;
+		statement->result = NULL;
+		statement->tuple = 0;
+		statement->name = strdup(stmt_id);
+		statement->source = strdup(stmt_source);
+		luaL_getmetatable(L, EV_POSTGRES_STATEMENT);
+		lua_setmetatable(L, -2);
 	}
-
-	statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
-	statement->conn = conn;
-	statement->result = NULL;
-	statement->tuple = 0;
-	statement->name = strdup(stmt_id);
-	statement->source = strdup(stmt_source);
-	luaL_getmetatable(L, EV_POSTGRES_STATEMENT);
-	lua_setmetatable(L, -2);
-
 
 	return ret;
 }
