@@ -22,9 +22,10 @@ typedef struct _connection {
     PGconn *pg_conn;
     int autocommit;
     unsigned int statement_id; /* sequence for statement IDs */
-	std::string s_host;
-	std::string s_dbname;
+	std::string * s_host;
+	std::string * s_dbname;
 	std::map<std::string, int> *cached_stmts;
+	int conn_in_error;
 } connection_t;
 
 /*
@@ -44,6 +45,7 @@ class pg_queue_holder : public Poco::evnet::evl_db_conn_pool::queue_holder {
 	public:
 	virtual Poco::evnet::evl_db_conn_pool::queue_holder* clone()
 	{
+		DEBUGPOINT("CONSTRUCTION OF PG_QUEUE_HOLDER\n");
 		return (Poco::evnet::evl_db_conn_pool::queue_holder*)(new pg_queue_holder());
 	}
 	virtual ~pg_queue_holder() {

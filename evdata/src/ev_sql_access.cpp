@@ -28,7 +28,7 @@ void sg_dbtmm_lock_rd_lock(int l);
 }
 
 typedef std::map<std::string, evl_db_conn_pool::queue_holder *> db_type_map_type;
-typedef std::map<std::string, char*> statements_map_type;
+typedef std::map<std::string, const char*> statements_map_type;
 typedef std::map<std::string, void*> map_of_maps_type;
 
 static map_of_maps_type * sg_m_o_m = NULL;;
@@ -211,9 +211,22 @@ static std::string form_db_name_key(const char * host, const char * dbname)
 	return key;
 }
 
+#define init_m_o_m() {\
+	sg_m_o_m_lock_rd_lock(1); \
+	if (sg_m_o_m == NULL) { \
+		sg_m_o_m_lock_rd_lock(0); \
+		sg_m_o_m_lock_wr_lock(1); \
+		if (sg_m_o_m == NULL) { \
+			sg_m_o_m = EVLHTTPRequestHandler::getMapOfMaps(); \
+		} \
+		sg_m_o_m_lock_wr_lock(0); \
+		sg_m_o_m_lock_rd_lock(1); \
+	} \
+	sg_m_o_m_lock_rd_lock(0); \
+}
 #define get_map_of_maps() sg_m_o_m;
 
-static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
+static db_type_map_type * add_and_get_db_type_map(map_of_maps_type* m_o_m)
 {
 	init_locks_if_not_done();
 
@@ -226,11 +239,11 @@ static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 			sg_m_o_m_lock_rd_lock(0);
 			sg_m_o_m_lock_wr_lock(1);
 			{
-				it = m_o_m->find(DB_TYPES_MAP);
+				auto it = m_o_m->find(DB_TYPES_MAP);
 				if (it == m_o_m->end()) {
 					dbtm = (new db_type_map_type());
 					(*m_o_m)[std::string(DB_TYPES_MAP)] = (void*)dbtm;
-					//DEBUGPOINT("DBTM N = [%p]\n", dbtm);
+					DEBUGPOINT("DBTM N = [%p]\n", dbtm);
 				}
 				else {
 					dbtm = (db_type_map_type *) it->second;
@@ -243,7 +256,28 @@ static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 		}
 		else {
 			dbtm = (db_type_map_type *) it->second;
-			//DEBUGPOINT("DBTM O = [%p]\n", dbtm);
+			DEBUGPOINT("DBTM O = [%p]\n", dbtm);
+		}
+	}
+	sg_m_o_m_lock_rd_lock(0);
+	return dbtm;
+}
+
+static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
+{
+	init_locks_if_not_done();
+
+	db_type_map_type * dbtm = NULL;
+	sg_m_o_m_lock_rd_lock(1);
+	{
+		auto it = m_o_m->find(DB_TYPES_MAP);
+		if (m_o_m->end() == it) {
+			DEBUGPOINT("THIS IS AN IMPOSSIBLE CONDITION\n");
+			std::abort();
+		}
+		else {
+			dbtm = (db_type_map_type *) it->second;
+			DEBUGPOINT("DBTM O = [%p]\n", dbtm);
 		}
 	}
 	sg_m_o_m_lock_rd_lock(0);
@@ -253,23 +287,11 @@ static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 void init_db_type(const char * db_type, evl_db_conn_pool::queue_holder *qhf)
 {
 	init_locks_if_not_done();
+	init_m_o_m();
 
-	{
-		sg_m_o_m_lock_rd_lock(1);
-		if (sg_m_o_m == NULL) {
-			sg_m_o_m_lock_rd_lock(0);
-			sg_m_o_m_lock_wr_lock(1);
-			if (sg_m_o_m == NULL) {
-				sg_m_o_m = EVLHTTPRequestHandler::getMapOfMaps();
-			}
-			sg_m_o_m_lock_wr_lock(0);
-			sg_m_o_m_lock_rd_lock(1);
-		}
-		sg_m_o_m_lock_rd_lock(0);
-	}
 
 	map_of_maps_type* m_o_m = get_map_of_maps();
-	db_type_map_type * dbtm = get_db_type_map(m_o_m);
+	db_type_map_type* dbtm = add_and_get_db_type_map(m_o_m);
 
 	sg_dbtmm_lock_rd_lock(1);
 	{
@@ -301,7 +323,8 @@ get_queue_holder(const char * db_type, const char * host, const char * dbname)
 	db_type_map_type* dbtm = get_db_type_map(m_o_m);
 
 	std::string db_key = form_db_name_key(host, dbname);
-	evl_db_conn_pool::queue_holder *qh = (evl_db_conn_pool::queue_holder*)pool->get_queue_holder(db_key);
+	DEBUGPOINT("DB_KEY = [%s]\n", db_key.c_str());
+	evl_db_conn_pool::queue_holder *qh = pool->get_queue_holder(db_key);
 	if (qh == NULL) {
 		auto it = dbtm->find(db_type);
 		if (dbtm->end() == it) {
@@ -311,6 +334,7 @@ get_queue_holder(const char * db_type, const char * host, const char * dbname)
 		evl_db_conn_pool::queue_holder *qhf = (evl_db_conn_pool::queue_holder *)it->second;
 		qh = pool->add_queue_holder(db_key, qhf);
 	}
+	DEBUGPOINT("qh = [%p]\n", qh);
 
 	return qh;
 }
@@ -320,7 +344,7 @@ void * get_conn_from_pool(const char * db_type, const char * host, const char * 
 	evl_db_conn_pool::queue_holder * qh = get_queue_holder(db_type, host, dbname);
 	void * conn = dequeue(qh->_queue);
 
-	//DEBUGPOINT("FOUND CONNECTION [%p] from pool\n", conn);
+	DEBUGPOINT("FOUND CONNECTION [%p] from pool\n", conn);
 	return conn;
 }
 
@@ -367,7 +391,7 @@ static const char* core_get_stmt_id_from_cache(const char * statement)
 	return ret;
 }
 
-void add_stmt_id_to_chache(const char * statement, char* p)
+void add_stmt_id_to_chache(const char * statement, const char* p)
 {
 	statements_map_type * sm = get_statements_map();
 

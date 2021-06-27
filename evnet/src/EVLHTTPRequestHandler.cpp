@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <atomic>
 
 #include <ev_rwlock.h>
 #include <chunked_memory_stream.h>
@@ -336,6 +337,16 @@ std::map<std::string, void*> * EVLHTTPRequestHandler::getMapOfMaps()
 {
 	return &_map_of_maps;
 }
+
+/*
+std::atomic<std::uintmax_t> EVLHTTPRequestHandler::_cached_stmt_id(0);
+unsigned long EVLHTTPRequestHandler::getNextCachedStmtId()
+{
+	unsigned long l = 1;
+	unsigned long value = std::atomic_fetch_add(&_cached_stmt_id, l);
+	return value;
+}
+*/
 
 static LUAFileCache sg_file_cache;
 

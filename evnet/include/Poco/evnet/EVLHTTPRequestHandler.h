@@ -278,6 +278,7 @@ public:
 	void setAsyncTaskAwaited(bool);
 	static evl_db_conn_pool* getDbConnPool();
 	static std::map<std::string, void*> * getMapOfMaps();
+	static unsigned long getNextCachedStmtId();
 
 private:
 	EVLHTTPRequestHandler(const EVLHTTPRequestHandler&);
@@ -304,6 +305,7 @@ private:
 	bool										_async_tasks_status_awaited;
 	static evl_db_conn_pool						_db_conn_pool;
 	static std::map<std::string, void*>			_map_of_maps;
+	//static std::atomic_ulong					_cached_stmt_id;
 };
 
 inline bool EVLHTTPRequestHandler::getAsyncTaskAwaited()

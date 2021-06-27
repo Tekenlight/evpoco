@@ -95,6 +95,7 @@ struct _strms_io_struct_type {
 	fdReadyMethod socketWritable;
 	cfdReadyMethod connSocketReadable;
 	cfdReadyMethod connSocketWritable;
+	cfdReadyMethod connSocketReadAndWritable;
 	StreamSocket *ssPtr;
 	EVConnectedStreamSocket *cn;
 };
@@ -333,6 +334,7 @@ private:
 	void init();
 	void clearAcceptedSocket(poco_socket_t);
 	ssize_t handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);

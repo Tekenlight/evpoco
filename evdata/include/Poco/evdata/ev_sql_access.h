@@ -167,6 +167,9 @@ typedef enum lua_push_type {
 #define STATEMENTS_MAP "STATEMENTS"
 
 
+#define EV_SQL_LUA_STACK_BASE_INDEX "EV_SQL_LUA_STACK_BASE_INDEX"
+
+
 
 
 
@@ -185,6 +188,9 @@ char *ev_sql_replace_placeholders(lua_State *L, char native_prefix, const char *
 void ev_sql_register(lua_State *L, const char *name,
 		  const luaL_Reg *methods, const luaL_Reg *class_methods,
 		  lua_CFunction gc, lua_CFunction tostring);
+
+
+int socket_live(int fd);
 
 __END_DECLS
 

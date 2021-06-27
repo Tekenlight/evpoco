@@ -210,6 +210,29 @@ static void host_addr_resolved (EV_P_ ev_async *w, int revents)
 }
 
 // this callback is called when connected socket is writable
+static void async_stream_socket_cb_5 (EV_P_ ev_io *w, int revents)
+{
+	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnSocketReadAndWriteable(const bool) or
+	 * EVTCPServer::handleConnSocketReadAndWriteReady(const bool)
+	 */
+	ssize_t ret = 0;
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
+
+	return;
+}
+
+// this callback is called when connected socket is writable
 static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 {
 	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
@@ -235,9 +258,13 @@ static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
 // this callback is called when data is readable on a connected socket
 static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 {
-	if (revents & EV_WRITE) async_stream_socket_cb_4(loop, w, revents);
-
-	if (revents & EV_READ) {
+	if ((revents & EV_READ) && (revents & EV_WRITE)) {
+		async_stream_socket_cb_5(loop, w, revents);
+	}
+	else if (revents & EV_WRITE) {
+		async_stream_socket_cb_4(loop, w, revents);
+	} 
+	else if (revents & EV_READ) {
 		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
 		/* for one-shot events, one must manually stop the watcher
 		 * with its corresponding stop function.
@@ -872,6 +899,58 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 	return ret;
 }
 
+ssize_t EVTCPServer::handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
+{
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	ssize_t ret = 0;
+	size_t received_bytes = 0;
+	EVConnectedStreamSocket *cn = cb_ptr->cn;
+	cn->setTimeOfLastUse();
+	errno = 0;
+
+	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
+	if (!tn) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+	EVConnectedStreamSocket *ref_cn = tn->getProcState()->getEVConnSock(cn->getSockfd());
+	if ((!ref_cn) || (ref_cn->getSockfd() != cn->getSockfd())) {
+		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
+		std::abort();
+		return -1;
+	}
+	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
+
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	EVUpstreamEventNotification * usN = 0;
+	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+												cb_ptr->cb_evid_num,
+												(ret)?ret:1, 0);
+		usN->setConnSockState(EVUpstreamEventNotification::READY_FOR_READWRITE);
+		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+		std::abort();
+	}
+	ev_io * socket_watcher_ptr = cn->getSocketWatcher();
+	ev_io_stop(_loop, socket_watcher_ptr);
+	ev_clear_pending(_loop, socket_watcher_ptr);
+	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+
+	return ret;
+}
+
 ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
 	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
@@ -893,6 +972,7 @@ ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, con
 		std::abort();
 		return -1;
 	}
+	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
 
 	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
 	EVUpstreamEventNotification * usN = 0;
@@ -945,6 +1025,7 @@ ssize_t EVTCPServer::handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, cons
 		std::abort();
 		return -1;
 	}
+	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
 
 	EVUpstreamEventNotification * usN = 0;
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
@@ -1222,6 +1303,7 @@ void EVTCPServer::dataReadyForSend(int fd)
 													EVTCPServerNotification::DATA_FOR_SEND_READY));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1233,6 +1315,7 @@ void EVTCPServer::receivedDataConsumed(int fd)
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1248,6 +1331,7 @@ void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_SENDING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1263,6 +1347,7 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_RECEIVING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1280,6 +1365,7 @@ void EVTCPServer::errorInAuxProcesing(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_AUX_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1295,6 +1381,7 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
+	//DEBUGPOINT("FROM HERE\n");
 	ev_async_send(_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -2036,6 +2123,7 @@ int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
 		cb_ptr->cb_evid_num = sr->getCBEVIDNum();
 		cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadReady;
 		cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWriteReady;
+		cb_ptr->connSocketReadAndWritable = &EVTCPServer::handleConnSocketReadAndWriteReady;
 		cb_ptr->cn = connectedSock;
 		socket_watcher_ptr->data = (void*)cb_ptr;
 
