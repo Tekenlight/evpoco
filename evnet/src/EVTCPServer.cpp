@@ -901,7 +901,7 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
 
 ssize_t EVTCPServer::handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured)
 {
-	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadAndWriteReady\n");
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
 	EVConnectedStreamSocket *cn = cb_ptr->cn;
@@ -920,9 +920,8 @@ ssize_t EVTCPServer::handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_p
 		std::abort();
 		return -1;
 	}
-	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
 
-	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadAndWriteReady\n");
 	EVUpstreamEventNotification * usN = 0;
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
 		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
@@ -946,8 +945,10 @@ ssize_t EVTCPServer::handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_p
 	ev_io_stop(_loop, socket_watcher_ptr);
 	ev_clear_pending(_loop, socket_watcher_ptr);
 	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
-	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
+	//DEBUGPOINT("EVTCPServer::handleConnSocketReadAndWriteReady\n");
 
+	ref_cn->invalidateSocket();
+	tn->getProcState()->eraseEVConnSock(cn->getSockfd());
 	return ret;
 }
 
@@ -972,7 +973,6 @@ ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, con
 		std::abort();
 		return -1;
 	}
-	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
 
 	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
 	EVUpstreamEventNotification * usN = 0;
@@ -1000,6 +1000,8 @@ ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, con
 	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
 
+	ref_cn->invalidateSocket();
+	tn->getProcState()->eraseEVConnSock(cn->getSockfd());
 	return ret;
 }
 
@@ -1025,7 +1027,6 @@ ssize_t EVTCPServer::handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, cons
 		std::abort();
 		return -1;
 	}
-	tn->getProcState()->eraseEVConnSock_ND(cn->getSockfd());
 
 	EVUpstreamEventNotification * usN = 0;
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
@@ -1052,6 +1053,8 @@ ssize_t EVTCPServer::handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, cons
 	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 	//DEBUGPOINT("EVTCPServer::handleConnSocketReadReady\n");
 
+	ref_cn->invalidateSocket();
+	tn->getProcState()->eraseEVConnSock(cn->getSockfd());
 	return ret;
 }
 

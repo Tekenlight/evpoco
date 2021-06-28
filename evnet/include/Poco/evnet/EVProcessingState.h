@@ -58,7 +58,6 @@ public:
 	ev_queue_type getUpstreamEventQ();
 	void setUpstreamEventQ(ev_queue_type);
 	void eraseEVConnSock(int fd);
-	void eraseEVConnSock_ND(int fd);
 	void setClientAddress(Net::SocketAddress addr);
 	void setServerAddress(Net::SocketAddress addr);
 	Net::SocketAddress& clientAddress();
@@ -119,16 +118,6 @@ inline void EVProcessingState::eraseEVConnSock(int fd)
 		cn = it->second;
 		_cssMap.erase(fd);
 		delete cn;
-	}
-	return;
-}
-inline void EVProcessingState::eraseEVConnSock_ND(int fd)
-{
-	EVConnectedStreamSocket * cn = NULL;
-	auto it = _cssMap.find(fd);
-	if (_cssMap.end() != it) {
-		cn = it->second;
-		_cssMap.erase(fd);
 	}
 	return;
 }

@@ -21,6 +21,8 @@ static int connection_close(lua_State *L);
 static int connection_gc(lua_State *L);
 static int connection_tostring(lua_State *L);
 static int orchestrate_connection_process(lua_State *L, int step_to_continue);
+static int orig_connection_close(lua_State *L);
+static int close_connection(connection_t *conn);
 
 /*
  * instance methods
@@ -148,7 +150,16 @@ static int open_connection_initiate(lua_State *L)
 	const char * user = luaL_checkstring(L, 4);
 	const char * password = luaL_checkstring(L, 5);
 	connection_t * conn = (connection_t *) get_conn_from_pool(POSTGRES_DB_TYPE_NAME, host, dbname);
-	//connection_t * conn = NULL;
+	if ( conn && !socket_live(PQsocket(conn->pg_conn))) {
+		DEBUGPOINT("SOCKET IS IN ERROR\n");
+		close_connection(conn);
+		conn = NULL;
+		/*
+		 * This abort is only for debug purpose.
+		 * It should eventually be removed.
+		 */
+		std::abort();
+	}
 
 	DEBUGPOINT("CONN = [%p]\n", conn);
 
@@ -191,10 +202,8 @@ static int open_connection_initiate(lua_State *L)
 				n_conn->autocommit = conn->autocommit;
 				n_conn->conn_in_error = conn->conn_in_error;
 
-				if (!socket_live(PQsocket(conn->pg_conn))) {
-					DEBUGPOINT("SOCKET IS IN ERROR\n");
-					std::abort();
-				}
+				/*
+				*/
 			}
 			/*
 			{
@@ -234,12 +243,9 @@ static int run(connection_t *conn, const char *command)
 	return 0;
 }
 
-static int orig_connection_close(lua_State *L)
+static int close_connection(connection_t *conn)
 {
-    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
     int disconnect = 0;   
-
-	DEBUGPOINT("CLOSING CONNECTION [%p][%p]\n", conn, conn->pg_conn);
     if (conn->pg_conn) {
 		/*
 		 * if autocommit is turned off, we probably
@@ -259,6 +265,16 @@ static int orig_connection_close(lua_State *L)
 		delete conn->s_dbname;
 	}
 
+	return disconnect;
+
+}
+
+static int orig_connection_close(lua_State *L)
+{
+    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+
+	DEBUGPOINT("CLOSING CONNECTION [%p][%p]\n", conn, conn->pg_conn);
+	int disconnect = close_connection(conn);
     lua_pushboolean(L, disconnect);
     return 1;
 }
@@ -267,7 +283,7 @@ static int orig_connection_close(lua_State *L)
 static int connection_close(lua_State *L)
 {
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
-	socket_live(PQsocket(conn->pg_conn));
+	//socket_live(PQsocket(conn->pg_conn));
 	if (conn->conn_in_error == 1) {
 		return orig_connection_close(L);
 	}

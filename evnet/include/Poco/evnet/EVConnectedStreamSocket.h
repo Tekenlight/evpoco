@@ -112,6 +112,8 @@ public:
 	bool newConnection();
 	void setConnectionUsed();
 
+	void invalidateSocket();
+
 private:
 	poco_socket_t				_sock_fd;
 	poco_socket_t				_acc_sock_fd;
@@ -173,6 +175,11 @@ inline void EVConnectedStreamSocket::setEventLoop(struct ev_loop* loop)
 inline struct ev_loop* EVConnectedStreamSocket::getEventLoop()
 {
 	return _loop;
+}
+
+inline void EVConnectedStreamSocket::invalidateSocket()
+{
+	_streamSocket.setFd(POCO_INVALID_SOCKET);
 }
 
 } } // namespace evnet and Poco end.
