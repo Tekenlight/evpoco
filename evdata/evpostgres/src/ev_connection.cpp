@@ -310,7 +310,7 @@ static int connection_close(lua_State *L)
 		}
 		*/
 		add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
-		DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
+		//DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
 		/*
 		*/
 		//c = conn->pg_conn;
@@ -320,7 +320,7 @@ static int connection_close(lua_State *L)
 
 static int connection_gc(lua_State *L)
 {
-	DEBUGPOINT("Here in GC\n");
+	//DEBUGPOINT("Here in GC\n");
 	int ret =  connection_close(L);
 	//const char * c = "SELECT user_name from BIOP_ADMIN.BIOP_USER_PROFILES";
 	//const void * v = get_stmt_id_from_cache(L, c);
@@ -358,13 +358,12 @@ static int connection_ping(lua_State *L) {
  * statement = connection:prepare(sql_string)
  */
 static int connection_prepare(lua_State *L) {
-	DEBUGPOINT("connection_prepare [%s]\n", luaL_checkstring(L, 3));
+	//DEBUGPOINT("connection_prepare [%s]\n", luaL_checkstring(L, 3));
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 
     if (conn->pg_conn) {
-		DEBUGPOINT("[%s]\n", luaL_checkstring(L, 3));
+		//DEBUGPOINT("[%s]\n", luaL_checkstring(L, 3));
 		return ev_postgres_statement_create(L, conn, luaL_checkstring(L, 2), luaL_checkstring(L, 3));
-		//return dbd_postgresql_statement_create(L, conn, luaL_checkstring(L, 3));
     }
 
     lua_pushnil(L);    

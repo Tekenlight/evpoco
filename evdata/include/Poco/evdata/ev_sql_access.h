@@ -136,7 +136,7 @@ typedef enum lua_push_type {
 #define	EV_SQL_ERR_CONNECTION_FAILED    "Failed to connect to database: %s"
 #define EV_SQL_ERR_DB_UNAVAILABLE	    "Database not available"
 #define EV_SQL_ERR_EXECUTE_INVALID	    "Execute called on a closed or invalid statement"
-#define EV_SQL_ERR_EXECUTE_FAILED	    "Execute failed %s"
+#define EV_SQL_ERR_EXECUTE_FAILED	    "Execute failed: %s"
 #define EV_SQL_ERR_FETCH_INVALID	    "Fetch called on a closed or invalid statement"
 #define EV_SQL_ERR_FETCH_FAILED	        "Fetch failed %s"
 #define EV_SQL_ERR_PARAM_MISCOUNT	    "Statement expected %d parameters but received %d"
@@ -155,6 +155,8 @@ typedef enum lua_push_type {
 #define EV_SQL_ERR_NOT_IMPLEMENTED      "Method %s.%s is not implemented"
 #define EV_SQL_ERR_QUOTING_STR          "Error quoting string: %s"
 #define EV_SQL_ERR_STATEMENT_BROKEN     "Statement unavailable: database closed"
+#define EV_SQL_ERR_ALLOC				"Error allocating : %s"
+#define EV_SQL_ERR_PROC					"Error processing statment : %s"
 
 
 

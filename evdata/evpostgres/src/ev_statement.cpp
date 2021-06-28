@@ -4,11 +4,14 @@
 void add_stmt_id_to_chache(const char * statement, const char*p);
 const char* get_stmt_id_from_cache(const char * statement);
 
+typedef int (*data_return_func)(lua_State *, PGresult *) ;
+
 struct finalize_data_s {
 	void * err_mem_to_free;
 	int lua_stack_base;
 	int bool_or_null;
-	int (*func_to_return_data)(lua_State *) ;
+	data_return_func func_to_return_data;
+	connection_t * conn;
 };
 
 const char * get_stmt_id(lua_State *L)
@@ -20,35 +23,24 @@ const char * get_stmt_id(lua_State *L)
 	return p;
 }
 
-static int return_finalized_statement(lua_State *L)
+static int return_finalized_statement(lua_State *L, PGresult * r)
 {
-	PGresult *result = NULL;
+	PGresult * result = r;
 	ExecStatusType status;
 	char stmt_id[50] = {0};
 
 	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 
 	sprintf(stmt_id, "%p", get_stmt_id(L));
-	/*
-	result = PQdescribePrepared(conn->pg_conn, stmt_id);
-	if (PQresultStatus(result) != PGRES_COMMAND_OK) {
-		const char *err_string = PQresultErrorMessage(result);
-
-		lua_pushnil(L);
-		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, err_string);
-		PQclear(result);
-
-		conn->conn_in_error = 1;
-
-		DEBUGPOINT("ret = [2]\n");
-		void * new_byte = lua_touserdata(L, 4);
-		if (new_byte) free(new_byte);
-
-		return 2;
-	}
-	*/
 
 	const char * p = NULL;
+
+	PQclear(result);
+	/*
+	while ((result = PQgetResult(conn->pg_conn)) != NULL) {
+		PQclear(result);
+	}
+	*/
 
 	int n = lua_gettop(L);
 	if (n != 4) {
@@ -65,9 +57,6 @@ static int return_finalized_statement(lua_State *L)
 	sprintf(stmt_id, "%p", p);
 	(*(conn->cached_stmts))[std::string(stmt_id)] = 1;
 	lua_settop(L, 3);
-
-	//DEBUGPOINT("STMT_ID [%s] \n", stmt_id);
-	//DEBUGPOINT("CONN STATUS [%d]\n", PQstatus(conn->pg_conn));
 
 	statement_t *statement = NULL;
 	statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
@@ -91,7 +80,7 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 
 	struct finalize_data_s * fid = (struct finalize_data_s *) ctx;
 
-	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	connection_t *conn = fid->conn;
 
 	int ret = 0;
 
@@ -103,11 +92,12 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 			ret = PQconsumeInput(conn->pg_conn);
 			if (ret == 0) {
 				if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
-				lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
+				lua_pushfstring(L, EV_SQL_ERR_PROC, PQerrorMessage(conn->pg_conn));
 
 				DEBUGPOINT("ret = [2]\n");
 				if (fid->err_mem_to_free) free(fid->err_mem_to_free);
 				conn->conn_in_error = 1;
+				free(fid);
 
 				return 2;
 			}
@@ -136,11 +126,12 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 			}
 			else {
 				if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
-				lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
+				lua_pushfstring(L, EV_SQL_ERR_PROC, PQerrorMessage(conn->pg_conn));
 
 				DEBUGPOINT("ret = [2]\n");
 				if (fid->err_mem_to_free) free(fid->err_mem_to_free);
 				conn->conn_in_error = 1;
+				free(fid);
 
 				return 2;
 			}
@@ -150,28 +141,37 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 		}
 		default: {
 			if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
-			lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
+			lua_pushfstring(L, EV_SQL_ERR_PROC, PQerrorMessage(conn->pg_conn));
 
 			DEBUGPOINT("ret = [2]\n");
 			if (fid->err_mem_to_free) free(fid->err_mem_to_free);
 			conn->conn_in_error = 1;
+			free(fid);
 
 			return 2;
 		}
 
 	}
-	//DEBUGPOINT("DONE WITH HANDSHAKE, TIME TO FINALIZE\n");
+	//DEBUGPOINT("DONE WITH HANDSHAKE, TIME TO FINALIZE isbusy=[%d]\n", ret);
 	result = PQgetResult(conn->pg_conn);
 	if (!result) {
 
 		if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_ALLOC_STATEMENT, PQerrorMessage(conn->pg_conn));
+		lua_pushfstring(L, EV_SQL_ERR_ALLOC, PQerrorMessage(conn->pg_conn));
 
 		DEBUGPOINT("ret = [2]\n");
 		if (fid->err_mem_to_free) free(fid->err_mem_to_free);
 		conn->conn_in_error = 1;
+		free(fid);
 
 		return 2;
+	}
+	PGresult *result1 = NULL;
+	while ((result1 = PQgetResult(conn->pg_conn)) != NULL) {
+		DEBUGPOINT("IDEALLY THIS SHOULD NEVER GET EXECUTED\n");
+		DEBUGPOINT("SINCE WE ARE FIRING ONLY ONE QUERY AT A TIME AND WAITING FOR RESULT\n");
+		std::abort();
+		result = result1;
 	}
 
 	status = PQresultStatus(result);
@@ -181,23 +181,21 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 		const char *err_string = PQresultErrorMessage(result);
 
 		if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, err_string);
+		lua_pushfstring(L, EV_SQL_ERR_PROC, err_string);
 		PQclear(result);
 
 		DEBUGPOINT("ret = [2]\n");
 		if (fid->err_mem_to_free) free(fid->err_mem_to_free);
 		conn->conn_in_error = 1;
+		free(fid);
 
 		return 2;
 	}
-	PQclear(result);
-	while ((result = PQgetResult(conn->pg_conn)) != NULL) {
-		DEBUGPOINT("H\n");
-		PQclear(result);
-	}
+	//PQclear(result);
 
-	return fid->func_to_return_data(L);
-
+	data_return_func f = fid->func_to_return_data;
+	free(fid);
+	return f(L, result);
 }
 
 static int crete_statement(lua_State *L, const char *sql_stmt)
@@ -228,27 +226,12 @@ static int crete_statement(lua_State *L, const char *sql_stmt)
 		lua_pushnil(L);
 	}
 	sprintf(stmt_id, "%p", p);
-	DEBUGPOINT("STMT_ID [%s] \n", stmt_id);
+	//DEBUGPOINT("STMT_ID [%s] \n", stmt_id);
 	/* Here onwards changes */
 	int ret = 0;
-	/*
-	ret = PQsetnonblocking(conn->pg_conn, 1);
-	if (ret == -1) {
-		lua_pushnil(L);
-		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
-
-		DEBUGPOINT("ret = [2]\n");
-		void * new_byte = lua_touserdata(L, 4);
-		free(new_stmt);
-		if (new_byte) free(new_byte);
-		conn->conn_in_error = 1;
-
-		return 2;
-	}
-	ret = 0;
-	*/
 
 	//DEBUGPOINT("SENDING STATEMENT FOR PREPARE\n");
+	//DEBUGPOINT("BUSY = [%d]\n", PQisBusy(conn->pg_conn));
 	ret = PQsendPrepare(conn->pg_conn, stmt_id, new_stmt, 0, NULL);
 	free(new_stmt);
 
@@ -294,6 +277,7 @@ static int crete_statement(lua_State *L, const char *sql_stmt)
 	//DEBUGPOINT("WIATING FOR [%d] ON SOCKET\n", socket_wait_mode);
 	struct finalize_data_s * fid = (struct finalize_data_s *)malloc(sizeof(struct finalize_data_s));;
 	memset(fid, 0, sizeof(struct finalize_data_s));
+	fid->conn = conn;
 	fid->err_mem_to_free = lua_touserdata(L, 4);
 	fid->lua_stack_base = lua_gettop(L);
 	fid->bool_or_null = 0;
@@ -328,7 +312,7 @@ int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *s
 		return crete_statement(L, sql_stmt);
 	}
 	else {
-		DEBUGPOINT("RETRIEVED stmt[%p] [%s] from cache\n", p, sql_stmt);
+		//DEBUGPOINT("RETRIEVED stmt[%p] [%s] from cache\n", p, sql_stmt);
 		ret = 1;
 
 		statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
@@ -344,77 +328,40 @@ int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *s
 	return ret;
 }
 
-int dbd_postgresql_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
-{ 
-	statement_t *statement = NULL;
-	ExecStatusType status;
-	PGresult *result = NULL;
-	char *new_sql;
-	char name[IDLEN];
-
-
-	/*
-	 * convert SQL string into a PSQL API compatible SQL statement
-	 */ 
-	new_sql = ev_sql_replace_placeholders(L, '$', sql_query);
-
-	snprintf(name, IDLEN, "dbd-postgresql-%017u", ++conn->statement_id);
-	name[IDLEN-1] = 0;
-
-	DEBUGPOINT("HERE name =[%s]\n", name);
-	result = PQprepare(conn->pg_conn, name, new_sql, 0, NULL);
-	DEBUGPOINT("HERE\n");
-
-	/*
-	 * free converted statement after use
-	 */
-	free(new_sql);
-
-	if (!result) {
-		lua_pushnil(L);
-		lua_pushfstring(L, EV_SQL_ERR_ALLOC_STATEMENT, PQerrorMessage(conn->pg_conn));
-		DEBUGPOINT("Status = [%d]\n", PQstatus(conn->pg_conn));
-		DEBUGPOINT(EV_SQL_ERR_ALLOC_STATEMENT, PQerrorMessage(conn->pg_conn));
-		conn->conn_in_error = 1;
-		return 2;
-	}
-
-	DEBUGPOINT("HERE\n");
-	status = PQresultStatus(result);
+static int return_data_from_stmt_execution(lua_State *L, PGresult *result)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+	ExecStatusType status = PQresultStatus(result);
 	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
-		const char *err_string = PQresultErrorMessage(result);
-
-		lua_pushnil(L);
-		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, err_string);
-		PQclear(result);
+		if (!result) PQclear(result);
+		lua_pushboolean(L, 0);
+		lua_pushfstring(L, EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
+		DEBUGPOINT(EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
+		statement->conn->conn_in_error = 1;
+		statement->conn->conn_in_error = 1;
 		return 2;
 	}
-	DEBUGPOINT("HERE\n");
 
-	PQclear(result);
-	DEBUGPOINT("HERE\n");
+	if (statement->result) {
+		status = PQresultStatus (statement->result);
+		if (status == PGRES_COMMAND_OK || status == PGRES_TUPLES_OK) {
+			PQclear (statement->result);
+		}
+	}
+	statement->result = result;
+	//DEBUGPOINT("STMT EXEC DONE\n");
 
-	statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
-	statement->conn = conn;
-	statement->result = NULL;
-	statement->tuple = 0;
-	statement->name = strdup(name);
-
-	luaL_getmetatable(L, EV_POSTGRES_STATEMENT);
-	lua_setmetatable(L, -2);
-	DEBUGPOINT("HERE\n");
-
+	lua_pushboolean(L, 1);
 	return 1;
-} 
+}
 
-static int nb_statement_execute(lua_State *L)
+static int ev_statement_execute(lua_State *L)
 {
 	int n = lua_gettop(L);
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
 	int num_bind_params = n - 1;   
 	ExecStatusType status;
 	int p;
-	const char *errstr = NULL;
 
 	const char **params;
 	PGresult *result = NULL;
@@ -449,6 +396,8 @@ static int nb_statement_execute(lua_State *L)
 		int type = lua_type(L, p);
 		char err[64];
 
+		memset(&err, 0, 64);
+
 		switch(type) {
 		case LUA_TNIL:
 			params[i] = NULL;
@@ -469,20 +418,18 @@ static int nb_statement_execute(lua_State *L)
 			break;
 		default:
 			snprintf(err, sizeof(err)-1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
-			errstr = err;
 			free(params);
-			if (errstr) {
-				lua_pushboolean(L, 0);
-				lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, errstr);
-				DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, errstr);
-				statement->conn->conn_in_error = 1;
-				conn->conn_in_error = 1;
-				return 2;
-			}
+			lua_pushboolean(L, 0);
+			lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, err);
+			DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, err);
+			statement->conn->conn_in_error = 1;
+			conn->conn_in_error = 1;
+			return 2;
 		}
 	}
 
-	DEBUGPOINT("STMT NAME = [%s]\n", statement->name);
+	//DEBUGPOINT("STMT NAME = [%s]\n", statement->name);
+	//DEBUGPOINT("BUSY = [%d]\n", PQisBusy(conn->pg_conn));
 
 	int ret = 0;
 	ret = PQsendQueryPrepared(
@@ -498,8 +445,8 @@ static int nb_statement_execute(lua_State *L)
 
 	if (ret != 1) {
 		lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
-		DEBUGPOINT(EV_SQL_ERR_PREP_STATEMENT, PQerrorMessage(conn->pg_conn));
+		lua_pushfstring(L, EV_SQL_ERR_EXECUTE_FAILED, PQerrorMessage(conn->pg_conn));
+		DEBUGPOINT(EV_SQL_ERR_EXECUTE_FAILED, PQerrorMessage(conn->pg_conn));
 
 		DEBUGPOINT("CONN STATUS [%d]\n", PQstatus(conn->pg_conn));
 		conn->conn_in_error = 1;
@@ -533,139 +480,13 @@ static int nb_statement_execute(lua_State *L)
 	
 	struct finalize_data_s * fid = (struct finalize_data_s *)malloc(sizeof(struct finalize_data_s));;
 	memset(fid, 0, sizeof(struct finalize_data_s));
+	fid->conn = conn;
 	fid->err_mem_to_free = NULL;
 	fid->lua_stack_base = lua_gettop(L);
 	fid->bool_or_null = 1;
-	fid->func_to_return_data = NULL;
+	fid->func_to_return_data = return_data_from_stmt_execution;
 	reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
 	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_creation);
-
-}
-
-/*
- * success = statement:execute(...)
- */
-static int statement_execute(lua_State *L)
-{
-	int n = lua_gettop(L);
-	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
-	int num_bind_params = n - 1;   
-	ExecStatusType status;
-	int p;
-	const char *errstr = NULL;
-
-	const char **params;
-	PGresult *result = NULL;
-
-	connection_t *conn = statement->conn;
-
-
-	/*
-	 * Sanity check - is database still connected?
-	 */
-	if (PQstatus(statement->conn->pg_conn) != CONNECTION_OK) {
-		lua_pushstring(L, EV_SQL_ERR_STATEMENT_BROKEN);
-		DEBUGPOINT(EV_SQL_ERR_STATEMENT_BROKEN);
-		conn->conn_in_error = 1;
-		lua_error(L);	
-	}
-
-
-	statement->tuple = 0;
-
-	params = (const char **)malloc(num_bind_params * sizeof(params));
-	memset(params, 0, num_bind_params * sizeof(params));
-
-	/*
-	 * convert and copy parameters into a string array
-	 */ 
-	for (p = 2; p <= n; p++) {
-		int i = p - 2;	
-		int type = lua_type(L, p);
-		char err[64];
-
-		switch(type) {
-		case LUA_TNIL:
-			params[i] = NULL;
-			break;
-		case LUA_TBOOLEAN:
-			/*
-			 * boolean values in pg_conn can either be
-			 * t/f or 1/0. Pass integer values rather than
-			 * strings to maintain semantic compatibility
-			 * with other EV_SQL drivers that pass booleans
-			 * as integers.
-			 */
-			params[i] = lua_toboolean(L, p) ?  "1" : "0";
-			break;
-		case LUA_TNUMBER:
-		case LUA_TSTRING:
-			params[i] = lua_tostring(L, p);
-			break;
-		default:
-			snprintf(err, sizeof(err)-1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
-			errstr = err;
-			goto cleanup;
-		}
-	}
-
-	DEBUGPOINT("STMT NAME = [%s]\n", statement->name);
-
-	result = PQexecPrepared(
-		statement->conn->pg_conn,
-		statement->name,
-		num_bind_params,
-		(const char **)params,
-		NULL,
-		NULL,
-		0
-	);
-
-	DEBUGPOINT("OK...\n");
-
-cleanup:
-	free(params);
-
-	if (errstr) {
-		lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, errstr);
-		DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, errstr);
-		statement->conn->conn_in_error = 1;
-		conn->conn_in_error = 1;
-		return 2;
-	}
-
-	if (!result) {
-		lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_ALLOC_RESULT,  PQerrorMessage(statement->conn->pg_conn));
-		DEBUGPOINT(EV_SQL_ERR_ALLOC_RESULT,  PQerrorMessage(statement->conn->pg_conn));
-		statement->conn->conn_in_error = 1;
-		conn->conn_in_error = 1;
-		return 2;
-	}
-
-	status = PQresultStatus(result);
-	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
-		lua_pushboolean(L, 0);
-		lua_pushfstring(L, EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
-		DEBUGPOINT(EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
-		statement->conn->conn_in_error = 1;
-		conn->conn_in_error = 1;
-		return 2;
-	}
-
-	if (statement->result) {
-		status = PQresultStatus (statement->result);
-		if (status == PGRES_COMMAND_OK || status == PGRES_TUPLES_OK) {
-			DEBUGPOINT("WHAT IS THIS?\n");
-			PQclear (statement->result);
-		}
-	}
-	statement->result = result;
-	DEBUGPOINT("STMT EXEC DONE\n");
-
-	lua_pushboolean(L, 1);
-	return 1;
 }
 
 static int deallocate(statement_t *statement)
@@ -699,26 +520,28 @@ static int deallocate(statement_t *statement)
 static int statement_close(lua_State *L) {
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
 
+	//DEBUGPOINT(" CLOSING STATEMENT\n");
 	if (statement->result) {
 		/*
 		 * Deallocate prepared statement on the
 		 * server side
 		 */ 
-		deallocate(statement); 
+		//deallocate(statement); 
 		/*
 		 * Allow the statement to remain cached
 		 * With a consistent naming schemd for statements
 		 * we can reuse the prepared statements.
 		 */
 
-		DEBUGPOINT(" CLOSING STATEMENT\n");
 		PQclear(statement->result);
 		statement->result = NULL;
 	}
 
 	if (statement->name) {
 		free(statement->name);
-		//free(statement->source);
+	}
+	if (statement->source) {
+		free(statement->source);
 	}
 
 	return 0;    
@@ -748,7 +571,7 @@ int ev_postgres_statement(lua_State *L)
     static const luaL_Reg statement_methods[] = {
 		{"__gc", new_statement_gc},
 		{"__tostring", statement_tostring},
-        {"execute", nb_statement_execute},
+        {"execute", ev_statement_execute},
 		{NULL, NULL}
     };
 

@@ -43,9 +43,9 @@ ev_postgres_db.open_connetion = function(host, port, dbname, user, password)
 end
 
 ev_postgres_stmt.execute = function(self)
-	print(debug.getinfo(1).source, debug.getinfo(1).currentline, self._stmt);
-	require 'pl.pretty'.dump(getmetatable(self._stmt));
-	print(debug.getinfo(1).source, debug.getinfo(1).currentline);
+	--print(debug.getinfo(1).source, debug.getinfo(1).currentline, self._stmt);
+	--require 'pl.pretty'.dump(getmetatable(self._stmt));
+	--print(debug.getinfo(1).source, debug.getinfo(1).currentline);
 	local flg, msg = self._stmt.execute(self._stmt)
 	return flg, msg;
 end
@@ -88,13 +88,14 @@ ev_postgres_conn.rollback = function(self)
 end
 
 ev_postgres_conn.prepare = function(self, sql_stmt)
-	local stmt_id = ev_postgres_db.get_statement_id(debug.getinfo(2));
-	local c_p_stmt, msg = self._conn.prepare(self._conn, stmt_id, sql_stmt);
+	local stmt_src = ev_postgres_db.get_statement_id(debug.getinfo(2));
+	local c_p_stmt, msg = self._conn.prepare(self._conn, stmt_src, sql_stmt);
 	if (c_p_stmt == nil) then
 		error("Could not prepare statement: "..sql_stmt.. ":"..msg);
 		return nil;
 	end
-	local p_stmt = { stmt_id = stmt_id, _stmt = c_p_stmt };
+	print(debug.getinfo(1).source, debug.getinfo(1).currentline, c_p_stmt);
+	local p_stmt = { stmt_src = stmt_src, _stmt = c_p_stmt };
 	p_stmt = setmetatable(p_stmt, s_mt);
 	return p_stmt;
 end

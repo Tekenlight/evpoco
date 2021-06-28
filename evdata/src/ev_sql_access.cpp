@@ -243,7 +243,7 @@ static db_type_map_type * add_and_get_db_type_map(map_of_maps_type* m_o_m)
 				if (it == m_o_m->end()) {
 					dbtm = (new db_type_map_type());
 					(*m_o_m)[std::string(DB_TYPES_MAP)] = (void*)dbtm;
-					DEBUGPOINT("DBTM N = [%p]\n", dbtm);
+					//DEBUGPOINT("DBTM N = [%p]\n", dbtm);
 				}
 				else {
 					dbtm = (db_type_map_type *) it->second;
@@ -256,7 +256,7 @@ static db_type_map_type * add_and_get_db_type_map(map_of_maps_type* m_o_m)
 		}
 		else {
 			dbtm = (db_type_map_type *) it->second;
-			DEBUGPOINT("DBTM O = [%p]\n", dbtm);
+			//DEBUGPOINT("DBTM O = [%p]\n", dbtm);
 		}
 	}
 	sg_m_o_m_lock_rd_lock(0);
@@ -272,12 +272,12 @@ static db_type_map_type * get_db_type_map(map_of_maps_type* m_o_m)
 	{
 		auto it = m_o_m->find(DB_TYPES_MAP);
 		if (m_o_m->end() == it) {
-			DEBUGPOINT("THIS IS AN IMPOSSIBLE CONDITION\n");
+			//DEBUGPOINT("THIS IS AN IMPOSSIBLE CONDITION\n");
 			std::abort();
 		}
 		else {
 			dbtm = (db_type_map_type *) it->second;
-			DEBUGPOINT("DBTM O = [%p]\n", dbtm);
+			//DEBUGPOINT("DBTM O = [%p]\n", dbtm);
 		}
 	}
 	sg_m_o_m_lock_rd_lock(0);
@@ -323,7 +323,7 @@ get_queue_holder(const char * db_type, const char * host, const char * dbname)
 	db_type_map_type* dbtm = get_db_type_map(m_o_m);
 
 	std::string db_key = form_db_name_key(host, dbname);
-	DEBUGPOINT("DB_KEY = [%s]\n", db_key.c_str());
+	//DEBUGPOINT("DB_KEY = [%s]\n", db_key.c_str());
 	evl_db_conn_pool::queue_holder *qh = pool->get_queue_holder(db_key);
 	if (qh == NULL) {
 		auto it = dbtm->find(db_type);
@@ -334,7 +334,7 @@ get_queue_holder(const char * db_type, const char * host, const char * dbname)
 		evl_db_conn_pool::queue_holder *qhf = (evl_db_conn_pool::queue_holder *)it->second;
 		qh = pool->add_queue_holder(db_key, qhf);
 	}
-	DEBUGPOINT("qh = [%p]\n", qh);
+	//DEBUGPOINT("qh = [%p]\n", qh);
 
 	return qh;
 }
@@ -344,7 +344,7 @@ void * get_conn_from_pool(const char * db_type, const char * host, const char * 
 	evl_db_conn_pool::queue_holder * qh = get_queue_holder(db_type, host, dbname);
 	void * conn = dequeue(qh->_queue);
 
-	DEBUGPOINT("FOUND CONNECTION [%p] from pool\n", conn);
+	//DEBUGPOINT("FOUND CONNECTION [%p] from pool\n", conn);
 	return conn;
 }
 
