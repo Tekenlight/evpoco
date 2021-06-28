@@ -15,7 +15,7 @@ int socket_live(int fd)
 
 	int ret = poll(&fd_item, 1, time_out);
 
-	printf("ret = [%d] fd = [%d] revents = [%00X]\n", ret, fd_item.fd, fd_item.revents);
+	//printf("ret = [%d] fd = [%d] revents = [%00X]\n", ret, fd_item.fd, fd_item.revents);
 
 	if (ret < 0) {
 		printf("%s\n", strerror(errno));
@@ -41,7 +41,7 @@ int socket_live(int fd)
 		ret = 0;
 	}
 
-	printf("returning ret = [%d]\n", ret);
+	//printf("returning ret = [%d]\n", ret);
 
 	return ret;
 }

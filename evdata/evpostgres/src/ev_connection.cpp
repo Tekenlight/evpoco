@@ -125,16 +125,6 @@ static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx)
 	return return_opened_connection(L, p);
 }
 
-/*
-std::map<std::string, int> *g_cached_stmts = NULL;
-PGconn *g_pg_conn = NULL;
-std::string *g_s_host = NULL;
-std::string *g_s_dbname = NULL;
-unsigned int g_s_statement_id = 0;
-int g_s_autocommit = 0;
-int g_s_conn_in_error = 0;
-*/
-
 static int open_connection_initiate(lua_State *L)
 {
     int n = lua_gettop(L);
@@ -161,36 +151,16 @@ static int open_connection_initiate(lua_State *L)
 		std::abort();
 	}
 
-	DEBUGPOINT("CONN = [%p]\n", conn);
-
-	//if (g_pg_conn == NULL)
+	//DEBUGPOINT("CONN = [%p]\n", conn);
 	if (conn == NULL) {
-		DEBUGPOINT("DID NOT FIND CONNECTION from pool\n");
+		//DEBUGPOINT("DID NOT FIND CONNECTION from pool\n");
 		PGconn * p = initiate_connection(host, port, dbname, user, password);
 		{
 			return open_connection_finalize(L, 0, (lua_KContext)p);
 		}
-		/*
-		{
-			connection_t * n_conn = (connection_t *)lua_newuserdata(L, sizeof(connection_t));
-			n_conn->autocommit = 0;
-			n_conn->conn_in_error = 0;
-			{
-				n_conn->cached_stmts = new (std::map<std::string, int>)();
-				n_conn->pg_conn = p;
-				n_conn->s_host = new std::string(host);
-				n_conn->s_dbname = new std::string(dbname);
-			}
-
-			luaL_getmetatable(L, EV_POSTGRES_CONNECTION);
-			lua_setmetatable(L, -2);
-
-			return 1;
-		}
-		*/
 	}
 	else {
-		DEBUGPOINT("FOUND CONNECTION [%p][%p] from pool\n", conn, (void*)conn->pg_conn);
+		//DEBUGPOINT("FOUND CONNECTION [%p][%p] from pool\n", conn, (void*)conn->pg_conn);
 		connection_t * n_conn = (connection_t *)lua_newuserdata(L, sizeof(connection_t));
 		{
 			{
@@ -201,21 +171,7 @@ static int open_connection_initiate(lua_State *L)
 				n_conn->statement_id = conn->statement_id;
 				n_conn->autocommit = conn->autocommit;
 				n_conn->conn_in_error = conn->conn_in_error;
-
-				/*
-				*/
 			}
-			/*
-			{
-				n_conn->cached_stmts = g_cached_stmts ;
-				n_conn->pg_conn = g_pg_conn ;
-				n_conn->s_host = g_s_host ;
-				n_conn->s_dbname = g_s_dbname ;
-				n_conn->statement_id = g_s_statement_id;
-				n_conn->autocommit = g_s_autocommit;
-				n_conn->conn_in_error = g_s_conn_in_error;
-			}
-			*/
 		}
 		free(conn);
 
@@ -298,17 +254,6 @@ static int connection_close(lua_State *L)
 			n_conn->autocommit = conn->autocommit;
 			n_conn->conn_in_error = conn->conn_in_error;
 		}
-		/*
-		{
-			g_cached_stmts = conn->cached_stmts;
-			g_pg_conn = conn->pg_conn;
-			g_s_host = conn->s_host;
-			g_s_dbname = conn->s_dbname;
-			g_s_statement_id = conn->statement_id;
-			g_s_autocommit = conn->autocommit;
-			g_s_conn_in_error = conn->conn_in_error;
-		}
-		*/
 		add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
 		//DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
 		/*
@@ -322,9 +267,6 @@ static int connection_gc(lua_State *L)
 {
 	//DEBUGPOINT("Here in GC\n");
 	int ret =  connection_close(L);
-	//const char * c = "SELECT user_name from BIOP_ADMIN.BIOP_USER_PROFILES";
-	//const void * v = get_stmt_id_from_cache(L, c);
-	//DEBUGPOINT("AT THE CLOSE[%p][%s] IN CACHE\n", v, c);
 	return ret;
 }
 
@@ -339,7 +281,8 @@ static int connection_tostring(lua_State *L)
 /*
  * ok = connection:ping()
  */
-static int connection_ping(lua_State *L) {
+static int connection_ping(lua_State *L)
+{
 	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 	int ok = 0;   
 
@@ -357,47 +300,49 @@ static int connection_ping(lua_State *L) {
 /*
  * statement = connection:prepare(sql_string)
  */
-static int connection_prepare(lua_State *L) {
+static int connection_prepare(lua_State *L)
+{
 	//DEBUGPOINT("connection_prepare [%s]\n", luaL_checkstring(L, 3));
-    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 
-    if (conn->pg_conn) {
+	if (conn->pg_conn) {
 		//DEBUGPOINT("[%s]\n", luaL_checkstring(L, 3));
 		return ev_postgres_statement_create(L, conn, luaL_checkstring(L, 2), luaL_checkstring(L, 3));
-    }
+	}
 
-    lua_pushnil(L);    
-    lua_pushstring(L, EV_SQL_ERR_DB_UNAVAILABLE);
-    return 2;
+	lua_pushnil(L);    
+	lua_pushstring(L, EV_SQL_ERR_DB_UNAVAILABLE);
+	return 2;
 }
 
 /*
  * quoted = connection:quote(str)
  */
-static int connection_quote(lua_State *L) {
-    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
-    size_t len;
-    const char *from = luaL_checklstring(L, 2, &len);
-    char *to = (char *)calloc(len*2+1, sizeof(char));
-    int err = 0;
-    int quoted_len;
+static int connection_quote(lua_State *L)
+{
+	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	size_t len;
+	const char *from = luaL_checklstring(L, 2, &len);
+	char *to = (char *)calloc(len*2+1, sizeof(char));
+	int err = 0;
+	int quoted_len;
 
-    if (!conn->pg_conn) {
-        luaL_error(L, EV_SQL_ERR_DB_UNAVAILABLE);
-    }
+	if (!conn->pg_conn) {
+		luaL_error(L, EV_SQL_ERR_DB_UNAVAILABLE);
+	}
 
-    quoted_len = PQescapeStringConn(conn->pg_conn, to, from, len, &err);
+	quoted_len = PQescapeStringConn(conn->pg_conn, to, from, len, &err);
 
-    if (err) {
-        free(to);
-        
-       luaL_error(L, EV_SQL_ERR_QUOTING_STR, PQerrorMessage(conn->pg_conn));
-    }
+	if (err) {
+		free(to);
+		
+	   luaL_error(L, EV_SQL_ERR_QUOTING_STR, PQerrorMessage(conn->pg_conn));
+	}
 
-    lua_pushlstring(L, to, quoted_len);
-    free(to);
+	lua_pushlstring(L, to, quoted_len);
+	free(to);
 
-    return 1;
+	return 1;
 }
 
 extern "C" int ev_postgres_connection(lua_State *L);
@@ -408,6 +353,7 @@ int ev_postgres_connection(lua_State *L)
 	static const luaL_Reg connection_methods[] = {
 		{"__gc", connection_gc},
 		{"__tostring", connection_tostring},
+		{"close", connection_close},
 		{"ping", connection_ping},
 		{"prepare", connection_prepare},
 		{"quote", connection_quote},

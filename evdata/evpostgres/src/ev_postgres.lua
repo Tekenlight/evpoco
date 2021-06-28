@@ -32,31 +32,25 @@ ev_postgres_db.open_connetion = function(host, port, dbname, user, password)
 		error("ERROR INITIATING CONNECTION:"..msg);
 		return nil;
 	end
-	--[[
 	if (nil == conn:turn_autocommit_off()) then
 		error("COULD NOT TURN OFF AUTOCOMMIT");
 		return nil;
 	end
-	--]]
 
 	return conn;
 end
 
 ev_postgres_stmt.execute = function(self)
-	--print(debug.getinfo(1).source, debug.getinfo(1).currentline, self._stmt);
-	--require 'pl.pretty'.dump(getmetatable(self._stmt));
-	--print(debug.getinfo(1).source, debug.getinfo(1).currentline);
 	local flg, msg = self._stmt.execute(self._stmt)
 	return flg, msg;
 end
 
 ev_postgres_conn.turn_autocommit_off = function(self)
-	local ac_stmt = self:prepare("ROLLBACK");
-	if (ac_stmt == nil) then
-		error("COULD NOT PREPARE STATEMENTS FOR BEGIN");
-		return false, 'COULD NOT PREPARE STATEMENTS FOR BEGIN';
+	local flg, msg = self:rollback();
+	if (not flg) then
+		return flg, msg;
 	end
-	local flg, msg = ac_stmt:execute();
+	flg, msg = self:begin();
 	return flg, msg;
 end
 
@@ -66,7 +60,8 @@ ev_postgres_conn.begin = function(self)
 		error("COULD NOT PREPARE STATEMENTS FOR BEGIN");
 		return nil;
 	end
-	return true;
+	local flg, msg = bg_stmt:execute();
+	return flg, msg;
 end
 
 ev_postgres_conn.commit = function(self)
@@ -75,7 +70,8 @@ ev_postgres_conn.commit = function(self)
 		error("COULD NOT PREPARE STATEMENTS FOR COMMIT");
 		return nil;
 	end
-	return true;
+	local flg, msg = cm_stmt:execute();
+	return flg, msg;
 end
 
 ev_postgres_conn.rollback = function(self)
@@ -84,7 +80,8 @@ ev_postgres_conn.rollback = function(self)
 		error("COULD NOT PREPARE STATEMENTS FOR ROLLBACK");
 		return nil;
 	end
-	return true;
+	local flg, msg = rb_stmt:execute();
+	return flg, msg;
 end
 
 ev_postgres_conn.prepare = function(self, sql_stmt)
@@ -94,7 +91,6 @@ ev_postgres_conn.prepare = function(self, sql_stmt)
 		error("Could not prepare statement: "..sql_stmt.. ":"..msg);
 		return nil;
 	end
-	print(debug.getinfo(1).source, debug.getinfo(1).currentline, c_p_stmt);
 	local p_stmt = { stmt_src = stmt_src, _stmt = c_p_stmt };
 	p_stmt = setmetatable(p_stmt, s_mt);
 	return p_stmt;

@@ -45,7 +45,6 @@ class pg_queue_holder : public Poco::evnet::evl_db_conn_pool::queue_holder {
 	public:
 	virtual Poco::evnet::evl_db_conn_pool::queue_holder* clone()
 	{
-		DEBUGPOINT("CONSTRUCTION OF PG_QUEUE_HOLDER\n");
 		return (Poco::evnet::evl_db_conn_pool::queue_holder*)(new pg_queue_holder());
 	}
 	virtual ~pg_queue_holder() {

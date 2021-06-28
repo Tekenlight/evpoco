@@ -36,11 +36,6 @@ static int return_finalized_statement(lua_State *L, PGresult * r)
 	const char * p = NULL;
 
 	PQclear(result);
-	/*
-	while ((result = PQgetResult(conn->pg_conn)) != NULL) {
-		PQclear(result);
-	}
-	*/
 
 	int n = lua_gettop(L);
 	if (n != 4) {
@@ -72,7 +67,7 @@ static int return_finalized_statement(lua_State *L, PGresult * r)
 	return 1;
 }
 
-static int finalize_statement_creation(lua_State *L, int status, lua_KContext ctx)
+static int finalize_statement_processing(lua_State *L, int status, lua_KContext ctx)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
@@ -107,7 +102,7 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 				DEBUGPOINT("MORE DATA NEEDED FOR READ\n");
 				int socket_wait_mode = Poco::evnet::EVLHTTPRequestHandler::READ;
 				reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
-				return lua_yieldk(L, 0, (lua_KContext)ctx, finalize_statement_creation);
+				return lua_yieldk(L, 0, (lua_KContext)ctx, finalize_statement_processing);
 			}
 			//DEBUGPOINT("READ COMPLETE ret = [%d]\n", ret);
 			break;
@@ -137,7 +132,7 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 			}
 
 			reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
-			return lua_yieldk(L, 0, (lua_KContext)ctx, finalize_statement_creation);
+			return lua_yieldk(L, 0, (lua_KContext)ctx, finalize_statement_processing);
 		}
 		default: {
 			if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
@@ -169,7 +164,7 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 	PGresult *result1 = NULL;
 	while ((result1 = PQgetResult(conn->pg_conn)) != NULL) {
 		DEBUGPOINT("IDEALLY THIS SHOULD NEVER GET EXECUTED\n");
-		DEBUGPOINT("SINCE WE ARE FIRING ONLY ONE QUERY AT A TIME AND WAITING FOR RESULT\n");
+		DEBUGPOINT("SINCE WE ARE FIRING ONLY ONE COMMAND AT A TIME AND WAITING FOR RESULT\n");
 		std::abort();
 		result = result1;
 	}
@@ -182,6 +177,7 @@ static int finalize_statement_creation(lua_State *L, int status, lua_KContext ct
 
 		if (!fid->bool_or_null) lua_pushnil(L); else lua_pushboolean(L, 0);
 		lua_pushfstring(L, EV_SQL_ERR_PROC, err_string);
+		DEBUGPOINT(EV_SQL_ERR_PROC, err_string);
 		PQclear(result);
 
 		DEBUGPOINT("ret = [2]\n");
@@ -231,7 +227,6 @@ static int crete_statement(lua_State *L, const char *sql_stmt)
 	int ret = 0;
 
 	//DEBUGPOINT("SENDING STATEMENT FOR PREPARE\n");
-	//DEBUGPOINT("BUSY = [%d]\n", PQisBusy(conn->pg_conn));
 	ret = PQsendPrepare(conn->pg_conn, stmt_id, new_stmt, 0, NULL);
 	free(new_stmt);
 
@@ -283,7 +278,7 @@ static int crete_statement(lua_State *L, const char *sql_stmt)
 	fid->bool_or_null = 0;
 	fid->func_to_return_data = return_finalized_statement;
 	reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
-	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_creation);
+	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_processing);
 }
 
 int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *stmt_source, const char *sql_stmt)
@@ -337,7 +332,6 @@ static int return_data_from_stmt_execution(lua_State *L, PGresult *result)
 		lua_pushboolean(L, 0);
 		lua_pushfstring(L, EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
 		DEBUGPOINT(EV_SQL_ERR_BINDING_EXEC, PQresultErrorMessage(result));
-		statement->conn->conn_in_error = 1;
 		statement->conn->conn_in_error = 1;
 		return 2;
 	}
@@ -429,8 +423,6 @@ static int ev_statement_execute(lua_State *L)
 	}
 
 	//DEBUGPOINT("STMT NAME = [%s]\n", statement->name);
-	//DEBUGPOINT("BUSY = [%d]\n", PQisBusy(conn->pg_conn));
-
 	int ret = 0;
 	ret = PQsendQueryPrepared(
 		statement->conn->pg_conn,
@@ -486,7 +478,7 @@ static int ev_statement_execute(lua_State *L)
 	fid->bool_or_null = 1;
 	fid->func_to_return_data = return_data_from_stmt_execution;
 	reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
-	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_creation);
+	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_processing);
 }
 
 static int deallocate(statement_t *statement)
@@ -517,7 +509,233 @@ static int deallocate(statement_t *statement)
 	return 0;
 }
 
-static int statement_close(lua_State *L) {
+/*
+ * num_rows = statement:rowcount()
+ */
+static int statement_rowcount(lua_State *L)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+
+	if (!statement->result) {
+		luaL_error(L, EV_SQL_ERR_INVALID_STATEMENT);
+	}
+
+	lua_pushinteger(L, PQntuples(statement->result));
+
+	return 1;
+}
+
+/*
+ * column_names = statement:columns()
+ */
+static int statement_columns(lua_State *L)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+
+	int i;
+	int num_columns;
+	int d = 1;
+
+	if (!statement->result) {
+		luaL_error(L, EV_SQL_ERR_INVALID_STATEMENT);
+		return 0;
+	}
+
+	num_columns = PQnfields(statement->result);
+	lua_newtable(L);
+	for (i = 0; i < num_columns; i++) {
+		const char *name = PQfname(statement->result, i);
+
+		LUA_PUSH_ARRAY_STRING(d, name);
+	}
+
+	return 1;
+}
+
+/*
+ * num_affected_rows = statement:affected()
+ */
+static int statement_affected(lua_State *L)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+
+	if (!statement->result) {
+		luaL_error(L, EV_SQL_ERR_INVALID_STATEMENT);
+	}
+
+	lua_pushinteger(L, atoi(PQcmdTuples(statement->result)));
+
+	return 1;
+}
+
+#define BOOLOID                 16
+#define INT2OID                 21
+#define INT4OID                 23
+#define INT8OID                 20
+#define FLOAT4OID		700
+#define FLOAT8OID		701
+#define DECIMALOID		1700
+
+static lua_push_type_t postgresql_to_lua_push(unsigned int postgresql_type)
+{
+	lua_push_type_t lua_type;
+
+	switch(postgresql_type) {
+	case INT2OID:
+	case INT4OID:
+	case INT8OID:
+		lua_type =  LUA_PUSH_INTEGER;
+		break;
+
+	case FLOAT4OID:
+	case FLOAT8OID:
+	case DECIMALOID:
+		lua_type = LUA_PUSH_NUMBER;
+		break;
+
+	case BOOLOID:
+		lua_type = LUA_PUSH_BOOLEAN;
+		break;
+
+	default:
+		lua_type = LUA_PUSH_STRING;
+	}
+
+	return lua_type;
+}
+
+/*
+ * can only be called after an execute
+ */
+static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
+{
+	int tuple = statement->tuple++;
+	int i;
+	int num_columns;
+	int d = 1;
+
+	if (!statement->result) {
+		luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+		return 0;
+	}
+
+	if (PQresultStatus(statement->result) != PGRES_TUPLES_OK) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (tuple >= PQntuples(statement->result)) {
+		lua_pushnil(L);  /* no more results */
+		return 1;
+	}
+
+	num_columns = PQnfields(statement->result);
+	lua_newtable(L);
+	for (i = 0; i < num_columns; i++) {
+		const char *name = PQfname(statement->result, i);
+
+		if (PQgetisnull(statement->result, tuple, i)) {
+			if (named_columns) {
+				LUA_PUSH_ATTRIB_NIL(name);
+			} else {
+				LUA_PUSH_ARRAY_NIL(d);
+			}	    
+		} else {
+			const char *value = PQgetvalue(statement->result, tuple, i);
+			lua_push_type_t lua_push = postgresql_to_lua_push(PQftype(statement->result, i));
+
+			/*
+			 * data is returned as strings from PSQL
+			 * convert them here into Lua types
+			 */ 
+
+			if (lua_push == LUA_PUSH_NIL) {
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_NIL(name);
+				} else {
+					LUA_PUSH_ARRAY_NIL(d);
+				}
+			} else if (lua_push == LUA_PUSH_INTEGER) {
+				int val = atoi(value);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_INT(name, val);
+				} else {
+					LUA_PUSH_ARRAY_INT(d, val);
+				}
+			} else if (lua_push == LUA_PUSH_NUMBER) {
+				double val = strtod(value, NULL);
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_FLOAT(name, val);
+				} else {
+					LUA_PUSH_ARRAY_FLOAT(d, val);
+				}
+			} else if (lua_push == LUA_PUSH_STRING) {
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_STRING(name, value);
+				} else {
+					LUA_PUSH_ARRAY_STRING(d, value);
+				}
+			} else if (lua_push == LUA_PUSH_BOOLEAN) {
+				/* 
+				 * booleans are returned as a string
+				 * either 't' or 'f'
+				 */
+				int val = value[0] == 't' ? 1 : 0;
+
+				if (named_columns) {
+					LUA_PUSH_ATTRIB_BOOL(name, val);
+				} else {
+					LUA_PUSH_ARRAY_BOOL(d, val);
+				}
+			} else {
+				luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+			}
+		}
+	}
+
+	return 1;    
+}
+
+static int next_iterator(lua_State *L)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_POSTGRES_STATEMENT);
+	int named_columns = lua_toboolean(L, lua_upvalueindex(2));
+
+	return statement_fetch_impl(L, statement, named_columns);
+}
+
+/*
+ * table = statement:fetch(named_indexes)
+ */
+static int statement_fetch(lua_State *L)
+{
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+	int named_columns = lua_toboolean(L, 2);
+
+	return statement_fetch_impl(L, statement, named_columns);
+}
+
+/*
+ * iterfunc = statement:rows(named_indexes)
+ */
+static int statement_rows(lua_State *L)
+{
+	if (lua_gettop(L) == 1) {
+		lua_pushvalue(L, 1);
+		lua_pushboolean(L, 0);
+	} else {
+		lua_pushvalue(L, 1);
+		lua_pushboolean(L, lua_toboolean(L, 2));
+	}
+
+	lua_pushcclosure(L, next_iterator, 2);
+	return 1;
+}
+
+static int statement_close(lua_State *L)
+{
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
 
 	//DEBUGPOINT(" CLOSING STATEMENT\n");
@@ -571,7 +789,13 @@ int ev_postgres_statement(lua_State *L)
     static const luaL_Reg statement_methods[] = {
 		{"__gc", new_statement_gc},
 		{"__tostring", statement_tostring},
+        {"affected", statement_affected},
+        {"close", statement_close},
+        {"columns", statement_columns},
+        {"rowcount", statement_rowcount},
+        {"fetch", statement_fetch},
         {"execute", ev_statement_execute},
+        {"rows", statement_rows},
 		{NULL, NULL}
     };
 
