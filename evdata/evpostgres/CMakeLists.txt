@@ -82,7 +82,7 @@ foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	#include_directories(SYSTEM ${dir})
 	string(APPEND INC_DIRS "-I${dir} ")
 endforeach(dir)
-string(APPEND INC_DIRS " -I/opt/local/include/postgresql13 ")
+string(APPEND INC_DIRS " -I/opt/local/include/postgresql13 -I/opt/local/include/postgresql13/server")
 set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
 
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})

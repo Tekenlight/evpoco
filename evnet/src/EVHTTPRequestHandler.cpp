@@ -351,7 +351,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		case HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED:
 			_usN->setCBEVIDNum((it->second)->cb_evid_num);
 			if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-				it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
+				it->second->session_ptr->setState(EVHTTPClientSession::IN_ERROR);
 			}
 			else {
 				/* No proxy or it has to be bypassed. */
@@ -372,7 +372,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			{
 				int parse_ret = 0;
 				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-					it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
+					it->second->session_ptr->setState(EVHTTPClientSession::IN_ERROR);
 					_usN->setCBEVIDNum((it->second)->cb_evid_num);
 				}
 				else {
@@ -408,7 +408,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		case HTTPRH_HTTPCONN_HOSTRESOLVED:
 			{
 				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
-					it->second->session_ptr->setState(EVHTTPClientSession::ERROR);
+					it->second->session_ptr->setState(EVHTTPClientSession::IN_ERROR);
 					_usN->setCBEVIDNum((it->second)->cb_evid_num);
 				}
 				else {

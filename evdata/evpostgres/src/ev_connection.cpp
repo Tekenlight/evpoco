@@ -51,9 +51,9 @@ static PGconn * initiate_connection(const char * host, const char * port, const 
 
 static int return_opened_connection(lua_State *L, PGconn * p)
 {
-	const char * host = luaL_checkstring(L, 1);
-	const char * port = luaL_checkstring(L, 2);
-	const char * dbname = luaL_checkstring(L, 3);
+	const char * host = luaL_checkstring(L, -5);
+	const char * port = luaL_checkstring(L, -4);
+	const char * dbname = luaL_checkstring(L, -3);
 
 	connection_t * conn = (connection_t *)lua_newuserdata(L, sizeof(connection_t));
 	memset(conn, 0, sizeof(connection_t));
@@ -134,11 +134,11 @@ static int open_connection_initiate(lua_State *L)
 		return 2;
 	}
 
-	const char * host = luaL_checkstring(L, 1);
-	const char * port = luaL_checkstring(L, 2);
-	const char * dbname = luaL_checkstring(L, 3);
-	const char * user = luaL_checkstring(L, 4);
-	const char * password = luaL_checkstring(L, 5);
+	const char * host = luaL_checkstring(L, -5);
+	const char * port = luaL_checkstring(L, -4);
+	const char * dbname = luaL_checkstring(L, -3);
+	const char * user = luaL_checkstring(L, -2);
+	const char * password = luaL_checkstring(L, -1);
 	connection_t * conn = (connection_t *) get_conn_from_pool(POSTGRES_DB_TYPE_NAME, host, dbname);
 	if ( conn && !socket_live(PQsocket(conn->pg_conn))) {
 		DEBUGPOINT("SOCKET IS IN ERROR\n");
@@ -148,7 +148,8 @@ static int open_connection_initiate(lua_State *L)
 		 * This abort is only for debug purpose.
 		 * It should eventually be removed.
 		 */
-		std::abort();
+		//std::abort();
+		poco_assert((1 != 1));
 	}
 
 	//DEBUGPOINT("CONN = [%p]\n", conn);
@@ -255,7 +256,7 @@ static int connection_close(lua_State *L)
 			n_conn->conn_in_error = conn->conn_in_error;
 		}
 		add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
-		//DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
+		DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
 		/*
 		*/
 		//c = conn->pg_conn;
@@ -302,12 +303,10 @@ static int connection_ping(lua_State *L)
  */
 static int connection_prepare(lua_State *L)
 {
-	//DEBUGPOINT("connection_prepare [%s]\n", luaL_checkstring(L, 3));
-	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	connection_t *conn = (connection_t *)luaL_checkudata(L, -3, EV_POSTGRES_CONNECTION);
 
 	if (conn->pg_conn) {
-		//DEBUGPOINT("[%s]\n", luaL_checkstring(L, 3));
-		return ev_postgres_statement_create(L, conn, luaL_checkstring(L, 2), luaL_checkstring(L, 3));
+		return ev_postgres_statement_create(L, conn, luaL_checkstring(L, -2), luaL_checkstring(L, -1));
 	}
 
 	lua_pushnil(L);    

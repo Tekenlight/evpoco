@@ -1,8 +1,13 @@
+local ffi = require("ffi");
 local pg = package.loadlib('libevpostgres.so','luaopen_evrdbms_postgres');
 local loaded, pg_lib = pcall(pg);
 if(not loaded) then
 	error("Could not load library");
 end
+
+--[[
+local pg_lib = require("evpostgres");
+--]]
 
 local ev_postgres_conn = {};
 local ev_postgres_stmt = {};
@@ -32,25 +37,34 @@ ev_postgres_db.open_connetion = function(host, port, dbname, user, password)
 		error("ERROR INITIATING CONNECTION:"..msg);
 		return nil;
 	end
-	if (nil == conn:turn_autocommit_off()) then
-		error("COULD NOT TURN OFF AUTOCOMMIT");
-		return nil;
-	end
 
 	return conn;
 end
 
-ev_postgres_stmt.execute = function(self)
-	local flg, msg = self._stmt.execute(self._stmt)
+ev_postgres_stmt.columns = function(self)
+	local out = self._stmt.columns(self._stmt)
+	return out;
+end
+
+ev_postgres_stmt.execute = function(self, ...)
+	local args = {};
+	for i,v in ipairs({...}) do
+		if (ffi.istype("b64_data_s_type", v)) then
+			local inp = {type = 'binary_data', size = tonumber(v.size), value = v.value};
+			args[i] = inp;
+		elseif (ffi.istype("hex_data_s_type", v)) then
+			local inp = {type = 'binary_data', size = tonumber(v.size), value = v.value};
+			args[i] = inp;
+		else
+			args[i] = tostring(v);
+		end
+	end
+	local flg, msg = self._stmt.execute(self._stmt, table.unpack(args));
 	return flg, msg;
 end
 
-ev_postgres_conn.turn_autocommit_off = function(self)
-	local flg, msg = self:rollback();
-	if (not flg) then
-		return flg, msg;
-	end
-	flg, msg = self:begin();
+local turn_autocommit_off = function(self)
+	local flg, msg = self:begin();
 	return flg, msg;
 end
 
@@ -61,6 +75,16 @@ ev_postgres_conn.begin = function(self)
 		return nil;
 	end
 	local flg, msg = bg_stmt:execute();
+	return flg, msg;
+end
+
+ev_postgres_conn.end_tran = function(self)
+	local ed_stmt = self:prepare("ROLLBACK WORK");
+	if (ed_stmt == nil) then
+		error("COULD NOT PREPARE STATEMENTS FOR BEGIN");
+		return nil;
+	end
+	local flg, msg = ed_stmt:execute();
 	return flg, msg;
 end
 

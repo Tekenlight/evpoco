@@ -51,65 +51,6 @@ using Poco::NullOutputStream;
 using Poco::StreamCopier;
 
 
-class EVMyPartHandler: public Poco::Net::PartHandler
-{
-public:
-	EVMyPartHandler():
-		_length(0)
-	{
-	}
-	
-	void handlePart(const MessageHeader& header, std::istream& stream)
-	{
-		try {
-		_type = header.get("Content-Type", "(unspecified)");
-		if (header.has("Content-Disposition"))
-		{
-			std::string disp;
-			NameValueCollection params;
-			MessageHeader::splitParameters(header["Content-Disposition"], disp, params);
-			_name = params.get("name", "(unnamed)");
-			_fileName = params.get("filename", "(unnamed)");
-		}
-		
-		CountingInputStream istr(stream);
-		NullOutputStream ostr;
-		StreamCopier::copyStream(istr, ostr);
-		_length = istr.chars();
-		} catch (std::exception& ex) {
-			DEBUGPOINT("EXCEPTION HERE %s\n", ex.what());
-			abort();
-		}
-	}
-
-	int length() const
-	{
-		return _length;
-	}
-
-	const std::string& name() const
-	{
-		return _name;
-	}
-
-	const std::string& fileName() const
-	{
-		return _fileName;
-	}
-
-	const std::string& contentType() const
-	{
-		return _type;
-	}
-
-private:
-	int _length;
-	std::string _type;
-	std::string _name;
-	std::string _fileName;
-};
-
-
 class EVFormRequestHandler: public EVLHTTPRequestHandler
 {
 public:

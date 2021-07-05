@@ -256,7 +256,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			response.clear();
 			response.initParseState();
 			parser_init(&response);
-			setState(ERROR);
+			setState(IN_ERROR);
 			return -1;
 		}
 
@@ -268,7 +268,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 				response.clear();
 				response.initParseState();
 				parser_init(&response);
-				setState(ERROR);
+				setState(IN_ERROR);
 				return -1;
 			}
 			/* Have not completed reading the headers and the buffer is completely consumed
@@ -306,7 +306,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 				response.clear();
 				response.initParseState();
 				parser_init(&response);
-				setState(ERROR);
+				setState(IN_ERROR);
 				return -1;
 			}
 			else if (HTTP_MESSAGE_TILL_EOF == response.getRespType()) {
@@ -315,7 +315,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 				response.clear();
 				response.initParseState();
 				parser_init(&response);
-				setState(ERROR);
+				setState(IN_ERROR);
 				return -1;
 			}
 

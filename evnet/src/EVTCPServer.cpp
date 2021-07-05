@@ -1314,6 +1314,7 @@ void EVTCPServer::dataReadyForSend(int fd)
 void EVTCPServer::receivedDataConsumed(int fd)
 {
 	/* Enque the socket */
+	//STACK_TRACE();
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
@@ -1529,7 +1530,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						_file_evt_subscriptions.erase(it->first);
 					}
 					subscriptions.clear();
-					//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
+					DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					tn->deleteState();
 					/* Should reset of number of CS events be done at all
 					 * tn->newresetNumCSEvents();

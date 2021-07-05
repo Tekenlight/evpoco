@@ -18,7 +18,7 @@ const char * get_stmt_id(lua_State *L)
 {
 	const char * p = (const char*)get_stmt_id_from_cache(luaL_checkstring(L, 3));
 	if (!p) {
-		p = (const char *)lua_touserdata(L, 4);
+		p = (const char *)lua_touserdata(L, -1);
 	}
 	return p;
 }
@@ -29,37 +29,28 @@ static int return_finalized_statement(lua_State *L, PGresult * r)
 	ExecStatusType status;
 	char stmt_id[50] = {0};
 
-	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
-
+	connection_t *conn = (connection_t *)luaL_checkudata(L, -4, EV_POSTGRES_CONNECTION);
+	const char * source = luaL_checkstring(L, -3);
+	const char *stmt = luaL_checkstring(L, -2);
 	sprintf(stmt_id, "%p", get_stmt_id(L));
-
 	const char * p = NULL;
-
-	PQclear(result);
-
-	int n = lua_gettop(L);
-	if (n != 4) {
-		DEBUGPOINT("INVALID PROGRAM STATE\n");
-		std::abort();
-	}
-
-	p = NULL;
-	p = (const char*)get_stmt_id_from_cache(luaL_checkstring(L, 3));
+	p = (const char*)get_stmt_id_from_cache(luaL_checkstring(L, -2));
 	if (!p) {
-		p = (const char *)lua_touserdata(L, 4);
-		add_stmt_id_to_chache(luaL_checkstring(L, 3), p);
+		p = (const char *)lua_touserdata(L, -1);
+		add_stmt_id_to_chache(stmt, p);
 	}
+
 	sprintf(stmt_id, "%p", p);
 	(*(conn->cached_stmts))[std::string(stmt_id)] = 1;
-	lua_settop(L, 3);
 
+	PQclear(result);
 	statement_t *statement = NULL;
 	statement = (statement_t *)lua_newuserdata(L, sizeof(statement_t));
 	statement->conn = conn;
 	statement->result = NULL;
 	statement->tuple = 0;
 	statement->name = strdup(stmt_id);
-	statement->source = strdup(luaL_checkstring(L, 2));
+	statement->source = strdup(source);
 	luaL_getmetatable(L, EV_POSTGRES_STATEMENT);
 	lua_setmetatable(L, -2);
 	//DEBUGPOINT("PREPARED STATMENT [%s][%s][%s]\n", statement->name, statement->source, luaL_checkstring(L, 3));
@@ -163,7 +154,7 @@ static int finalize_statement_processing(lua_State *L, int status, lua_KContext 
 	}
 	PGresult *result1 = NULL;
 	while ((result1 = PQgetResult(conn->pg_conn)) != NULL) {
-		DEBUGPOINT("IDEALLY THIS SHOULD NEVER GET EXECUTED\n");
+		DEBUGPOINT("THIS SHOULD NEVER GET EXECUTED\n");
 		DEBUGPOINT("SINCE WE ARE FIRING ONLY ONE COMMAND AT A TIME AND WAITING FOR RESULT\n");
 		std::abort();
 		result = result1;
@@ -199,19 +190,13 @@ static int crete_statement(lua_State *L, const char *sql_stmt)
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
 
-	connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	connection_t *conn = (connection_t *)luaL_checkudata(L, -3, EV_POSTGRES_CONNECTION);
 	char stmt_id[50] = {0};
 
 	char *new_stmt = NULL;
 
-	int n = lua_gettop(L);
-	if (n != 3) {
-		DEBUGPOINT("INVALID PROGRAM STATE\n");
-		std::abort();
-	}
-
 	new_stmt = ev_sql_replace_placeholders(L, '$', sql_stmt);
-	const char *p = (const char*)get_stmt_id_from_cache(luaL_checkstring(L, 3));
+	const char *p = (const char*)get_stmt_id_from_cache(luaL_checkstring(L, -1));
 	if (!p) {
 		//DEBUGPOINT("NOT CACHED\n");
 		p = (const char*)malloc(sizeof(char));
@@ -349,6 +334,16 @@ static int return_data_from_stmt_execution(lua_State *L, PGresult *result)
 	return 1;
 }
 
+static int bind_error(lua_State *L, char * err, int type, statement_t *statement)
+{
+	snprintf(err, sizeof(err)-1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
+	lua_pushboolean(L, 0);
+	lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, err);
+	DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, err);
+	statement->conn->conn_in_error = 1;
+	return 2;
+}
+
 static int ev_statement_execute(lua_State *L)
 {
 	int n = lua_gettop(L);
@@ -358,6 +353,8 @@ static int ev_statement_execute(lua_State *L)
 	int p;
 
 	const char **params;
+	int *param_lengths;
+	int *param_formats;
 	PGresult *result = NULL;
 
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -379,8 +376,14 @@ static int ev_statement_execute(lua_State *L)
 
 	statement->tuple = 0;
 
-	params = (const char **)malloc(num_bind_params * sizeof(params));
-	memset(params, 0, num_bind_params * sizeof(params));
+	params = (const char **)malloc(num_bind_params * sizeof(const char *));
+	memset(params, 0, num_bind_params * sizeof(const char *));
+
+	param_lengths = (int *)malloc(num_bind_params * (sizeof(int)));
+	memset((void*)param_lengths, 0, (num_bind_params * (sizeof(int))));
+
+	param_formats = (int *)malloc(num_bind_params * (sizeof(int)));
+	memset((void*)param_formats, 0, num_bind_params * (sizeof(int)));
 
 	/*
 	 * convert and copy parameters into a string array
@@ -389,36 +392,62 @@ static int ev_statement_execute(lua_State *L)
 		int i = p - 2;	
 		int type = lua_type(L, p);
 		char err[64];
-
 		memset(&err, 0, 64);
 
 		switch(type) {
-		case LUA_TNIL:
-			params[i] = NULL;
-			break;
-		case LUA_TBOOLEAN:
-			/*
-			 * boolean values in pg_conn can either be
-			 * t/f or 1/0. Pass integer values rather than
-			 * strings to maintain semantic compatibility
-			 * with other EV_SQL drivers that pass booleans
-			 * as integers.
-			 */
-			params[i] = lua_toboolean(L, p) ?  "1" : "0";
-			break;
-		case LUA_TNUMBER:
-		case LUA_TSTRING:
-			params[i] = lua_tostring(L, p);
-			break;
-		default:
-			snprintf(err, sizeof(err)-1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
-			free(params);
-			lua_pushboolean(L, 0);
-			lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, err);
-			DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, err);
-			statement->conn->conn_in_error = 1;
-			conn->conn_in_error = 1;
-			return 2;
+			case LUA_TNIL:
+				params[i] = NULL;
+				param_lengths[i] = 0;
+				param_formats[i] = 0;
+				break;
+			case LUA_TBOOLEAN:
+				/*
+				 * boolean values in pg_conn can either be
+				 * t/f or 1/0. Pass integer values rather than
+				 * strings to maintain semantic compatibility
+				 * with other EV_SQL drivers that pass booleans
+				 * as integers.
+				 */
+				params[i] = lua_toboolean(L, p) ?  "1" : "0";
+				param_lengths[i] = strlen(params[i]);
+				param_formats[i] = 0;
+				break;
+			case LUA_TNUMBER:
+			case LUA_TSTRING:
+				params[i] = lua_tostring(L, p);
+				param_lengths[i] = strlen(params[i]);
+				param_formats[i] = 0;
+				break;
+			case LUA_TTABLE: {
+				lua_getfield (L, p, "size");
+				if (!lua_isinteger(L, -1)) {
+					free(params);
+					return bind_error(L, err, type, statement);
+				}
+				int size = lua_tointeger(L, -1);
+				if (size <0) {
+					free(params);
+					return bind_error(L, err, type, statement);
+				}
+				lua_settop(L, n);
+
+				lua_getfield(L, p, "value");
+				if (!lua_isuserdata(L, -1)) {
+					free(params);
+					return bind_error(L, err, type, statement);
+				}
+				void * value = lua_touserdata(L, -1);
+				lua_settop(L, n);
+
+				params[i] = (const char*)value;
+				param_lengths[i] = size;
+				param_formats[i] = 1;
+
+				break;
+			}
+			default:
+				free(params);
+				return bind_error(L, err, type, statement);
 		}
 	}
 
@@ -429,11 +458,12 @@ static int ev_statement_execute(lua_State *L)
 		statement->name,
 		num_bind_params,
 		(const char **)params,
-		NULL,
-		NULL,
+		(const int *)param_lengths,
+		(const int *)param_formats,
 		0
 	);
 	free(params);
+	free(param_lengths);
 
 	if (ret != 1) {
 		lua_pushboolean(L, 0);
@@ -479,6 +509,7 @@ static int ev_statement_execute(lua_State *L)
 	fid->func_to_return_data = return_data_from_stmt_execution;
 	reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
 	return lua_yieldk(L, 0, (lua_KContext)fid, finalize_statement_processing);
+
 }
 
 static int deallocate(statement_t *statement)
@@ -568,37 +599,29 @@ static int statement_affected(lua_State *L)
 	return 1;
 }
 
-#define BOOLOID                 16
-#define INT2OID                 21
-#define INT4OID                 23
-#define INT8OID                 20
-#define FLOAT4OID		700
-#define FLOAT8OID		701
-#define DECIMALOID		1700
-
 static lua_push_type_t postgresql_to_lua_push(unsigned int postgresql_type)
 {
 	lua_push_type_t lua_type;
 
 	switch(postgresql_type) {
-	case INT2OID:
-	case INT4OID:
-	case INT8OID:
-		lua_type =  LUA_PUSH_INTEGER;
-		break;
+		case INT2OID:
+		case INT4OID:
+		case INT8OID:
+			lua_type =  LUA_PUSH_INTEGER;
+			break;
 
-	case FLOAT4OID:
-	case FLOAT8OID:
-	case DECIMALOID:
-		lua_type = LUA_PUSH_NUMBER;
-		break;
+		case FLOAT4OID:
+		case FLOAT8OID:
+		case DECIMALOID:
+			lua_type = LUA_PUSH_NUMBER;
+			break;
 
-	case BOOLOID:
-		lua_type = LUA_PUSH_BOOLEAN;
-		break;
+		case BOOLOID:
+			lua_type = LUA_PUSH_BOOLEAN;
+			break;
 
-	default:
-		lua_type = LUA_PUSH_STRING;
+		default:
+			lua_type = LUA_PUSH_STRING;
 	}
 
 	return lua_type;

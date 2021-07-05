@@ -36,7 +36,7 @@ public:
 	typedef enum {
 		NOT_CONNECTED=-1
 		,CONNECTED
-		,ERROR
+		,IN_ERROR
 		,CLOSED
 	} SessionState;
 

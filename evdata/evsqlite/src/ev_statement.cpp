@@ -604,8 +604,8 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 		}
     } else {
 		/* 
-			 * no columns returned by statement?
-			 */ 
+		 * no columns returned by statement?
+		 */ 
 		lua_pushnil(L);
     }
 
