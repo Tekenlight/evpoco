@@ -1,5 +1,11 @@
+#include <arpa/inet.h>
 #include "Poco/evdata/evpostgres/ev_postgres.h"
 #include "Poco/evnet/evnet_lua.h"
+
+int num2str(char *out, size_t outl, NumericVar *var, int dscale);
+int str2num(const char *str, NumericVar *dest);
+int pqt_get_numeric(char **str, PGresult *result, const char *value);
+int pqt_put_numeric(short ** out_buf, char * str);
 
 void add_stmt_id_to_chache(const char * statement, const char*p);
 const char* get_stmt_id_from_cache(const char * statement);
@@ -12,6 +18,17 @@ struct finalize_data_s {
 	int bool_or_null;
 	data_return_func func_to_return_data;
 	connection_t * conn;
+};
+
+
+union u_float {
+	float f;
+	uint32_t ui32;
+};
+
+union u_double {
+	double d;
+	uint64_t ui64;
 };
 
 const char * get_stmt_id(lua_State *L)
@@ -398,7 +415,7 @@ static int ev_statement_execute(lua_State *L)
 			case LUA_TNIL:
 				params[i] = NULL;
 				param_lengths[i] = 0;
-				param_formats[i] = 0;
+				param_formats[i] = 1;
 				break;
 			case LUA_TBOOLEAN:
 				/*
@@ -422,11 +439,15 @@ static int ev_statement_execute(lua_State *L)
 				lua_getfield (L, p, "size");
 				if (!lua_isinteger(L, -1)) {
 					free(params);
+					free(param_lengths);
+					free(param_formats);
 					return bind_error(L, err, type, statement);
 				}
 				int size = lua_tointeger(L, -1);
 				if (size <0) {
 					free(params);
+					free(param_lengths);
+					free(param_formats);
 					return bind_error(L, err, type, statement);
 				}
 				lua_settop(L, n);
@@ -434,6 +455,8 @@ static int ev_statement_execute(lua_State *L)
 				lua_getfield(L, p, "value");
 				if (!lua_isuserdata(L, -1)) {
 					free(params);
+					free(param_lengths);
+					free(param_formats);
 					return bind_error(L, err, type, statement);
 				}
 				void * value = lua_touserdata(L, -1);
@@ -447,6 +470,8 @@ static int ev_statement_execute(lua_State *L)
 			}
 			default:
 				free(params);
+				free(param_lengths);
+				free(param_formats);
 				return bind_error(L, err, type, statement);
 		}
 	}
@@ -460,10 +485,11 @@ static int ev_statement_execute(lua_State *L)
 		(const char **)params,
 		(const int *)param_lengths,
 		(const int *)param_formats,
-		0
+		1
 	);
 	free(params);
 	free(param_lengths);
+	free(param_formats);
 
 	if (ret != 1) {
 		lua_pushboolean(L, 0);
@@ -665,55 +691,100 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 			}	    
 		} else {
 			const char *value = PQgetvalue(statement->result, tuple, i);
-			lua_push_type_t lua_push = postgresql_to_lua_push(PQftype(statement->result, i));
+			switch (PQftype(statement->result, i)) {
+				case INT2OID:
+					{
+						short val = 0;
+						val = (short)ntohs(*(uint16_t*)(value));
 
-			/*
-			 * data is returned as strings from PSQL
-			 * convert them here into Lua types
-			 */ 
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_INT(name, val);
+						} else {
+							LUA_PUSH_ARRAY_INT(d, val);
+						}
+					}
+					break;
+				case INT4OID:
+					{
+						int val = 0;
+						val = (short)ntohl(*(uint32_t*)(value));
 
-			if (lua_push == LUA_PUSH_NIL) {
-				if (named_columns) {
-					LUA_PUSH_ATTRIB_NIL(name);
-				} else {
-					LUA_PUSH_ARRAY_NIL(d);
-				}
-			} else if (lua_push == LUA_PUSH_INTEGER) {
-				int val = atoi(value);
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_INT(name, val);
+						} else {
+							LUA_PUSH_ARRAY_INT(d, val);
+						}
+					}
+					break;
+				case INT8OID:
+					{
+						long val = 0;
+						val = (short)ntohll(*(uint64_t*)(value));
 
-				if (named_columns) {
-					LUA_PUSH_ATTRIB_INT(name, val);
-				} else {
-					LUA_PUSH_ARRAY_INT(d, val);
-				}
-			} else if (lua_push == LUA_PUSH_NUMBER) {
-				double val = strtod(value, NULL);
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_INT(name, val);
+						} else {
+							LUA_PUSH_ARRAY_INT(d, val);
+						}
+					}
+					break;
+				case FLOAT4OID:
+					{
+						union u_float uf;
+						uf.ui32 = (uint32_t)0;
+						uf.ui32 = ntohl(*(uint32_t*)(value));
 
-				if (named_columns) {
-					LUA_PUSH_ATTRIB_FLOAT(name, val);
-				} else {
-					LUA_PUSH_ARRAY_FLOAT(d, val);
-				}
-			} else if (lua_push == LUA_PUSH_STRING) {
-				if (named_columns) {
-					LUA_PUSH_ATTRIB_STRING(name, value);
-				} else {
-					LUA_PUSH_ARRAY_STRING(d, value);
-				}
-			} else if (lua_push == LUA_PUSH_BOOLEAN) {
-				/* 
-				 * booleans are returned as a string
-				 * either 't' or 'f'
-				 */
-				int val = value[0] == 't' ? 1 : 0;
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_FLOAT(name, uf.f);
+						} else {
+							LUA_PUSH_ARRAY_FLOAT(d, uf.f);
+						}
+					}
+					break;
+				case FLOAT8OID:
+					{
+						union u_double ud;
+						ud.ui64 = (uint64_t)0;
+						ud.ui64 = ntohll(*(uint64_t*)(value));
 
-				if (named_columns) {
-					LUA_PUSH_ATTRIB_BOOL(name, val);
-				} else {
-					LUA_PUSH_ARRAY_BOOL(d, val);
-				}
-			} else {
-				luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_FLOAT(name, ud.d);
+						} else {
+							LUA_PUSH_ARRAY_FLOAT(d, ud.d);
+						}
+					}
+					break;
+				case DECIMALOID:
+					{
+						char * str = NULL;
+						int ret = pqt_get_numeric(&str, statement->result, value);
+						if (ret == -1) {
+							luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+							return 0;
+						}
+
+						if (named_columns) {
+							//LUA_PUSH_ATTRIB_FLOAT(name, val);
+							LUA_PUSH_ATTRIB_STRING(name, str);
+						} else {
+							//LUA_PUSH_ARRAY_FLOAT(d, val);
+							LUA_PUSH_ARRAY_STRING(d, str);
+						}
+					}
+					break;
+				case BOOLOID:
+					{
+						unsigned char val = *value != 0 ? 1 : 0;
+
+						if (named_columns) {
+							LUA_PUSH_ATTRIB_BOOL(name, val);
+						} else {
+							LUA_PUSH_ARRAY_BOOL(d, val);
+						}
+					}
+					break;
+				default:
+					luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
 			}
 		}
 	}

@@ -1,13 +1,22 @@
 local ffi = require("ffi");
+local bc = require("bigdecimal");
+local du = require('date_utils');
 local pg = package.loadlib('libevpostgres.so','luaopen_evrdbms_postgres');
+local types = require('ev_types');
 local loaded, pg_lib = pcall(pg);
 if(not loaded) then
 	error("Could not load library");
 end
 
---[[
-local pg_lib = require("evpostgres");
---]]
+ffi.cdef[[
+struct lu_bind_variable_s {
+	int    type;
+	void*  val;
+	size_t size;
+};
+typedef struct lu_bind_variable_s lua_bind_var_s_type;
+typedef struct lu_bind_variable_s* lua_bind_var_p_type;
+]]
 
 local ev_postgres_conn = {};
 local ev_postgres_stmt = {};
@@ -48,15 +57,69 @@ end
 
 ev_postgres_stmt.execute = function(self, ...)
 	local args = {};
+	local strings {}; -- This is to ensure, no loss of data due to gc
 	for i,v in ipairs({...}) do
-		if (ffi.istype("b64_data_s_type", v)) then
-			local inp = {type = 'binary_data', size = tonumber(v.size), value = v.value};
-			args[i] = inp;
-		elseif (ffi.istype("hex_data_s_type", v)) then
-			local inp = {type = 'binary_data', size = tonumber(v.size), value = v.value};
-			args[i] = inp;
-		else
+		if (type(v) == 'cdata') then
+			if (ffi.istype("b64_data_s_type", v)) then
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.binary;
+				bind_var.val = v.value;
+				bind_var.size = v.size;
+				args[i] = ffi.getptr(bind_var);
+			elseif (ffi.istype("hex_data_s_type", v)) then
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.binary;
+				bind_var.val = v.value;
+				bind_var.size = v.size;
+				args[i] = ffi.getptr(bind_var);
+			elseif (ffi.istype("dt_s_type", v)) then
+				strings[#strings+1] = tostring(v);
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id[du.tid_name_map[v.format]];
+				bind_var.val = strings[#strings];
+				bind_var.size = #strings[#strings];
+				args[i] = ffi.getptr(bind_var);
+			elseif (ffi.istype("dur_s_type", v)) then
+				strings[#strings+1] = tostring(v);
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.duration
+				bind_var.val = strings[#strings];
+				bind_var.size = #strings[#strings];
+				args[i] = ffi.getptr(bind_var);
+			elseif ( ffi.istype("int16_t", v)) then
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.int16_t
+				bind_var.val = ffi.getptr(v);
+				bind_var.size = 2;
+				args[i] = ffi.getptr(bind_var);
+			elseif ( ffi.istype("int32_t", v)) then
+				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.int32_t
+				bind_var.val = ffi.getptr(v);
+				bind_var.size = 4;
+				args[i] = ffi.getptr(bind_var);
+			elseif ( ffi.istype("int64_t", v)) then
+			elseif (
+				ffi.istype("int8_t", v) or
+				ffi.istype("uint64_t", v) or
+				ffi.istype("uint8_t", v) or
+				ffi.istype("uint16_t", v) or
+				ffi.istype("uint32_t", v) or
+				) then
+				error("Datatype (unsigned or 8 bit integer), not supported by PostgreSQL");
+				return false, "Datatype (unsigned or 8 bit integer), not supported by PostgreSQL";
+			else
+				error("Datatype not supported by PostgreSQL");
+				return false, "Datatype not supported by PostgreSQL";
+			end
+		elseif (type(v) == 'userdata' and v.__name = 'bc bignumber') then
 			args[i] = tostring(v);
+		else -- These are all  lua types
+			if (type(v) ~= 'string' and type(v) ~= 'number' and type(v) ~= nil  and type(v) ~= 'bool') then
+				error("Unsupported datatype ["..type(v).."]");
+				return false, "Unsupported datatype ["..type(v).."]";
+			end
+			args[i] = v;
 		end
 	end
 	local flg, msg = self._stmt.execute(self._stmt, table.unpack(args));
