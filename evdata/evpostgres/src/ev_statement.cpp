@@ -361,6 +361,98 @@ static int bind_error(lua_State *L, char * err, int type, statement_t *statement
 	return 2;
 }
 
+#define FREE_PARAMS(p, a, n, l, f) {\
+	for (int i = 0; i<n; i++) { \
+		if (a[i]) free((void*)p[i]); \
+	}\
+	free(p); \
+	free(a); \
+	free(l); \
+	free(f); \
+}
+
+
+static int set_stmt_params(lua_State *L, const char ** params, int *param_lengths, int *param_formats, int8_t *allocs, int li, int i)
+{
+	lua_bind_var_p_type var = (lua_bind_var_p_type)lua_touserdata(L, li);
+	//DEBUGPOINT("type = [%d]\n", var->type);
+	switch (var->type) {
+		case ev_lua_date:
+		case ev_lua_datetime:
+		case ev_lua_time:
+		case ev_lua_duration:
+		case ev_lua_decimal:
+			params[i] = (const char*)(var->val);
+			allocs[i] = 0;
+			param_lengths[i] = var->size;
+			param_formats[i] = 0;
+			//DEBUGPOINT("[%d]REACHED HERE, %s\n", i, params[i]);
+			break;
+		case ev_lua_binary:
+			params[i] = (const char*)(var->val);
+			allocs[i] = 0;
+			param_lengths[i] = var->size;
+			param_formats[i] = 1;
+			/*
+			{
+			unsigned char * p = (unsigned char *)(var->val);
+			DEBUGPOINT("[%d]REACHED HERE, %p\n", i, p);
+			}
+			*/
+			break;
+		case ev_lua_int16_t:
+			params[i] = (const char*)malloc(sizeof(int16_t));
+			*(uint16_t*)params[i] = (int16_t)htons(*(uint16_t*)(var->val));
+			allocs[i] = 1;
+			param_lengths[i] = sizeof(int16_t);
+			param_formats[i] = 1;
+			/*
+			{
+			int16_t r = ntohs(*(int16_t*)params[i]);
+			DEBUGPOINT("[%d]REACHED HERE, %hd %hd\n", i, *((int16_t*)(var->val)), r);
+			}
+			*/
+			break;
+		case ev_lua_int32_t:
+			params[i] = (const char*)malloc(sizeof(int32_t));
+			*(uint32_t*)params[i] = (int32_t)htonl(*(uint32_t*)(var->val));
+			allocs[i] = 1;
+			param_lengths[i] = sizeof(int32_t);
+			param_formats[i] = 1;
+			/*
+			{
+			int r = ntohl(*(int*)params[i]);
+			DEBUGPOINT("[%d]REACHED HERE, %d %d\n", i, *((int*)(var->val)), r);
+			}
+			*/
+			break;
+		case ev_lua_int64_t:
+			params[i] = (const char*)malloc(sizeof(int64_t));
+			*(uint64_t*)params[i] = (int64_t)htonll(*(uint64_t*)(var->val));
+			allocs[i] = 1;
+			param_lengths[i] = sizeof(int64_t);
+			param_formats[i] = 1;
+			/*
+			{
+			int64_t r = ntohll(*(int64_t*)params[i]);
+			DEBUGPOINT("[%d]REACHED HERE, %lld %lld\n", i, *((int64_t*)(var->val)), r);
+			}
+			*/
+			break;
+		case ev_lua_nullptr:
+			//DEBUGPOINT("[%d]NULL INPUT\n", i);
+			params[i] = (const char*)0;
+			allocs[i] = 0;
+			param_lengths[i] = 0;
+			param_formats[i] = 1;
+			break;
+		default: /* Other types are not supported by PostgreSQL */
+			DEBUGPOINT("type = [%d]\n", var->type);
+			return -1;
+	}
+	return 1;
+}
+
 static int ev_statement_execute(lua_State *L)
 {
 	int n = lua_gettop(L);
@@ -369,6 +461,7 @@ static int ev_statement_execute(lua_State *L)
 	ExecStatusType status;
 	int p;
 
+	int8_t *allocs;
 	const char **params;
 	int *param_lengths;
 	int *param_formats;
@@ -393,6 +486,9 @@ static int ev_statement_execute(lua_State *L)
 
 	statement->tuple = 0;
 
+	allocs = (int8_t*)malloc(num_bind_params * (sizeof(int8_t)));
+	memset(allocs, 0, num_bind_params * (sizeof(int8_t)));
+
 	params = (const char **)malloc(num_bind_params * sizeof(const char *));
 	memset(params, 0, num_bind_params * sizeof(const char *));
 
@@ -411,12 +507,9 @@ static int ev_statement_execute(lua_State *L)
 		char err[64];
 		memset(&err, 0, 64);
 
+		//DEBUGPOINT("Here [%d]\n", type);
+
 		switch(type) {
-			case LUA_TNIL:
-				params[i] = NULL;
-				param_lengths[i] = 0;
-				param_formats[i] = 1;
-				break;
 			case LUA_TBOOLEAN:
 				/*
 				 * boolean values in pg_conn can either be
@@ -425,58 +518,56 @@ static int ev_statement_execute(lua_State *L)
 				 * with other EV_SQL drivers that pass booleans
 				 * as integers.
 				 */
-				params[i] = lua_toboolean(L, p) ?  "1" : "0";
-				param_lengths[i] = strlen(params[i]);
-				param_formats[i] = 0;
+				params[i] = (const char*)malloc(sizeof(uint8_t));
+				*(uint8_t*)params[i] = lua_toboolean(L, p) ?  1 : 0;
+				allocs[i] = 1;
+				param_lengths[i] = sizeof(uint8_t);
+				param_formats[i] = 1;
+				//DEBUGPOINT("[%d]%d, %d\n", i, lua_toboolean(L, p), *(uint8_t*)params[i]);
 				break;
 			case LUA_TNUMBER:
+				poco_assert(sizeof(lua_Number) == sizeof(double));
+				{
+					union { double d; uint64_t l; } ud ;
+					ud.d = lua_tonumber(L, p);
+					params[i] = (char*)malloc(sizeof(double));
+					*(uint64_t*)params[i] = htonll(ud.l);
+					allocs[i] = 1;
+					param_lengths[i] = sizeof(double);
+					param_formats[i] = 1;
+
+					/*
+					ud.l = ntohll(*((uint64_t*)params[i]));
+					DEBUGPOINT("[%d]%lf, %lf\n", i, lua_tonumber(L, p), ud.d);
+					*/
+				}
+				break;
 			case LUA_TSTRING:
+				//DEBUGPOINT("[%d]%s\n", i, lua_tostring(L, p));
 				params[i] = lua_tostring(L, p);
+				allocs[i] = 0;
 				param_lengths[i] = strlen(params[i]);
 				param_formats[i] = 0;
 				break;
-			case LUA_TTABLE: {
-				lua_getfield (L, p, "size");
-				if (!lua_isinteger(L, -1)) {
-					free(params);
-					free(param_lengths);
-					free(param_formats);
+			case LUA_TUSERDATA:
+			case LUA_TLIGHTUSERDATA:
+				//DEBUGPOINT("[%d]REACHED HERE\n", i);
+				if (-1 == set_stmt_params(L, params, param_lengths, param_formats, allocs,  p, i)) {
+					DEBUGPOINT("[%d]REACHED HERE\n", i);
+					FREE_PARAMS(params, allocs, num_bind_params, param_lengths, param_formats);
 					return bind_error(L, err, type, statement);
 				}
-				int size = lua_tointeger(L, -1);
-				if (size <0) {
-					free(params);
-					free(param_lengths);
-					free(param_formats);
-					return bind_error(L, err, type, statement);
-				}
-				lua_settop(L, n);
-
-				lua_getfield(L, p, "value");
-				if (!lua_isuserdata(L, -1)) {
-					free(params);
-					free(param_lengths);
-					free(param_formats);
-					return bind_error(L, err, type, statement);
-				}
-				void * value = lua_touserdata(L, -1);
-				lua_settop(L, n);
-
-				params[i] = (const char*)value;
-				param_lengths[i] = size;
-				param_formats[i] = 1;
-
 				break;
-			}
 			default:
-				free(params);
-				free(param_lengths);
-				free(param_formats);
+				DEBUGPOINT("[%d]REACHED HERE\n", i);
+				FREE_PARAMS(params, allocs, num_bind_params, param_lengths, param_formats);
 				return bind_error(L, err, type, statement);
 		}
 	}
 
 	//DEBUGPOINT("STMT NAME = [%s]\n", statement->name);
+	/*
+	*/
 	int ret = 0;
 	ret = PQsendQueryPrepared(
 		statement->conn->pg_conn,
@@ -487,9 +578,7 @@ static int ev_statement_execute(lua_State *L)
 		(const int *)param_formats,
 		1
 	);
-	free(params);
-	free(param_lengths);
-	free(param_formats);
+	FREE_PARAMS(params, allocs, num_bind_params, param_lengths, param_formats);
 
 	if (ret != 1) {
 		lua_pushboolean(L, 0);
@@ -719,7 +808,7 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 				case INT8OID:
 					{
 						long val = 0;
-						val = (short)ntohll(*(uint64_t*)(value));
+						val = ntohll(*(uint64_t*)(value));
 
 						if (named_columns) {
 							LUA_PUSH_ATTRIB_INT(name, val);

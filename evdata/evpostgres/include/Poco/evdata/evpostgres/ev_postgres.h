@@ -134,13 +134,4 @@ static NumericVar const_nan = {0, 0, NUMERIC_NAN, 0, NULL, NULL};
 	if ((nv)->digits) free((nv)->digits); \
 }
 
-struct lu_bind_variable_s {
-	int    type;
-	void*  val;
-	size_t size;
-};
-
-typedef struct lu_bind_variable_s lua_bind_var_s_type;
-typedef struct lu_bind_variable_s* lua_bind_var_p_type;
-
 #endif

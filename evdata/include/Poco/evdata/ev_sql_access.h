@@ -171,8 +171,37 @@ typedef enum lua_push_type {
 
 #define EV_SQL_LUA_STACK_BASE_INDEX "EV_SQL_LUA_STACK_BASE_INDEX"
 
+typedef enum {
+	ev_lua_string = 1,
+	ev_lua_date,
+	ev_lua_datetime,
+	ev_lua_time,
+	ev_lua_byte,
+	ev_lua_number,
+	ev_lua_integer,
+	ev_lua_decimal,
+	ev_lua_binary,
+	ev_lua_boolean,
+	ev_lua_int8_t,
+	ev_lua_uint8_t,
+	ev_lua_int16_t,
+	ev_lua_uint16_t,
+	ev_lua_int32_t,
+	ev_lua_uint32_t,
+	ev_lua_int64_t,
+	ev_lua_uint64_t,
+	ev_lua_duration,
+	ev_lua_nullptr,
+} ev_lua_datatypes;
 
 
+struct lua_bind_variable_s {
+	int    type;
+	void*  val;
+	size_t size;
+};
+typedef struct lua_bind_variable_s lua_bind_var_s_type;
+typedef struct lua_bind_variable_s* lua_bind_var_p_type;
 
 
 __BEGIN_DECLS
