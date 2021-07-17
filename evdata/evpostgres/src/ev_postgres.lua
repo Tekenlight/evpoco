@@ -10,13 +10,17 @@ if(not loaded) then
 end
 
 ffi.cdef[[
-struct lu_bind_variable_s {
+struct lua_bind_variable_s {
 	int    type;
 	void*  val;
 	size_t size;
+	const char * name;
 };
-typedef struct lu_bind_variable_s lua_bind_var_s_type;
-typedef struct lu_bind_variable_s* lua_bind_var_p_type;
+typedef struct lua_bind_variable_s lua_bind_var_s_type;
+typedef struct lua_bind_variable_s* lua_bind_var_p_type;
+
+void * memcpy(void *restrict dst, const void *restrict src, size_t n);
+void free(void *ptr);
 ]]
 
 local ev_postgres_conn = {};
@@ -59,13 +63,14 @@ end
 ev_postgres_stmt.execute = function(self, ...)
 	local args = {};
 	local strings = {}; -- This is to ensure, no loss of data due to gc
+	local ints = {}; -- This is to ensure, no loss of data due to gc
 	local inp_args = {...}
 	local i = 1;
 	while (i <= #inp_args) do
 		v = select(i, table.unpack(inp_args));
 		if (type(v) == 'nil') then
 			local nullptr = ffi.new("void *", 0);
-			local bind_var = ffi.new("lu_bind_variable_s", 0);
+			local bind_var = ffi.new("lua_bind_variable_s", 0);
 			bind_var.type = types.name_to_id.nullptr;
 			bind_var.val = ffi.getptr(nullptr);
 			bind_var.size = 8;
@@ -73,45 +78,59 @@ ev_postgres_stmt.execute = function(self, ...)
 		elseif (type(v) == 'cdata') then
 			if (ffi.istype("hex_data_s_type", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.binary;
 				bind_var.val = ffi.getptr(v.value);
 				bind_var.size = v.size;
 				args[i] = ffi.getptr(bind_var);
 			elseif (ffi.istype("dt_s_type", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
-				strings[#strings+1] = tostring(v);
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
-				bind_var.type = types.name_to_id[du.tid_name_map[v.format]];
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, v.format, du.tid_name_map[v.format], types.name_to_id[du.tid_name_map[v.format]]);
-				bind_var.val = strings[#strings];
-				bind_var.size = #strings[#strings];
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
+				bind_var.type = types.name_to_id[du.tid_name_map[v.type]];
+				if (bind_var.type == ffi.C.ev_lua_date) then
+					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+					--	v.type, du.tid_name_map[v.type], types.name_to_id[du.tid_name_map[v.type]]);
+					ints[#ints+1] = du.daynum_from_dtt(v);
+					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+								--ffi.istype("int32_t", ints[#ints]), ints[#ints]);
+					bind_var.size = 4;
+				elseif (bind_var.type == ffi.C.ev_lua_time) then
+					ints[#ints+1] = du.time_from_dtt(v);
+					print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+								ffi.istype("int64_t", ints[#ints]), ints[#ints]);
+					bind_var.size = 8;
+				else
+					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+					--	v.type, du.tid_name_map[v.type], types.name_to_id[du.tid_name_map[v.type]]);
+					ints[#ints+1] = du.long_from_dtt(v);
+					bind_var.size = 8;
+				end
+				bind_var.val = ffi.getptr(ints[#ints]);
 				args[i] = ffi.getptr(bind_var);
 			elseif (ffi.istype("dur_s_type", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 				strings[#strings+1] = tostring(v);
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
-				bind_var.type = types.name_to_id.duration
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.val = strings[#strings];
 				bind_var.size = #strings[#strings];
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int16_t", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int16_t
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 2;
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int32_t", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int32_t
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 4;
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int64_t", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
-				local bind_var = ffi.new("lu_bind_variable_s", 0);
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int64_t
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 8;
@@ -133,7 +152,7 @@ ev_postgres_stmt.execute = function(self, ...)
 		elseif (type(v) == 'userdata' and v.__name == 'bc bignumber') then
 			--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 			strings[#strings+1] = tostring(v);
-			local bind_var = ffi.new("lu_bind_variable_s", 0);
+			local bind_var = ffi.new("lua_bind_variable_s", 0);
 			bind_var.type = types.name_to_id.decimal
 			bind_var.val = strings[#strings];
 			bind_var.size = #strings[#strings];
@@ -152,6 +171,55 @@ ev_postgres_stmt.execute = function(self, ...)
 	return flg, msg;
 end
 
+ev_postgres_stmt.fetch_result = function(self)
+	local lua_values, n_col, c_row = self._stmt:fetch();
+	local row = ffi.cast("lua_bind_variable_s*", c_row);
+	local i = 0;
+	while (i < n_col) do
+		if (row[i].type == ffi.C.ev_lua_string) then
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), lua_values[i+1]);
+		elseif (row[i].type == ffi.C.ev_lua_date) then
+			local v = ffi.new("int64_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+							ffi.string(row[i].name), du.dtt_from_long(v, 'date', nil));
+		elseif (row[i].type == ffi.C.ev_lua_datetime) then
+			local v = ffi.new("int64_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+							ffi.string(row[i].name), du.dtt_from_long(v, 'dateTime', nil));
+		elseif (row[i].type == ffi.C.ev_lua_time) then
+			local v = ffi.new("int64_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+							ffi.string(row[i].name), du.dtt_from_long(v, 'time', nil));
+		elseif (row[i].type == ffi.C.ev_lua_byte) then
+		elseif (row[i].type == ffi.C.ev_lua_number) then
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), lua_values[i+1]);
+		elseif (row[i].type == ffi.C.ev_lua_integer) then
+		elseif (row[i].type == ffi.C.ev_lua_decimal) then
+		elseif (row[i].type == ffi.C.ev_lua_binary) then
+		elseif (row[i].type == ffi.C.ev_lua_boolean) then
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), lua_values[i+1]);
+		elseif (row[i].type == ffi.C.ev_lua_int16_t) then
+		elseif (row[i].type == ffi.C.ev_lua_int32_t) then
+		elseif (row[i].type == ffi.C.ev_lua_int64_t) then
+			local v = ffi.new("int64_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), v);
+		elseif (row[i].type == ffi.C.ev_lua_duration) then
+		elseif (row[i].type == ffi.C.ev_lua_nullptr) then
+		else
+		end
+		i = i+1;
+	end
+	ffi.C.free(c_row);
+end
+
 local turn_autocommit_off = function(self)
 	local flg, msg = self:begin();
 	return flg, msg;
@@ -168,11 +236,13 @@ ev_postgres_conn.begin = function(self)
 end
 
 ev_postgres_conn.end_tran = function(self)
+	print(debug.getinfo(1).source, debug.getinfo(1).currentline);
 	local ed_stmt = self:prepare("ROLLBACK WORK");
 	if (ed_stmt == nil) then
 		error("COULD NOT PREPARE STATEMENTS FOR BEGIN");
 		return nil;
 	end
+	print(debug.getinfo(1).source, debug.getinfo(1).currentline);
 	local flg, msg = ed_stmt:execute();
 	return flg, msg;
 end

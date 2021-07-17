@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include "Poco/evdata/evpostgres/ev_postgres.h"
+#include "Poco/evdata/evpostgres/ev_typeutils.h"
 #include "Poco/evnet/evnet_lua.h"
 
 int num2str(char *out, size_t outl, NumericVar *var, int dscale);
@@ -107,7 +108,7 @@ static int finalize_statement_processing(lua_State *L, int status, lua_KContext 
 			ret = 0;
 			ret = PQisBusy(conn->pg_conn);
 			if (ret != 0) {
-				DEBUGPOINT("MORE DATA NEEDED FOR READ\n");
+				//DEBUGPOINT("MORE DATA NEEDED FOR READ\n");
 				int socket_wait_mode = Poco::evnet::EVLHTTPRequestHandler::READ;
 				reqHandler->pollSocketForReadOrWrite(NULL, PQsocket(conn->pg_conn), socket_wait_mode);
 				return lua_yieldk(L, 0, (lua_KContext)ctx, finalize_statement_processing);
@@ -378,8 +379,31 @@ static int set_stmt_params(lua_State *L, const char ** params, int *param_length
 	//DEBUGPOINT("type = [%d]\n", var->type);
 	switch (var->type) {
 		case ev_lua_date:
+			*(int32_t*)(var->val) -= (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
+			//DEBUGPOINT("DATE = [%d]\n", *(int32_t*)(var->val));
+			*(int32_t*)(var->val) = (int32_t)htonl(*(int32_t*)(var->val));
+			params[i] = (const char*)(var->val);
+			allocs[i] = 0;
+			param_lengths[i] = var->size;
+			param_formats[i] = 1;
+			break;
 		case ev_lua_datetime:
+			*(int64_t*)(var->val) -= ((POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY);
+			//DEBUGPOINT("TIMESTAMP = [%lld]\n", *(int64_t*)(var->val));
+			*(int64_t*)(var->val) = (int64_t)htonll(*(int64_t*)(var->val));
+			params[i] = (const char*)(var->val);
+			allocs[i] = 0;
+			param_lengths[i] = var->size;
+			param_formats[i] = 1;
+			break;
 		case ev_lua_time:
+			//DEBUGPOINT("TIME = [%lld]\n", *(int64_t*)(var->val));
+			*(int64_t*)(var->val) = (int64_t)htonll(*(int64_t*)(var->val));
+			params[i] = (const char*)(var->val);
+			allocs[i] = 0;
+			param_lengths[i] = var->size;
+			param_formats[i] = 1;
+			break;
 		case ev_lua_duration:
 		case ev_lua_decimal:
 			params[i] = (const char*)(var->val);
@@ -428,6 +452,7 @@ static int set_stmt_params(lua_State *L, const char ** params, int *param_length
 			break;
 		case ev_lua_int64_t:
 			params[i] = (const char*)malloc(sizeof(int64_t));
+			//DEBUGPOINT("LONG = [%lld]\n", *(int64_t*)(var->val));
 			*(uint64_t*)params[i] = (int64_t)htonll(*(uint64_t*)(var->val));
 			allocs[i] = 1;
 			param_lengths[i] = sizeof(int64_t);
@@ -528,22 +553,22 @@ static int ev_statement_execute(lua_State *L)
 			case LUA_TNUMBER:
 				poco_assert(sizeof(lua_Number) == sizeof(double));
 				{
-					union { double d; uint64_t l; } ud ;
+					union u_double ud ;
 					ud.d = lua_tonumber(L, p);
 					params[i] = (char*)malloc(sizeof(double));
-					*(uint64_t*)params[i] = htonll(ud.l);
+					*(uint64_t*)params[i] = htonll(ud.ui64);
 					allocs[i] = 1;
 					param_lengths[i] = sizeof(double);
 					param_formats[i] = 1;
 
 					/*
-					ud.l = ntohll(*((uint64_t*)params[i]));
+					ud.ui64 = ntohll(*((uint64_t*)params[i]));
 					DEBUGPOINT("[%d]%lf, %lf\n", i, lua_tonumber(L, p), ud.d);
 					*/
 				}
 				break;
 			case LUA_TSTRING:
-				//DEBUGPOINT("[%d]%s\n", i, lua_tostring(L, p));
+				//DEBUGPOINT("[%d] %s\n", i, lua_tostring(L, p));
 				params[i] = lua_tostring(L, p);
 				allocs[i] = 0;
 				param_lengths[i] = strlen(params[i]);
@@ -871,7 +896,6 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 							LUA_PUSH_ARRAY_BOOL(d, val);
 						}
 					}
-					break;
 				default:
 					luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
 			}
@@ -881,12 +905,232 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 	return 1;    
 }
 
+/*
+ * can only be called after an execute
+ */
+static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
+{
+	int tuple = statement->tuple++;
+	int i;
+	int num_columns;
+	int d = 1;
+	struct lua_bind_variable_s * result_columns = NULL;;
+
+	if (!statement->result) {
+		luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+		return 0;
+	}
+
+	if (PQresultStatus(statement->result) != PGRES_TUPLES_OK) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (tuple >= PQntuples(statement->result)) {
+		lua_pushnil(L);  /* no more results */
+		return 1;
+	}
+
+	num_columns = PQnfields(statement->result);
+	result_columns = (struct lua_bind_variable_s*) malloc(num_columns*sizeof(struct lua_bind_variable_s));
+	memset(result_columns, 0, num_columns * sizeof(struct lua_bind_variable_s));
+
+	lua_newtable(L);
+	for (i = 0; i < num_columns; i++) {
+		const char *name = PQfname(statement->result, i);
+
+		if (PQgetisnull(statement->result, tuple, i)) {
+			result_columns[i].name = name;
+			result_columns[i].type = ev_lua_nullptr;
+			result_columns[i].val = NULL;
+			result_columns[i].size = 0;
+			LUA_PUSH_ARRAY_NIL(d);
+		} else {
+			const char *value = PQgetvalue(statement->result, tuple, i);
+			int length = PQgetlength(statement->result, tuple, i);
+			//DEBUGPOINT(" index [%d] column # [%d] type [%d]\n", d, i, PQftype(statement->result, i));
+			switch (PQftype(statement->result, i)) {
+				case INT2OID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_int16_t;
+						*(int16_t*)value = ntohs(*((int16_t*)value));
+						result_columns[i].val = (void*)value;;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case INT4OID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_int32_t;
+						*(int32_t*)value = ntohl(*((int32_t*)value));
+						result_columns[i].val = (void*)value;;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case INT8OID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_int64_t;
+						*(int64_t*)value = ntohll(*((int64_t*)value));
+						result_columns[i].val = (void*)value;;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case FLOAT4OID:
+					{
+						union u_float uf;
+						uf.ui32 = (uint32_t)0;
+						uf.ui32 = ntohl(*(uint32_t*)(value));
+						*(float *)value = uf.f;
+
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_number;
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_FLOAT(d, uf.f);
+					}
+					break;
+				case FLOAT8OID:
+					{
+						union u_double ud;
+						ud.ui64 = (uint64_t)0;
+						ud.ui64 = ntohll(*(uint64_t*)(value));
+						*(double *)value = ud.d;
+
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_number;
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_FLOAT(d, ud.d);
+					}
+					break;
+				case DECIMALOID:
+					{
+						char * str = NULL;
+						int ret = pqt_get_numeric(&str, statement->result, value);
+						if (ret == -1) {
+							luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+							return 0;
+						}
+
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_decimal;
+						result_columns[i].val = (void *)str;
+						result_columns[i].size = strlen(str);
+						LUA_PUSH_ARRAY_STRING(d, str);
+					}
+					break;
+				case BOOLOID:
+					{
+						unsigned char val = *value != 0 ? 1 : 0;
+
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_boolean;
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_BOOL(d, val);
+					}
+					break;
+				case CHAROID:
+				case VARCHAROID:
+				case TEXTOID:
+				case JSONOID:
+				case XMLOID:
+				case UUIDOID:
+				case BPCHAROID: // Bit string
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_string;
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_STRING(d, (char*)value);
+					}
+					break;
+				case TIMESTAMPOID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_datetime;
+						*(int64_t*)value = ntohll(*((int64_t*)value));
+						//DEBUGPOINT("TS = [%lld]\n", *(int64_t*)value);
+						//*(int64_t*)value = *(int64_t*)value + (POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * USECS_PER_DAY;
+						*(int64_t*)value = *(int64_t*)value + (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY;
+						//DEBUGPOINT("TS = [%lld]\n", *(int64_t*)value);
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case DATEOID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_date;
+						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
+						*(int32_t*)value = ntohl(*((int32_t*)value));
+						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
+						//*(int32_t*)value = *(int32_t*)value + (POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE);
+						*(int32_t*)value = *(int32_t*)value + (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
+						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
+						int64_t *ptr = (int64_t*)PQresultAlloc(statement->result, sizeof(int64_t));
+						*ptr = *(int32_t*)value * USECS_PER_DAY;
+						//DEBUGPOINT("D = [%lld]\n", *ptr);
+						result_columns[i].val = (void*)ptr;
+						result_columns[i].size = sizeof(int64_t);
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case TIMEOID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_time;
+						*(int64_t*)value = ntohll(*((int64_t*)value));
+						//DEBUGPOINT("T = [%lld]\n", *(int64_t*)value);
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case INTERVALOID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_duration;
+						*(int64_t*)value = ntohll(*((int64_t*)value));
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case BYTEAARRAYOID:
+					{
+						result_columns[i].name = name;
+						result_columns[i].type = ev_lua_binary;
+						result_columns[i].val = (void*)value;
+						result_columns[i].size = length;
+						LUA_PUSH_ARRAY_NIL(d);
+					}
+					break;
+				case TIMESTAMPTZOID:
+				case TIMETZOID:
+				default:
+					luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+			}
+		}
+	}
+
+	lua_pushinteger(L, num_columns);
+	lua_pushlightuserdata(L, result_columns);
+
+	return 3;    
+}
+
 static int next_iterator(lua_State *L)
 {
 	statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_POSTGRES_STATEMENT);
-	int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
-	return statement_fetch_impl(L, statement, named_columns);
+	return raw_statement_fetch_impl(L, statement);
 }
 
 /*
@@ -895,9 +1139,8 @@ static int next_iterator(lua_State *L)
 static int statement_fetch(lua_State *L)
 {
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
-	int named_columns = lua_toboolean(L, 2);
 
-	return statement_fetch_impl(L, statement, named_columns);
+	return raw_statement_fetch_impl(L, statement);
 }
 
 /*

@@ -50,7 +50,7 @@ local id_to_name = {
 };
 
 local name_to_id = {
-	['string']       = ffi.C.ev_lua_string,
+	['string']       = ffi.C.ev_lua_string, -- varchar, char,
 	['date']         = ffi.C.ev_lua_date,
 	['dateTime']     = ffi.C.ev_lua_datetime, 
 	['time']         = ffi.C.ev_lua_time, 

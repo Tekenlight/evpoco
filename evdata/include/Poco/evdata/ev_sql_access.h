@@ -80,6 +80,11 @@ extern "C" {
     lua_rawseti(L, -2, n); \
     n++;
 
+#define LUA_PUSH_ARRAY_STRING_LEN(n, v, len) \
+    lua_pushlstring(L, v, len); \
+    lua_rawseti(L, -2, n); \
+    n++;
+
 #define EVLUA_TABLE_PUSH_ARRAY_STRING(t, n, v) { \
 	struct _evnet_lua_table_value_t val; \
 	val.type = EV_LUA_TSTRING; \
@@ -199,6 +204,7 @@ struct lua_bind_variable_s {
 	int    type;
 	void*  val;
 	size_t size;
+	const char * name;
 };
 typedef struct lua_bind_variable_s lua_bind_var_s_type;
 typedef struct lua_bind_variable_s* lua_bind_var_p_type;

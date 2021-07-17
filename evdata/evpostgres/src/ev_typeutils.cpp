@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include "Poco/evdata/evpostgres/ev_postgres.h"
+#include "Poco/evdata/evpostgres/ev_typeutils.h"
 
 /*
  * strip_var
@@ -12,7 +13,7 @@
  */
 static void strip_var(NumericVar *var)
 {
-	NumericDigit *digits = var->digits;
+	DecimalDigit *digits = var->digits;
 	int			ndigits = var->ndigits;
 
 	/* Strip leading zeroes */
@@ -33,7 +34,7 @@ static void strip_var(NumericVar *var)
 	}
 
 	if (ndigits != var->ndigits) {
-		memcpy(var->digits, digits, (ndigits) * sizeof(NumericDigit));
+		memcpy(var->digits, digits, (ndigits) * sizeof(DecimalDigit));
 		var->ndigits = ndigits;
 	}
 }
@@ -48,7 +49,7 @@ static void strip_var(NumericVar *var)
 static void
 round_var(NumericVar *var, int rscale)
 {
-	NumericDigit *digits = var->digits;
+	DecimalDigit *digits = var->digits;
 	int			di;
 	int			ndigits;
 	int			carry;
@@ -87,7 +88,7 @@ round_var(NumericVar *var, int rscale)
 
 				pow10 = round_powers[di];
 				extra = digits[--ndigits] % pow10;
-				digits[ndigits] = digits[ndigits] - (NumericDigit) extra;
+				digits[ndigits] = digits[ndigits] - (DecimalDigit) extra;
 				carry = 0;
 				if (extra >= pow10 / 2) {
 					pow10 += digits[ndigits];
@@ -96,7 +97,7 @@ round_var(NumericVar *var, int rscale)
 						pow10 -= NBASE;
 						carry = 1;
 					}
-					digits[ndigits] = (NumericDigit) pow10;
+					digits[ndigits] = (DecimalDigit) pow10;
 				}
 			}
 
@@ -104,11 +105,11 @@ round_var(NumericVar *var, int rscale)
 			while (carry) {
 				carry += digits[--ndigits];
 				if (carry >= NBASE) {
-					digits[ndigits] = (NumericDigit) (carry - NBASE);
+					digits[ndigits] = (DecimalDigit) (carry - NBASE);
 					carry = 1;
 				}
 				else {
-					digits[ndigits] = (NumericDigit) carry;
+					digits[ndigits] = (DecimalDigit) carry;
 					carry = 0;
 				}
 			}
@@ -141,7 +142,7 @@ int str2num(const char *str, NumericVar *dest)
 	int			weight;
 	int			ndigits;
 	int			offset;
-	NumericDigit *digits;
+	DecimalDigit *digits;
 
 	/*
 	 * We first parse the string to extract decimal digits and determine the
@@ -270,7 +271,7 @@ int str2num(const char *str, NumericVar *dest)
 	offset = (weight + 1) * DEC_DIGITS - (dweight + 1);
 	ndigits = (ddigits + offset + DEC_DIGITS - 1) / DEC_DIGITS;
 
-	dest->digits = (NumericDigit *) malloc((ndigits) * sizeof(NumericDigit));
+	dest->digits = (DecimalDigit *) malloc((ndigits) * sizeof(DecimalDigit));
 	dest->ndigits = ndigits;
 	dest->sign = sign;
 	dest->weight = weight;
@@ -306,8 +307,8 @@ int num2str(char *out, size_t outl, NumericVar *var, int dscale)
 	char	   *endcp;
 	int			i;
 	int			d;
-	NumericDigit dig;
-	NumericDigit d1;
+	DecimalDigit dig;
+	DecimalDigit d1;
 
 	/*
 	 * Handle NaN
@@ -479,7 +480,7 @@ int pqt_get_numeric(char **str, PGresult *result, const char *value)
 	num.weight  = (short) ntohs(*s); s++;
 	num.sign    = ntohs(*s); s++;
 	num.dscale  = ntohs(*s); s++;
-	num.digits  = (short *) malloc(num.ndigits * sizeof(short));
+	num.digits  = (DecimalDigit *) malloc(num.ndigits * sizeof(short));
 	if (!num.digits)
 		return -1;
 
