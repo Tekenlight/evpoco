@@ -199,6 +199,13 @@ typedef enum {
 	ev_lua_nullptr,
 } ev_lua_datatypes;
 
+/* Interval related definitions */
+typedef struct {
+	int64_t usec;
+	int32_t day;
+	int32_t mon;
+} interval_s_type, *interval_p_type;
+
 
 struct lua_bind_variable_s {
 	int    type;

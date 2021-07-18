@@ -3,10 +3,10 @@
 #include "Poco/evdata/evpostgres/ev_typeutils.h"
 #include "Poco/evnet/evnet_lua.h"
 
-int num2str(char *out, size_t outl, NumericVar *var, int dscale);
-int str2num(const char *str, NumericVar *dest);
 int pqt_get_numeric(char **str, PGresult *result, const char *value);
 int pqt_put_numeric(short ** out_buf, char * str);
+interval_p_type pqt_get_interval(PGresult *result, const char *value);
+const char * pqt_put_interval(const char * in);
 
 void add_stmt_id_to_chache(const char * statement, const char*p);
 const char* get_stmt_id_from_cache(const char * statement);
@@ -379,33 +379,53 @@ static int set_stmt_params(lua_State *L, const char ** params, int *param_length
 	//DEBUGPOINT("type = [%d]\n", var->type);
 	switch (var->type) {
 		case ev_lua_date:
-			*(int32_t*)(var->val) -= (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
-			//DEBUGPOINT("DATE = [%d]\n", *(int32_t*)(var->val));
-			*(int32_t*)(var->val) = (int32_t)htonl(*(int32_t*)(var->val));
-			params[i] = (const char*)(var->val);
-			allocs[i] = 0;
-			param_lengths[i] = var->size;
-			param_formats[i] = 1;
+			{
+				int32_t * ip = (int32_t*)malloc(sizeof(int32_t));
+				*ip = *(int32_t*)(var->val) - (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
+				//DEBUGPOINT("DATE = [%d]\n", *ip);
+				*ip = (int32_t)htonl(*ip);
+				params[i] = (const char*)ip;
+				allocs[i] = 1;
+				param_lengths[i] = sizeof(int32_t);
+				param_formats[i] = 1;
+			}
 			break;
 		case ev_lua_datetime:
-			*(int64_t*)(var->val) -= ((POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY);
-			//DEBUGPOINT("TIMESTAMP = [%lld]\n", *(int64_t*)(var->val));
-			*(int64_t*)(var->val) = (int64_t)htonll(*(int64_t*)(var->val));
-			params[i] = (const char*)(var->val);
-			allocs[i] = 0;
-			param_lengths[i] = var->size;
-			param_formats[i] = 1;
+			{
+				int64_t * ip = (int64_t*)malloc(sizeof(int64_t));
+				*ip = *(int64_t*)(var->val) - ((POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY);
+				*ip = (int64_t)htonll(*ip);
+				//DEBUGPOINT("TIMESTAMP = [%lld]\n", *ip);
+				params[i] = (const char*)ip;
+				allocs[i] = 1;
+				param_lengths[i] = sizeof(int64_t);
+				param_formats[i] = 1;
+			}
 			break;
 		case ev_lua_time:
-			//DEBUGPOINT("TIME = [%lld]\n", *(int64_t*)(var->val));
-			*(int64_t*)(var->val) = (int64_t)htonll(*(int64_t*)(var->val));
-			params[i] = (const char*)(var->val);
-			allocs[i] = 0;
-			param_lengths[i] = var->size;
-			param_formats[i] = 1;
+			{
+				int64_t * ip = (int64_t*)malloc(sizeof(int64_t));
+				*ip = (int64_t)htonll(*(int64_t*)(var->val));
+				//DEBUGPOINT("TIME = [%lld]\n", *ip);
+				params[i] = (const char *)ip;
+				allocs[i] = 1;
+				param_lengths[i] = sizeof(int64_t);
+				param_formats[i] = 1;
+			}
 			break;
 		case ev_lua_duration:
+			//DEBUGPOINT("INTERVAL = [%s]\n", (const char *)(var->val));
+			params[i] = (const char *)pqt_put_interval((const char *)(var->val));
+			if (params[i] == NULL) {
+				DEBUGPOINT("type = [%d]\n", var->type);
+				return -1;
+			}
+			allocs[i] = 1;
+			param_lengths[i] = sizeof(interval_s_type);
+			param_formats[i] = 1;
+			break;
 		case ev_lua_decimal:
+			//DEBUGPOINT("NUMERIC VALUE INPUT = [%s]\n", (const char*)(var->val));
 			params[i] = (const char*)(var->val);
 			allocs[i] = 0;
 			param_lengths[i] = var->size;
@@ -1012,6 +1032,7 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 					{
 						char * str = NULL;
 						int ret = pqt_get_numeric(&str, statement->result, value);
+						//DEBUGPOINT("NUMERIC VALUE READ = [%s]\n", str);
 						if (ret == -1) {
 							luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
 							return 0;
@@ -1055,8 +1076,6 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 						result_columns[i].name = name;
 						result_columns[i].type = ev_lua_datetime;
 						*(int64_t*)value = ntohll(*((int64_t*)value));
-						//DEBUGPOINT("TS = [%lld]\n", *(int64_t*)value);
-						//*(int64_t*)value = *(int64_t*)value + (POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * USECS_PER_DAY;
 						*(int64_t*)value = *(int64_t*)value + (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY;
 						//DEBUGPOINT("TS = [%lld]\n", *(int64_t*)value);
 						result_columns[i].val = (void*)value;
@@ -1068,12 +1087,8 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 					{
 						result_columns[i].name = name;
 						result_columns[i].type = ev_lua_date;
-						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
 						*(int32_t*)value = ntohl(*((int32_t*)value));
-						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
-						//*(int32_t*)value = *(int32_t*)value + (POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE);
 						*(int32_t*)value = *(int32_t*)value + (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
-						//DEBUGPOINT("D = [%d]\n", *(int32_t*)value);
 						int64_t *ptr = (int64_t*)PQresultAlloc(statement->result, sizeof(int64_t));
 						*ptr = *(int32_t*)value * USECS_PER_DAY;
 						//DEBUGPOINT("D = [%lld]\n", *ptr);
@@ -1095,11 +1110,13 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 					break;
 				case INTERVALOID:
 					{
+						interval_p_type interval;
 						result_columns[i].name = name;
 						result_columns[i].type = ev_lua_duration;
-						*(int64_t*)value = ntohll(*((int64_t*)value));
-						result_columns[i].val = (void*)value;
-						result_columns[i].size = length;
+						interval = pqt_get_interval(statement->result, value);
+						//DEBUGPOINT("INTERVAL = [%d] [%d] [%lld]\n", interval->mon, interval->day, interval->usec);
+						result_columns[i].val = (void*)interval;
+						result_columns[i].size = sizeof(interval_s_type);
 						LUA_PUSH_ARRAY_NIL(d);
 					}
 					break;

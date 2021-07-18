@@ -84,11 +84,9 @@ static NumericVar const_nan = {0, 0, NUMERIC_NAN, 0, NULL, NULL};
 
 #define UNIX_EPOCH_JDATE        2440588 /* == date2j(1970, 1, 1) */
 #define POSTGRES_EPOCH_JDATE    2451545 /* == date2j(2000, 1, 1) */
-
 #define DU_EPOCH_JDATE 1721426 /* == date2j(0001, 1, 1) */
-
-
 #define USECS_PER_DAY           86400000000
+
 
 
 #endif

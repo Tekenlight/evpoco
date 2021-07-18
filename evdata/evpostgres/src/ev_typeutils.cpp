@@ -1,10 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include <errno.h>
 
 #include "Poco/evdata/evpostgres/ev_postgres.h"
 #include "Poco/evdata/evpostgres/ev_typeutils.h"
+
+#define PIPE '|'
 
 /*
  * strip_var
@@ -505,4 +508,106 @@ int pqt_get_numeric(char **str, PGresult *result, const char *value)
 	return 0;
 
 }
+
+
+
+/*
+ *
+ * INTERVAL RELATED FUNCTIONS
+ *
+ *
+ */
+
+interval_p_type pqt_get_interval(PGresult *result, const char *value)
+{
+	int mons;
+	int days;
+	int64_t usecs;
+
+	interval_p_type out = (interval_p_type)PQresultAlloc(result, sizeof(interval_s_type));
+
+	memcpy(&usecs, value, sizeof(int64_t));
+	memcpy(&days, value+sizeof(int64_t), sizeof(int32_t));
+	memcpy(&mons, value+sizeof(int64_t)+sizeof(int32_t), sizeof(int32_t));
+
+	out->usec = ntohll(usecs);
+	out->day = ntohl(days);
+	out->mon = ntohl(mons);
+
+	/*
+	printf("%s:%d usec = [%lld]\n", __FILE__, __LINE__, out->usec);
+	printf("%s:%d day = [%d]\n", __FILE__, __LINE__, out->day);
+	printf("%s:%d mon = [%d]\n", __FILE__, __LINE__, out->mon);
+	*/
+
+	return out;
+}
+
+int deser_interval(interval_p_type out, const char * in)
+{
+	if (!in) return -1;
+	double sec = 0;
+	char * str = strdup(in);
+	char * p = str;
+	char *d_ptr = NULL;
+	char *us_ptr = NULL;
+	char *m_ptr = str;
+	double d = 0;
+
+	out->day = 0;
+	out->mon = 0;
+	out->usec = 0;
+
+	p = strchr(p, PIPE);
+	if (!p) {
+		free(str);
+		return -1;
+	}
+	*p = (char)0;
+	p++;
+	d_ptr = p;
+
+	p = strchr(p, PIPE);
+	if (!p) {
+		free(str);
+		return -1;
+	}
+	*p = (char)0;
+	p++;
+	us_ptr = p;
+
+	out->day = strtol(d_ptr, NULL, 0);
+	out->mon = strtol(m_ptr, NULL, 0);
+	d = strtod(us_ptr, NULL);
+	out->usec = llround(d*1000000);
+
+	free(str);
+	return 0;
+}
+
+const char * pqt_put_interval(const char * in)
+{
+	int mons;
+	int days;
+	int64_t usecs;
+
+	interval_s_type s_in;
+
+	if (-1 == deser_interval(&s_in, in))
+		return NULL;
+
+	const char * out = (char*)malloc(sizeof(int32_t) + sizeof(int32_t) + sizeof(int64_t));
+
+	usecs = htonll(s_in.usec);
+	days = htonl(s_in.day);
+	mons = htonl(s_in.mon);
+
+	memcpy((void*)out, &usecs, sizeof(int64_t));
+	memcpy((void*)(out+sizeof(int64_t)), &days, sizeof(int32_t));
+	memcpy((void*)(out+sizeof(int64_t)+sizeof(int32_t)), &mons, sizeof(int32_t));
+
+	return out;
+}
+
+
 

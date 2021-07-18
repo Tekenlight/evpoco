@@ -10,6 +10,7 @@ if(not loaded) then
 end
 
 ffi.cdef[[
+
 struct lua_bind_variable_s {
 	int    type;
 	void*  val;
@@ -21,6 +22,7 @@ typedef struct lua_bind_variable_s* lua_bind_var_p_type;
 
 void * memcpy(void *restrict dst, const void *restrict src, size_t n);
 void free(void *ptr);
+size_t strlen(const char *s);
 ]]
 
 local ev_postgres_conn = {};
@@ -108,11 +110,13 @@ ev_postgres_stmt.execute = function(self, ...)
 				bind_var.val = ffi.getptr(ints[#ints]);
 				args[i] = ffi.getptr(bind_var);
 			elseif (ffi.istype("dur_s_type", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
-				strings[#strings+1] = tostring(v);
+				print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, v, ffi.string(v.value));
+				--strings[#strings+1] = tostring(v);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
-				bind_var.val = strings[#strings];
-				bind_var.size = #strings[#strings];
+				bind_var.type = types.name_to_id['duration'];
+				--bind_var.val = strings[#strings];
+				bind_var.val = v.value;
+				bind_var.size = ffi.C.strlen(v.value);
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int16_t", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
@@ -194,26 +198,40 @@ ev_postgres_stmt.fetch_result = function(self)
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 							ffi.string(row[i].name), du.dtt_from_long(v, 'time', nil));
-		elseif (row[i].type == ffi.C.ev_lua_byte) then
 		elseif (row[i].type == ffi.C.ev_lua_number) then
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 						ffi.string(row[i].name), lua_values[i+1]);
-		elseif (row[i].type == ffi.C.ev_lua_integer) then
 		elseif (row[i].type == ffi.C.ev_lua_decimal) then
+			local v = bc.new(lua_values[i+1]);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_binary) then
 		elseif (row[i].type == ffi.C.ev_lua_boolean) then
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 						ffi.string(row[i].name), lua_values[i+1]);
 		elseif (row[i].type == ffi.C.ev_lua_int16_t) then
+			local v = ffi.new("int16_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_int32_t) then
+			local v = ffi.new("int32_t");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_int64_t) then
 			local v = ffi.new("int64_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 						ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_duration) then
+			local v = ffi.new("interval_p_type", row[i].val);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), v.mon, v.day, v.usec);
+			local dur = du.dur_from_bin(v);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), dur);
 		elseif (row[i].type == ffi.C.ev_lua_nullptr) then
 		else
+			error('Unsupported type '..row[i].type);
 		end
 		i = i+1;
 	end
