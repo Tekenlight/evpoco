@@ -196,6 +196,7 @@ typedef enum {
 	ev_lua_int64_t,
 	ev_lua_uint64_t,
 	ev_lua_duration,
+	ev_lua_float,
 	ev_lua_nullptr,
 } ev_lua_datatypes;
 

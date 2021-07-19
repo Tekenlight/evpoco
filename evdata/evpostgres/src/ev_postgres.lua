@@ -118,6 +118,13 @@ ev_postgres_stmt.execute = function(self, ...)
 				bind_var.val = v.value;
 				bind_var.size = ffi.C.strlen(v.value);
 				args[i] = ffi.getptr(bind_var);
+			elseif ( ffi.istype("float", v)) then
+				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
+				local bind_var = ffi.new("lua_bind_variable_s", 0);
+				bind_var.type = types.name_to_id.float
+				bind_var.val = ffi.getptr(v);
+				bind_var.size = 4;
+				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int16_t", v)) then
 				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
@@ -201,10 +208,20 @@ ev_postgres_stmt.fetch_result = function(self)
 		elseif (row[i].type == ffi.C.ev_lua_number) then
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 						ffi.string(row[i].name), lua_values[i+1]);
+		elseif (row[i].type == ffi.C.ev_lua_float) then
+			local v = ffi.new("float");
+			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
+						ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_decimal) then
 			local v = bc.new(lua_values[i+1]);
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), v);
 		elseif (row[i].type == ffi.C.ev_lua_binary) then
+			local v = ffi.new("hex_data_s_type");
+			v.size = row[i].size;
+			v.value = cu.alloc(v.size);
+			ffi.C.memcpy(v.value, row[i].val, v.size);
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline, v);
 		elseif (row[i].type == ffi.C.ev_lua_boolean) then
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
 						ffi.string(row[i].name), lua_values[i+1]);
@@ -230,6 +247,7 @@ ev_postgres_stmt.fetch_result = function(self)
 			local dur = du.dur_from_bin(v);
 			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), dur);
 		elseif (row[i].type == ffi.C.ev_lua_nullptr) then
+			print(debug.getinfo(1).source, debug.getinfo(1).currentline, "FOUND NULL HAHA");
 		else
 			error('Unsupported type '..row[i].type);
 		end
@@ -285,7 +303,12 @@ ev_postgres_conn.rollback = function(self)
 	return flg, msg;
 end
 
-ev_postgres_conn.prepare = function(self, sql_stmt)
+ev_postgres_conn.prepare = function(self, sql_stmt, param_types)
+	if (param_types ~= nil and type(param_types) ~= 'table') then
+		error('param_types must be a an array of strings');
+		return nil;
+	end
+
 	local stmt_src = ev_postgres_db.get_statement_id(debug.getinfo(2));
 	local c_p_stmt, msg = self._conn.prepare(self._conn, stmt_src, sql_stmt);
 	if (c_p_stmt == nil) then

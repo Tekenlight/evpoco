@@ -21,6 +21,7 @@ typedef enum {
 	ev_lua_int64_t,
 	ev_lua_uint64_t,
 	ev_lua_duration,
+	ev_lua_float,
 	ev_lua_nullptr,
 } ev_lua_datatypes;
 
@@ -46,7 +47,8 @@ local id_to_name = {
 	'int64_t',   -- 17
 	'uint64_t',  -- 18
 	'duration',  -- 19
-	'nullptr',   -- 20
+	'float',     -- 20
+	'nullptr',   -- 21
 };
 
 local name_to_id = {
@@ -69,6 +71,7 @@ local name_to_id = {
 	['int64_t']      = ffi.C.ev_lua_int64_t,
 	['uint64_t']     = ffi.C.ev_lua_uint64_t,
 	['duration']     = ffi.C.ev_lua_duration,
+	['float']      = ffi.C.ev_lua_float,
 	['nullptr']      = ffi.C.ev_lua_nullptr,
 };
 
@@ -92,6 +95,7 @@ local ev_type_dict = {
 	['int64_t']      = require('org.w3.2001.XMLSchema.long_handler'):instantiate(),
 	['uint64_t']     = require('org.w3.2001.XMLSchema.unsignedLong_handler'):instantiate(),
 	['duration']     = require('org.w3.2001.XMLSchema.duration_handler'):instantiate(),
+	['float']        = require('org.w3.2001.XMLSchema.float_handler'):instantiate(),
 	['nullptr']      = nil,
 }
 

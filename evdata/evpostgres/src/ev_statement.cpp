@@ -457,6 +457,19 @@ static int set_stmt_params(lua_State *L, const char ** params, int *param_length
 			}
 			*/
 			break;
+		case ev_lua_float:
+			{
+				union u_float uf;
+				uf.f = *(float*)(var->val);
+				//DEBUGPOINT("[%d]REACHED HERE, %d %f\n", i, *((int*)(var->val)), uf.f);
+				uf.ui32 = htonl(uf.ui32);
+				params[i] = (const char*)malloc(sizeof(float));
+				*(float*)params[i] = uf.f;
+				allocs[i] = 1;
+				param_lengths[i] = sizeof(float);
+				param_formats[i] = 1;
+			}
+			break;
 		case ev_lua_int32_t:
 			params[i] = (const char*)malloc(sizeof(int32_t));
 			*(uint32_t*)params[i] = (int32_t)htonl(*(uint32_t*)(var->val));
@@ -1008,7 +1021,7 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 						*(float *)value = uf.f;
 
 						result_columns[i].name = name;
-						result_columns[i].type = ev_lua_number;
+						result_columns[i].type = ev_lua_float;
 						result_columns[i].val = (void*)value;
 						result_columns[i].size = length;
 						LUA_PUSH_ARRAY_FLOAT(d, uf.f);
@@ -1120,7 +1133,8 @@ static int raw_statement_fetch_impl(lua_State *L, statement_t *statement)
 						LUA_PUSH_ARRAY_NIL(d);
 					}
 					break;
-				case BYTEAARRAYOID:
+				//case BYTEAARRAYOID:
+				case BYTEAOID:
 					{
 						result_columns[i].name = name;
 						result_columns[i].type = ev_lua_binary;
