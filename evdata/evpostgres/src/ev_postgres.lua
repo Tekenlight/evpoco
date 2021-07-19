@@ -79,68 +79,51 @@ ev_postgres_stmt.execute = function(self, ...)
 			args[i] = ffi.getptr(bind_var);
 		elseif (type(v) == 'cdata') then
 			if (ffi.istype("hex_data_s_type", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.binary;
 				bind_var.val = ffi.getptr(v.value);
 				bind_var.size = v.size;
 				args[i] = ffi.getptr(bind_var);
 			elseif (ffi.istype("dt_s_type", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id[du.tid_name_map[v.type]];
 				if (bind_var.type == ffi.C.ev_lua_date) then
-					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-					--	v.type, du.tid_name_map[v.type], types.name_to_id[du.tid_name_map[v.type]]);
 					ints[#ints+1] = du.daynum_from_dtt(v);
-					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-								--ffi.istype("int32_t", ints[#ints]), ints[#ints]);
 					bind_var.size = 4;
 				elseif (bind_var.type == ffi.C.ev_lua_time) then
 					ints[#ints+1] = du.time_from_dtt(v);
-					print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-								ffi.istype("int64_t", ints[#ints]), ints[#ints]);
 					bind_var.size = 8;
 				else
-					--print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-					--	v.type, du.tid_name_map[v.type], types.name_to_id[du.tid_name_map[v.type]]);
 					ints[#ints+1] = du.long_from_dtt(v);
 					bind_var.size = 8;
 				end
 				bind_var.val = ffi.getptr(ints[#ints]);
 				args[i] = ffi.getptr(bind_var);
 			elseif (ffi.istype("dur_s_type", v)) then
-				print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, v, ffi.string(v.value));
-				--strings[#strings+1] = tostring(v);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id['duration'];
-				--bind_var.val = strings[#strings];
 				bind_var.val = v.value;
 				bind_var.size = ffi.C.strlen(v.value);
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("float", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.float
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 4;
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int16_t", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i, ffi.istype("uint16_t", v));
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int16_t
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 2;
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int32_t", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int32_t
 				bind_var.val = ffi.getptr(v);
 				bind_var.size = 4;
 				args[i] = ffi.getptr(bind_var);
 			elseif ( ffi.istype("int64_t", v)) then
-				--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 				local bind_var = ffi.new("lua_bind_variable_s", 0);
 				bind_var.type = types.name_to_id.int64_t
 				bind_var.val = ffi.getptr(v);
@@ -161,7 +144,6 @@ ev_postgres_stmt.execute = function(self, ...)
 				return false, "Datatype not supported by PostgreSQL";
 			end
 		elseif (type(v) == 'userdata' and v.__name == 'bc bignumber') then
-			--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 			strings[#strings+1] = tostring(v);
 			local bind_var = ffi.new("lua_bind_variable_s", 0);
 			bind_var.type = types.name_to_id.decimal
@@ -173,7 +155,6 @@ ev_postgres_stmt.execute = function(self, ...)
 				error("Unsupported datatype ["..type(v).."]");
 				return false, "Unsupported datatype ["..type(v).."]";
 			end
-			--print(debug.getinfo(1).source, debug.getinfo(1).currentline, i);
 			args[i] = v;
 		end
 		i = i + 1;
@@ -182,78 +163,123 @@ ev_postgres_stmt.execute = function(self, ...)
 	return flg, msg;
 end
 
+local split_field = function(s)
+	local strings = {};
+	local i = 0;
+	for w in string.gmatch(s, "[^.]+") do
+		i = i + 1;
+		strings[i] = w;
+	end
+	return i, strings;
+end
+
+ev_postgres_stmt.map = function(q_out, fields)
+	if (type(fields) ~= 'table') then
+		error("Invalid inputs");
+		return nil;
+	end
+	if (#fields ~= #q_out) then
+		error("Invalid inputs");
+		return nil;
+	end
+	local out = {};
+	for i,v in ipairs(fields) do
+		local n, s_f = split_field(v);
+		if (n == nil or n == 0) then
+			error("Invalid inputs");
+		elseif (n == 1) then
+			if (ffi.istype("void*", q_out[i]) and q_out[i] == ffi.NULL) then
+				out[s_f[1]] = nil;
+			else
+				out[s_f[1]] = q_out[i];
+			end
+		else
+			local j = 1;
+			local t = out;
+			while (j<n) do
+				if (t[s_f[j]] == nil) then
+					t[s_f[j]] = {};
+				end
+				t = t[s_f[j]];
+				j = j + 1;
+			end
+			if (ffi.istype("void*", q_out[i]) and q_out[i] == ffi.NULL) then
+				t[s_f[j]] = nil;
+			else
+				t[s_f[j]] = q_out[i];
+			end
+		end
+	end
+	return out;
+end
+
 ev_postgres_stmt.fetch_result = function(self)
+
 	local lua_values, n_col, c_row = self._stmt:fetch();
+	if (lua_values == nil) then
+		return nil;
+	end
+
 	local row = ffi.cast("lua_bind_variable_s*", c_row);
 	local i = 0;
+	local out = {};
 	while (i < n_col) do
 		if (row[i].type == ffi.C.ev_lua_string) then
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), lua_values[i+1]);
+			out[i+1] = lua_values[i+1];
 		elseif (row[i].type == ffi.C.ev_lua_date) then
 			local v = ffi.new("int64_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-							ffi.string(row[i].name), du.dtt_from_long(v, 'date', nil));
+			out[i+1] = du.dtt_from_long(v, 'date', nil);
 		elseif (row[i].type == ffi.C.ev_lua_datetime) then
 			local v = ffi.new("int64_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-							ffi.string(row[i].name), du.dtt_from_long(v, 'dateTime', nil));
+			out[i+1] = du.dtt_from_long(v, 'dateTime', nil);
 		elseif (row[i].type == ffi.C.ev_lua_time) then
 			local v = ffi.new("int64_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-							ffi.string(row[i].name), du.dtt_from_long(v, 'time', nil));
+			out[i+1] = du.dtt_from_long(v, 'time', nil);
 		elseif (row[i].type == ffi.C.ev_lua_number) then
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), lua_values[i+1]);
+			out[i+1] = lua_values[i+1];
 		elseif (row[i].type == ffi.C.ev_lua_float) then
 			local v = ffi.new("float");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_decimal) then
 			local v = bc.new(lua_values[i+1]);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_binary) then
 			local v = ffi.new("hex_data_s_type");
 			v.size = row[i].size;
 			v.value = cu.alloc(v.size);
 			ffi.C.memcpy(v.value, row[i].val, v.size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline, v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_boolean) then
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), lua_values[i+1]);
+			out[i+1] = lua_values[i+1];
 		elseif (row[i].type == ffi.C.ev_lua_int16_t) then
 			local v = ffi.new("int16_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_int32_t) then
 			local v = ffi.new("int32_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_int64_t) then
 			local v = ffi.new("int64_t");
 			ffi.C.memcpy(ffi.getptr(v), row[i].val, row[i].size);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), v);
+			out[i+1] = v;
 		elseif (row[i].type == ffi.C.ev_lua_duration) then
 			local v = ffi.new("interval_p_type", row[i].val);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline,
-						ffi.string(row[i].name), v.mon, v.day, v.usec);
 			local dur = du.dur_from_bin(v);
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline, ffi.string(row[i].name), dur);
+			out[i+1] = dur;
 		elseif (row[i].type == ffi.C.ev_lua_nullptr) then
-			print(debug.getinfo(1).source, debug.getinfo(1).currentline, "FOUND NULL HAHA");
+			out[i+1] = ffi.NULL;
 		else
 			error('Unsupported type '..row[i].type);
 		end
 		i = i+1;
 	end
 	ffi.C.free(c_row);
+	return out;
 end
 
 local turn_autocommit_off = function(self)
@@ -303,11 +329,7 @@ ev_postgres_conn.rollback = function(self)
 	return flg, msg;
 end
 
-ev_postgres_conn.prepare = function(self, sql_stmt, param_types)
-	if (param_types ~= nil and type(param_types) ~= 'table') then
-		error('param_types must be a an array of strings');
-		return nil;
-	end
+ev_postgres_conn.prepare = function(self, sql_stmt)
 
 	local stmt_src = ev_postgres_db.get_statement_id(debug.getinfo(2));
 	local c_p_stmt, msg = self._conn.prepare(self._conn, stmt_src, sql_stmt);
