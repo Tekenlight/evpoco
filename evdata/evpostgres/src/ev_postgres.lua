@@ -50,7 +50,7 @@ end
 ev_postgres_db.open_connetion = function(host, port, dbname, user, password)
 	local conn, msg = open_connetion_internal(host, port, dbname, user, password)
 	if (conn == nil) then
-		error("ERROR INITIATING CONNECTION:"..msg);
+		error("ERROR INITIATING CONNECTION:"..tostring(msg));
 		return nil;
 	end
 
@@ -165,12 +165,12 @@ end
 
 local split_field = function(s)
 	local strings = {};
-	local i = 0;
-	for w in string.gmatch(s, "[^.]+") do
-		i = i + 1;
-		strings[i] = w;
+	local j = 0;
+	for i,v in ipairs((require "pl.stringx".split(s, '.'))) do
+		j=j+1;
+		strings[i] = v;
 	end
-	return i, strings;
+	return j, strings;
 end
 
 ev_postgres_stmt.map = function(q_out, fields)
