@@ -346,7 +346,8 @@ static int return_data_from_stmt_execution(lua_State *L, PGresult *result)
 		}
 	}
 	statement->result = result;
-	//DEBUGPOINT("STMT EXEC DONE\n");
+	//if (PQcmdTuples(result))
+		//DEBUGPOINT("STMT EXEC DONE %s %d\n", PQcmdTuples(result), PQntuples(result));
 
 	lua_pushboolean(L, 1);
 	return 1;
