@@ -31,3 +31,6 @@ install(
     INCLUDES DESTINATION include
     )
 
+if (ENABLE_CRYPTO)
+    add_subdirectory(evlcrypto)
+endif ()
