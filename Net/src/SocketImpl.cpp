@@ -77,9 +77,21 @@ SocketImpl::SocketImpl(poco_socket_t sockfd):
 {
 }
 
+#ifndef STACK_TRACE
+#include <execinfo.h>
+#define STACK_TRACE() {\
+	void* callstack[128]; \
+	int i, frames = backtrace(callstack, 128); \
+	backtrace_symbols_fd(callstack, frames, STDERR_FILENO); \
+}
+#endif
+
 
 SocketImpl::~SocketImpl()
 {
+	//if (_sockfd == 8) STACK_TRACE();
+	//if (_sockfd == 8) printf("%s:%d CLOSING SOCK [%d]\n", __FILE__, __LINE__, _sockfd);
+	//if (_sockfd == 8) std::abort();
 	close();
 }
 

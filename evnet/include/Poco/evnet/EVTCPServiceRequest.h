@@ -87,6 +87,8 @@ public:
 	void setFileFd(int fd);
 	void setPollFor(int);
 	int getPollFor();
+	int getConnSocketManaged();
+	void setConnSocketManaged(int);
 
 private:
 	long						_sr_num;
@@ -101,7 +103,18 @@ private:
 	void*						_task_input_data; // Input data for generic task
 	int							_file_fd; // File descriptor of the disk file
 	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ss
+	int							_conn_socket_managed;
 };
+
+inline int EVTCPServiceRequest::getConnSocketManaged()
+{
+	return _conn_socket_managed;
+}
+
+inline void EVTCPServiceRequest::setConnSocketManaged(int c)
+{
+	_conn_socket_managed = c;
+}
 
 inline int EVTCPServiceRequest::getPollFor()
 {

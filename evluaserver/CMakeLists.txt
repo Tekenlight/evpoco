@@ -34,3 +34,7 @@ install(
 if (ENABLE_CRYPTO)
     add_subdirectory(evlcrypto)
 endif ()
+
+if (ENABLE_NETSSL)
+    add_subdirectory(evlnetssl)
+endif ()

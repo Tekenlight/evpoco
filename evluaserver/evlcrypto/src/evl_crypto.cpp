@@ -47,3 +47,4 @@ int luaopen_libevlcrypto(lua_State *L)
 
 	return 1;    
 }
+

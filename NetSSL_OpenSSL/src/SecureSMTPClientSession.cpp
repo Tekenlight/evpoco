@@ -56,7 +56,7 @@ bool SecureSMTPClientSession::startTLS(Context::Ptr pContext)
 
 	SecureStreamSocket sss(SecureStreamSocket::attach(socket(), _host, pContext));
 	socket() = sss;
-	
+
 	return true;
 }
 

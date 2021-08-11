@@ -188,7 +188,7 @@ void SMTPClientSession::loginUsingLogin(const std::string& username, const std::
 	std::istringstream responseStream(response.substr(4));
 	Base64Decoder responseDecoder(responseStream);
 	StreamCopier::copyToString(responseDecoder, decodedResponse);
-	
+
 	if (Poco::icompare(decodedResponse, 0, 8, "username") == 0) // username first (md5("Username:"))
 	{
 		status = sendCommand(usernameBase64.str(), response);

@@ -41,7 +41,8 @@ public:
 
 	enum
 	{
-		SMTP_PORT = 25
+		SMTP_PORT = 25,
+		ENC_SMTP_PORT = 587
 	};
 
 	enum LoginMethod

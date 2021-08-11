@@ -98,6 +98,7 @@ struct _strms_io_struct_type {
 	cfdReadyMethod connSocketReadAndWritable;
 	StreamSocket *ssPtr;
 	EVConnectedStreamSocket *cn;
+	int connSocketManaged;
 };
 
 typedef struct _cb_ref_data {
@@ -282,7 +283,7 @@ public:
 	void srCompleteEnqueue(EVAcceptedStreamSocket* tn);
 	void srComplete(EVAcceptedStreamSocket* );
 	void enqueueSR(EVAcceptedSocket *tn, EVTCPServiceRequest * sr);
-	long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int poll_for);
+	long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int poll_for, int managed = 1);
 	virtual long submitRequestForConnection(int sr_num, EVAcceptedSocket *tn,
 								Net::SocketAddress& addr, Net::StreamSocket & css);
 	virtual long submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *tn,
@@ -316,6 +317,11 @@ public:
 	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 		/// Functions needed for asynchronous file operations.
+
+	static ssize_t receiveData(int fd, void * chptr, size_t size);
+	static ssize_t sendData(int fd, void * chptr, size_t size);
+	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size);
+	static ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 
 protected:
 	void run();
@@ -400,10 +406,6 @@ private:
 	void freeClear();
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
-	ssize_t receiveData(int fd, void * chptr, size_t size);
-	ssize_t receiveData(StreamSocket&, void * chptr, size_t size);
-	ssize_t sendData(int fd, void * chptr, size_t size);
-	ssize_t sendData(StreamSocket&, void * chptr, size_t size);
 	void handlePeriodicWakeup(const bool& ev_occured);
 	unsigned long getNextSRSrlNum();
 	EVAcceptedStreamSocket* getTn(poco_socket_t fd);

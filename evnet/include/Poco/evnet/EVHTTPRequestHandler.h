@@ -93,8 +93,8 @@ public:
 	};
 	struct SRData {
 		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
-				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1) {}
-		~SRData() {}
+				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1), ss_ptr(0) {}
+		~SRData() { if (ss_ptr) delete ss_ptr;}
 		Net::SocketAddress		addr;
 		EVHTTPClientSession*	session_ptr;
 		int						cb_evid_num;
@@ -106,6 +106,7 @@ public:
 		unsigned short			port_num;
 		struct addrinfo**       addr_info_ptr_ptr;
 		long					ref_sr_num;
+		Net::StreamSocket*		ss_ptr;
 	} ;
 	typedef std::map<long,SRData *> SRColMapType;
 	typedef std::map<int,file_handle*> FilesMapType;
@@ -127,6 +128,11 @@ public:
 	static const int HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED = -230;
 
 	static const int HTTPRH_HTTPRESP_MSG_FROM_HOST = -300;
+
+	static const int HTTPRH_TCPCONN_HOSTRESOLVED = -400;
+	static const int HTTPRH_TCPCONN_PROXYSOCK_READY = -410;
+	static const int HTTPRH_TCPCONN_PROXY_RESPONSE = -420;
+	static const int HTTPRH_TCPCONN_CONNECTION_ESTABLISHED = -430;
 
 
 	static const int HTTPRH_CALL_CB_HANDLER = -10000;
@@ -187,7 +193,8 @@ public:
 	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
 
 	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for);
+	long makeNewSocketConnection(TCallback cb, const char * domain_name, const unsigned short port_num);
+	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed = 1);
 
 	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 

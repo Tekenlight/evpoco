@@ -56,7 +56,7 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
-long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for)
+long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed)
 {
 	Net::StreamSocket css;
 	Poco::evnet::EVServer & server = getServer();
@@ -67,7 +67,7 @@ long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int po
 	srdata->cb = cb;
 
 	css.setFd(fd);
-	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for);
+	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for, managed);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -91,6 +91,28 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddr
 	_srColl[sr_num] = srdata;
 
 	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
+					const char * domain_name, const unsigned short port_num)
+{
+	Poco::evnet::EVServer & server = getServer();
+	long sr_num = 0;
+
+	SRData * srdata = new SRData();
+	srdata->session_ptr = NULL;
+	srdata->cb_evid_num = HTTPRH_TCPCONN_HOSTRESOLVED;
+	srdata->cb = cb;
+	srdata->domain_name = domain_name;
+	srdata->serv_name = NULL;
+	srdata->port_num = port_num;
+
+	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_TCPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, NULL);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
 	return sr_num;
 }
 
@@ -360,6 +382,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 				it->second->session_ptr->setSendStream(_usN->getSendStream());
 			}
 			break;
+		case HTTPRH_TCPCONN_CONNECTION_ESTABLISHED:
+			_usN->setCBEVIDNum((it->second)->cb_evid_num);
+			break;
 		case HTTPRH_HTTPCONN_PROXYSOCK_READY:
 			// TBD: Handle connecting through the proxy here. TBD
 			/* Send CONNECT request to proxy server, setting callback
@@ -441,6 +466,51 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 
 						sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED,
 									getAcceptedSocket(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS());
+					}
+					else {
+						// TBD : Connect to proxy server first over here. TBD
+						// Set callback to HTTPRH_HTTPCONN_PROXYSOCK_READY here
+					}
+					_srColl[sr_num] = srdata;
+					continue_event_loop = true;
+				}
+			}
+			break;
+		case HTTPRH_TCPCONN_HOSTRESOLVED:
+			{
+				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
+					_usN->setCBEVIDNum((it->second)->cb_evid_num);
+				}
+				else {
+					SRData * old = it->second;
+					SRData * srdata = new SRData(*old);
+					_srColl.erase(sr_num);
+					delete old;
+					Net::HostEntry he(_usN->getAddrInfo());
+#ifdef NEVER_DEBUG
+					{
+						int i = 0;
+						struct addrinfo *p;
+						char host[256];
+
+						for (p = _usN->getAddrInfo(); p; p = p->ai_next) {
+							i++;
+							getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof (host), NULL, 0, NI_NUMERICHOST);
+							DEBUGPOINT("%d. %s   \n", i, host);
+
+							if (p->ai_addr->sa_family == AF_INET) { DEBUGPOINT("IPV4 ADDRESS\n"); }
+							else { DEBUGPOINT("IPV6 ADDRESS\n");}
+						}
+					}
+#endif
+					Net::SocketAddress a(srdata->domain_name, he, srdata->port_num);
+					srdata->addr = a;
+					Poco::evnet::EVServer & server = getServer();
+					if (proxyConfig().host.empty()) {
+
+						srdata->ss_ptr = new Net::StreamSocket();
+						sr_num = server.submitRequestForConnection(HTTPRH_TCPCONN_CONNECTION_ESTABLISHED,
+									getAcceptedSocket(), srdata->addr, *(srdata->ss_ptr));
 					}
 					else {
 						// TBD : Connect to proxy server first over here. TBD

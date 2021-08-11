@@ -84,7 +84,9 @@ inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
 												_no_new_data(0), _need_more_data(0), _upstream_io_event_queue(0) { }
 inline EVProcessingState::~EVProcessingState()
 {
+	//DEBUGPOINT("Here\n");
     for ( CSColMapType::iterator it = _cssMap.begin(); it != _cssMap.end(); ++it ) {
+		//DEBUGPOINT("Here fd = [%d]\n", it->second->getStreamSocket().impl()->sockfd());
         delete it->second;
     }
     _cssMap.clear();

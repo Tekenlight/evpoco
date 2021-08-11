@@ -30,7 +30,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, what event, poco_socket_t 
 	_task_func(0),
 	_task_input_data(0),
 	_file_fd(-1),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 
@@ -45,7 +46,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_func(0),
 	_task_input_data(0),
 	_file_fd(-1),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 
@@ -59,7 +61,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_func(0),
 	_task_input_data(0),
 	_file_fd(file_fd),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 
@@ -76,7 +79,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_func(0),
 	_task_input_data(0),
 	_file_fd(-1),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 
@@ -91,7 +95,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_func(0),
 	_task_input_data(0),
 	_file_fd(-1),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 
@@ -106,7 +111,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_func(tf),
 	_task_input_data(td),
 	_file_fd(-1),
-	_poll_for(0)
+	_poll_for(0),
+	_conn_socket_managed(0)
 {
 }
 

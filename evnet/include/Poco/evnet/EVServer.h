@@ -21,7 +21,7 @@ public:
 	virtual void dataReadyForSend(int fd)=0;
 	virtual long submitRequestForConnection(int cb_evid_num,
 											EVAcceptedSocket *tn, Net::SocketAddress& addr, Net::StreamSocket & css)=0;
-	virtual long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket & css, int poll_for)=0;
+	virtual long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int poll_for, int managed = 1) = 0;
 	virtual long submitRequestForHostResolution(int cb_evid_num,
 											EVAcceptedSocket *tn, const char* domain_name, const char* serv_name)=0;
 	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css)=0;

@@ -51,7 +51,7 @@ public:
 		/// the given socket, which must be connected
 		/// to a SMTP server.
 
-	SecureSMTPClientSession(const std::string& host, Poco::UInt16 port = SMTP_PORT);
+	SecureSMTPClientSession(const std::string& host, Poco::UInt16 port = ENC_SMTP_PORT);
 		/// Creates the SecureSMTPClientSession using a socket connected
 		/// to the given host and port.
 
