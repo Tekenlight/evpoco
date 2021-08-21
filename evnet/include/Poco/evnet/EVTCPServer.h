@@ -318,10 +318,10 @@ public:
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 		/// Functions needed for asynchronous file operations.
 
-	static ssize_t receiveData(int fd, void * chptr, size_t size);
-	static ssize_t sendData(int fd, void * chptr, size_t size);
-	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size);
-	static ssize_t sendData(StreamSocket&, void * chptr, size_t size);
+	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
+	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
+	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
+	static ssize_t sendData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 
 protected:
 	void run();

@@ -520,15 +520,19 @@ void EVTCPServer::stop()
 	}
 }
 
-ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size)
+ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *wait_mode_ptr)
 {
 	ssize_t ret = 0;
 	errno = 0;
 	try {
 		//ret = ss.sendBytes(chptr, size , 0);
 		ret = ss.sendBytes(chptr, size );
+		if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
+		else if (wait_mode_ptr) *wait_mode_ptr = 0;
 	}
 	catch (...) {
+		if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
+		else if (wait_mode_ptr) *wait_mode_ptr = 0;
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
@@ -549,11 +553,13 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size)
+ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr)
 {
 	ssize_t ret = 0;
 	errno = 0;
 	ret = send(fd, chptr, size , 0);
+	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
+	else if (wait_mode_ptr) *wait_mode_ptr = 0;
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
@@ -851,7 +857,7 @@ handleAccSocketWritable_finally:
 	return ret;
 }
 
-ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
+ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size, int * wait_mode_ptr)
 {
 	ssize_t ret = 0;
 	errno = 0;
@@ -861,6 +867,8 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 	}
 	catch (std::exception & e) {
 	}
+	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
+	else if (wait_mode_ptr) *wait_mode_ptr = 0;
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
@@ -879,11 +887,13 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size)
 	return ret;
 }
 
-ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size)
+ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr)
 {
 	ssize_t ret = 0;
 	errno = 0;
 	ret = recv(fd, chptr, size , 0);
+	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
+	else if (wait_mode_ptr) *wait_mode_ptr = 0;
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
