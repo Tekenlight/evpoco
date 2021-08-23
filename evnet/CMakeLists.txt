@@ -39,22 +39,24 @@ string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
 target_link_libraries( "${LIBNAME}" Foundation Net Util lualib)
 target_link_libraries( "${LIBNAME}" ${LTF} ev evds evthrpool evsync evio http_parser )
-foreach(dir ${ADD_INCLUDE_DIRECTORIES})
-	target_include_directories( "${LIBNAME}" PRIVATE ${dir} )
-	#string(APPEND INC_DIRS "-I${dir} ")
-endforeach(dir)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
+
+#foreach(dir ${ADD_INCLUDE_DIRECTORIES})
+	#target_include_directories( "${LIBNAME}" PRIVATE ${dir} )
+	#string(APPEND INC_DIRS "-I${dir} ")
+#endforeach(dir)
+
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	#include_directories(SYSTEM ${dir})
-	string(APPEND INC_DIRS "-I${dir} ")
+	string(APPEND INC_DIRS " -I${dir} ")
 endforeach(dir)
 #string(STRIP ${INC_DIRS} INC_DIRS)
-#set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
+set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
 
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 

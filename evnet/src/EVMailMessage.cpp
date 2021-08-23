@@ -140,7 +140,8 @@ static int add_recipient(lua_State *L)
 		return luaL_error(L, "add_recipient: Invalid first argument");
 	}
 	const char * cp_recipient = luaL_checkstring(L, 2);
-	int cp_recipient_type = luaL_checkinteger(L, 3);
+	int cp_recipient_type = lua_tointeger(L, 3);
+	cp_recipient_type = luaL_checkinteger(L, 3);
 	switch (cp_recipient_type) {
 		case MailRecipient::PRIMARY_RECIPIENT:
 		case MailRecipient::CC_RECIPIENT:
@@ -149,7 +150,17 @@ static int add_recipient(lua_State *L)
 		default:
 			return luaL_error(L, "add_recipient: Invalid third argument");
 	}
-	mm->addRecipient(MailRecipient((MailRecipient::RecipientType)cp_recipient_type, std::string(cp_recipient)));
+	const char * cp_real_recipient = NULL;
+	if (lua_gettop(L) == 4) {
+		cp_real_recipient = luaL_checkstring(L, 4);
+	}
+	if (cp_real_recipient) {
+		mm->addRecipient(MailRecipient((MailRecipient::RecipientType)cp_recipient_type,
+													std::string(cp_recipient), std::string(cp_real_recipient)));
+	}
+	else {
+		mm->addRecipient(MailRecipient((MailRecipient::RecipientType)cp_recipient_type, std::string(cp_recipient)));
+	}
 	return 0;
 }
 

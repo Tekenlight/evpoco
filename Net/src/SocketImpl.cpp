@@ -65,7 +65,8 @@ bool checkIsBrokenTimeout()
 SocketImpl::SocketImpl():
 	_sockfd(POCO_INVALID_SOCKET),
 	_blocking(true), 
-	_isBrokenTimeout(checkIsBrokenTimeout())
+	_isBrokenTimeout(checkIsBrokenTimeout()),
+	_isManaged(false)
 {
 }
 
@@ -73,7 +74,8 @@ SocketImpl::SocketImpl():
 SocketImpl::SocketImpl(poco_socket_t sockfd):
 	_sockfd(sockfd),
 	_blocking(true),
-	_isBrokenTimeout(checkIsBrokenTimeout())
+	_isBrokenTimeout(checkIsBrokenTimeout()),
+	_isManaged(false)
 {
 }
 
