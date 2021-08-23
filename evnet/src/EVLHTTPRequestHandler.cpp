@@ -993,6 +993,7 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 
 	bool managed = false;
 	if (lua_gettop(L) > 2) {
+		//DEBUGPOINT("TYPE = [%d] [%d]\n", lua_type(L, 3), LUA_TBOOLEAN);
 		luaL_checktype(L, 3, LUA_TBOOLEAN);
 		managed = (lua_toboolean(L, 3))?true:false;
 	}
@@ -1016,17 +1017,22 @@ static int make_tcp_connection_initiate(lua_State* L)
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	if (lua_gettop(L) != 3 && lua_gettop(L) != 2) {
-		luaL_error(L, "make_tcp_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
+		luaL_error(L, "make_tcp_connection: invalid number of arguments, expected 2 or 3, actual %d ", lua_gettop(L));
 		return 0;
 	}
 	else if (lua_isnil(L, 1) || !lua_isstring(L, 1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
-		luaL_error(L, "make_tcp_connection: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+		luaL_error(L, "make_tcp_connection: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 		return 0;
 	}
-	else if (!lua_isnil(L, 2) && !lua_isstring(L, 2)) {
+	else if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-		luaL_error(L, "make_tcp_connection: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		luaL_error(L, "make_tcp_connection: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
+		return 0;
+	}
+	else if ((lua_gettop(L) == 3) && (!lua_isnil(L, 3)) && (!lua_isboolean(L, 3))) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 3)));
+		luaL_error(L, "make_tcp_connection: invalid third argumet %s", lua_typename(L, lua_type(L, 3)));
 		return 0;
 	}
 	else {
