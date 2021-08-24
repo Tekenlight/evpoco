@@ -56,6 +56,7 @@ struct _write_s {
 };
 
 extern int get_mail_message_funcs(lua_State *L);
+extern int get_properties_funcs(lua_State *L);
 
 namespace Poco {
 namespace evnet {
@@ -144,6 +145,7 @@ static int memory_buffer_name__tostring(lua_State *L)
 
 namespace evpoco {
 	static int evpoco_load_mail_message_funcs(lua_State* L);
+	static int evpoco_load_properties_funcs(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
@@ -349,6 +351,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "alloc_buffer", &evpoco::alloc_buffer },
 	{ "get_lua_state", &evpoco::get_lua_state },
 	{ "mail_message_funcs", &evpoco::evpoco_load_mail_message_funcs },
+	{ "properties_funcs", &evpoco::evpoco_load_properties_funcs },
 	{ NULL, NULL }
 };
 
@@ -569,6 +572,11 @@ namespace evpoco {
 static int evpoco_load_mail_message_funcs(lua_State* L)
 {
 	return get_mail_message_funcs(L);
+}
+
+static int evpoco_load_properties_funcs(lua_State* L)
+{
+	return get_properties_funcs(L);
 }
 
 static int evpoco_getmtname(lua_State* L)
