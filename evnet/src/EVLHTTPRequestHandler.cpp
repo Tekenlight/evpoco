@@ -66,6 +66,7 @@ const static char *_file_handle_type_name = "filehandle";
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_creq_type_name = "httpcreq";
 const static char *_stream_socket_type_name = "streamsocket";
+const static char *_pooled_stream_socket_type_name = "pooled_streamsocket";
 const static char *_http_sreq_type_name = "httpsreq";
 const static char *_http_conn_type_name = "httpconn";
 const static char *_http_sresp_type_name = "httpsresp";
@@ -157,13 +158,15 @@ namespace evpoco {
 	static int make_http_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_http_connection_initiate(lua_State* L);
 	static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext ctx);
+	static int make_tcp_connection_initiate(lua_State* L);
+	static int use_pooled_connection(lua_State* L);
+	static int set_socket_managed(lua_State* L);
 	static int recv_data_from_socket_initiate(lua_State* L);
 	static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_socket_initiate(lua_State* L);
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int send_cms_on_socket_initiate(lua_State* L);
 	static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ctx);
-	static int make_tcp_connection_initiate(lua_State* L);
 	static int close_tcp_connection(lua_State* L);
 	static int nb_make_http_connection_initiate(lua_State* L);
 	static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_async_task* tp);
@@ -336,6 +339,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
+	{ "use_pooled_connection", &evpoco::use_pooled_connection },
+	{ "set_socket_managed", &evpoco::set_socket_managed },
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
 	{ "recv_data_from_socket", &evpoco::recv_data_from_socket_initiate },
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
@@ -379,10 +384,10 @@ public:
 	}
 };
 
-evl_db_conn_pool EVLHTTPRequestHandler::_db_conn_pool;
-evl_db_conn_pool* EVLHTTPRequestHandler::getDbConnPool()
+evl_pool EVLHTTPRequestHandler::_pool;
+evl_pool* EVLHTTPRequestHandler::getPool()
 {
-	evl_db_conn_pool* ret =  &_db_conn_pool;
+	evl_pool* ret =  &_pool;
 	return ret;
 }
 std::map<std::string, void*> EVLHTTPRequestHandler::_map_of_maps;
@@ -1056,6 +1061,42 @@ static int make_tcp_connection_initiate(lua_State* L)
 	return lua_yieldk(L, 0, (lua_KContext)0, make_tcp_connection_complete);
 }
 
+static int set_socket_managed(lua_State* L)
+{
+	bool managed = false;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	luaL_checktype(L, 2, LUA_TBOOLEAN);
+	managed = (lua_toboolean(L, 2))?true:false;
+
+	ss_ptr->impl()->managed(managed);
+
+	return 0;
+}
+
+static int use_pooled_connection(lua_State* L)
+{
+	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	Poco::Net::StreamSocket * ss_ptr = (Poco::Net::StreamSocket *)lua_touserdata(L, 1);
+	if (ss_ptr == NULL) {
+		luaL_error(L, "Invlaid inputs to function : use_pooled_connection");
+		return 0;
+	}
+	if (!(ss_ptr->impl()->isManaged())) {
+		luaL_error(L, "The input socket is not managed by the caller: use_pooled_connection");
+		return 0;
+	}
+
+	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+	luaL_setmetatable(L, _stream_socket_type_name);
+
+	return 1;
+}
+
 static int close_tcp_connection(lua_State* L)
 {
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
@@ -1522,7 +1563,7 @@ static int req__gc(lua_State *L)
 static int ss__gc(lua_State *L)
 {
 	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
-	delete ss_ptr;
+	if (!(ss_ptr->impl()->isManaged())) delete ss_ptr;
 	return 0;
 }
 

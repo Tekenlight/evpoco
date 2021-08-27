@@ -9,7 +9,7 @@
 int socket_live(int fd);
 int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *stmt_id, const char *sql_query);
 int dbd_postgresql_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
-void init_db_type(const char * db_type, Poco::evnet::evl_db_conn_pool::queue_holder *qhf);
+void init_pool_type(const char * db_type, Poco::evnet::evl_pool::queue_holder *qhf);
 void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname);
 void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
 const std::string * get_stmt_id_from_cache(const char * statement);
@@ -375,7 +375,7 @@ int ev_postgres_connection(lua_State *L)
 	lua_newtable(L);
 	luaL_setfuncs(L, connection_class_methods, 0);
 
-	if (!db_initialized) init_db_type(POSTGRES_DB_TYPE_NAME, &qhf);
+	if (!db_initialized) init_pool_type(POSTGRES_DB_TYPE_NAME, &qhf);
 	db_initialized = 1;
 
 	return 1;    

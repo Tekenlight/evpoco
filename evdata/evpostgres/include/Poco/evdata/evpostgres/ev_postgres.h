@@ -51,11 +51,11 @@ typedef struct _statement {
 
 
 
-class pg_queue_holder : public Poco::evnet::evl_db_conn_pool::queue_holder {
+class pg_queue_holder : public Poco::evnet::evl_pool::queue_holder {
 	public:
-	virtual Poco::evnet::evl_db_conn_pool::queue_holder* clone()
+	virtual Poco::evnet::evl_pool::queue_holder* clone()
 	{
-		return (Poco::evnet::evl_db_conn_pool::queue_holder*)(new pg_queue_holder());
+		return (Poco::evnet::evl_pool::queue_holder*)(new pg_queue_holder());
 	}
 	virtual ~pg_queue_holder() {
 		PGconn * conn = (PGconn*)dequeue(_queue);

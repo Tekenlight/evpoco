@@ -170,7 +170,7 @@ private:
 	std::map<std::string, PartData*>	_parts;
 };
 
-class evl_db_conn_pool {
+class evl_pool {
 public:
 	class queue_holder {
 		public:
@@ -179,31 +179,31 @@ public:
 		virtual queue_holder * clone() = 0;
 		ev_queue_type _queue;
 	};
-	evl_db_conn_pool()
+	evl_pool()
 	{
 		_lock = ev_rwlock_init();
 	}
 
-	~evl_db_conn_pool()
+	~evl_pool()
 	{
 		ev_rwlock_destroy(_lock);
 	}
-	queue_holder * get_queue_holder(std::string db_name);
-	queue_holder * add_queue_holder(std::string db_name, queue_holder *);
+	queue_holder * get_queue_holder(std::string name);
+	queue_holder * add_queue_holder(std::string name, queue_holder *);
 
 private:
-	std::map<std::string, queue_holder*> _db_map;
+	std::map<std::string, queue_holder*> _map;
 	ev_rwlock_type _lock;
 };
 
-inline evl_db_conn_pool::queue_holder * evl_db_conn_pool::get_queue_holder(std::string db_name)
+inline evl_pool::queue_holder * evl_pool::get_queue_holder(std::string name)
 {
-	evl_db_conn_pool::queue_holder *qh = NULL;
+	evl_pool::queue_holder *qh = NULL;
 
 	ev_rwlock_rdlock(_lock);
 	{
-		auto it = _db_map.find(db_name);
-		if (_db_map.end() != it) qh = it->second;
+		auto it = _map.find(name);
+		if (_map.end() != it) qh = it->second;
 		else qh =  NULL;
 	}
 	ev_rwlock_rdunlock(_lock);
@@ -211,14 +211,14 @@ inline evl_db_conn_pool::queue_holder * evl_db_conn_pool::get_queue_holder(std::
 	return qh;
 }
 
-inline evl_db_conn_pool::queue_holder* evl_db_conn_pool::add_queue_holder(std::string db_name, evl_db_conn_pool::queue_holder *qh)
+inline evl_pool::queue_holder* evl_pool::add_queue_holder(std::string name, evl_pool::queue_holder *qh)
 {
-	evl_db_conn_pool::queue_holder * i_qh = NULL;
+	evl_pool::queue_holder * i_qh = NULL;
 	ev_rwlock_wrlock(_lock);
-	auto it = _db_map.find(db_name);
-	if (it == _db_map.end()) {
+	auto it = _map.find(name);
+	if (it == _map.end()) {
 		i_qh = qh->clone();
-		_db_map[db_name] = i_qh;
+		_map[name] = i_qh;
 	} else {
 		i_qh = it->second;
 	}
@@ -276,7 +276,7 @@ public:
 	EVLHTTPRequestHandler::async_tasks_t& getAsyncTaskList();
 	bool getAsyncTaskAwaited();
 	void setAsyncTaskAwaited(bool);
-	static evl_db_conn_pool* getDbConnPool();
+	static evl_pool* getPool();
 	static std::map<std::string, void*> * getMapOfMaps();
 	static unsigned long getNextCachedStmtId();
 
@@ -303,7 +303,7 @@ private:
 	char										_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
 	async_tasks_t								_async_tasks;
 	bool										_async_tasks_status_awaited;
-	static evl_db_conn_pool						_db_conn_pool;
+	static evl_pool								_pool;
 	static std::map<std::string, void*>			_map_of_maps;
 	//static std::atomic_ulong					_cached_stmt_id;
 };
