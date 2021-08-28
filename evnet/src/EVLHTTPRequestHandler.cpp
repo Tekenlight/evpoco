@@ -161,6 +161,7 @@ namespace evpoco {
 	static int make_tcp_connection_initiate(lua_State* L);
 	static int use_pooled_connection(lua_State* L);
 	static int set_socket_managed(lua_State* L);
+	static int cleanup_ss(lua_State* L);
 	static int recv_data_from_socket_initiate(lua_State* L);
 	static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_socket_initiate(lua_State* L);
@@ -341,6 +342,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
 	{ "use_pooled_connection", &evpoco::use_pooled_connection },
 	{ "set_socket_managed", &evpoco::set_socket_managed },
+	{ "cleanup_stream_socket", &evpoco::cleanup_ss },
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
 	{ "recv_data_from_socket", &evpoco::recv_data_from_socket_initiate },
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
@@ -1071,6 +1073,18 @@ static int set_socket_managed(lua_State* L)
 	managed = (lua_toboolean(L, 2))?true:false;
 
 	ss_ptr->impl()->managed(managed);
+
+	return 0;
+}
+
+static int cleanup_ss(lua_State* L)
+{
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+
+	/* Set the managed flag of ss_ptr to false so that
+	 * the corresponding __gc will delete the object.
+	 */
+	ss_ptr->impl()->managed(false);
 
 	return 0;
 }
