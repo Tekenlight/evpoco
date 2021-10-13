@@ -1,6 +1,11 @@
 extern "C" {
+#if defined (PG_VERSION) && (PG_VERSION == 12) 
 #include "postgresql/libpq-fe.h"
 #include "postgresql/12/server/catalog/pg_type_d.h"
+#else
+#include "libpq-fe.h"
+#include "catalog/pg_type_d.h"
+#endif
 }
 #include <Poco/evdata/ev_sql_access.h>
 

@@ -7,7 +7,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <endian.h>
 
 extern "C" {
 #include <lua.h>
@@ -26,6 +25,7 @@ extern "C" {
 #endif
 
 #if defined __linux__
+#include <endian.h>
 #define ntohll be64toh
 #define htonll htobe64
 #endif
