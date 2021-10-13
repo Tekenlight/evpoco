@@ -1,7 +1,6 @@
 extern "C" {
-#include "libpq-fe.h"
-#include "catalog/pg_type_d.h"
-#include "pgtypes_numeric.h"
+#include "postgresql/libpq-fe.h"
+#include "postgresql/12/server/catalog/pg_type_d.h"
 }
 #include <Poco/evdata/ev_sql_access.h>
 

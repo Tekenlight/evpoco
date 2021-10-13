@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <endian.h>
 
 extern "C" {
 #include <lua.h>
@@ -22,6 +23,11 @@ extern "C" {
 
 #ifdef _MSC_VER  /* all MS compilers define this (version) */
      #define snprintf _snprintf
+#endif
+
+#if defined __linux__
+#define ntohll be64toh
+#define htonll htobe64
 #endif
 
 /*

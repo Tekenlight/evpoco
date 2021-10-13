@@ -353,9 +353,9 @@ static int return_data_from_stmt_execution(lua_State *L, PGresult *result)
 	return 1;
 }
 
-static int bind_error(lua_State *L, char * err, int type, statement_t *statement)
+static int bind_error(lua_State *L, char * err, int type, statement_t *statement, size_t len)
 {
-	snprintf(err, sizeof(err)-1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
+	snprintf(err, len, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
 	lua_pushboolean(L, 0);
 	lua_pushfstring(L, EV_SQL_ERR_BINDING_PARAMS, err);
 	DEBUGPOINT(EV_SQL_ERR_BINDING_PARAMS, err);
@@ -614,13 +614,13 @@ static int ev_statement_execute(lua_State *L)
 				if (-1 == set_stmt_params(L, params, param_lengths, param_formats, allocs,  p, i)) {
 					DEBUGPOINT("[%d]REACHED HERE\n", i);
 					FREE_PARAMS(params, allocs, num_bind_params, param_lengths, param_formats);
-					return bind_error(L, err, type, statement);
+					return bind_error(L, err, type, statement, sizeof(err) -1);
 				}
 				break;
 			default:
 				DEBUGPOINT("[%d]REACHED HERE\n", i);
 				FREE_PARAMS(params, allocs, num_bind_params, param_lengths, param_formats);
-				return bind_error(L, err, type, statement);
+				return bind_error(L, err, type, statement, sizeof(err) -1);
 		}
 	}
 

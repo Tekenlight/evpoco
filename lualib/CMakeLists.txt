@@ -64,7 +64,7 @@ endforeach(dir)
 if(APPLE)
 target_link_libraries( "${LIBNAME}" "${LTF}" lua )
 else(APPLE)
-target_link_libraries( "${LIBNAME}" "${LTF}" "-Wl,--whole-archive" lua )
+target_link_libraries( "${LIBNAME}" "${LTF}" "-Wl,--whole-archive,--no-whole-archive" lua )
 endif(APPLE)
 target_include_directories( "${LIBNAME}"
     PUBLIC
