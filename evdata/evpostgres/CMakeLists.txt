@@ -16,8 +16,6 @@ POCO_HEADERS_AUTO( SRCS ${HDRS_H})
 
 set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
 set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
-set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
-
 # Windows and WindowsCE need additional libraries
 if(WIN32)
     if(WINCE)
@@ -30,17 +28,9 @@ endif(WIN32)
 #message(STATUS "${LIBNAME} " " ${SHARED_LIBRARY_VERSION}" " ${POCO_LIBNAME}" )
 if(APPLE)
 add_library( "${LIBNAME}" MODULE ${SRCS} ) #This is needed to creare .so file
-#add_library( "${LIBNAME}" "${LIB_MODE}" "${SRCS}" ) #This is needed to creare .so file
 else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 endif(APPLE)
-#add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
-#set_target_properties( "${LIBNAME}"
-#    PROPERTIES
-#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
-#    OUTPUT_NAME ${POCO_LIBNAME}
-#    DEFINE_SYMBOL evpostgres_EXPORTS
-#    )
 
 #VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
 #These flags are not supported in .so mode MODULE instead of SHARED (for .dylib files on macosx)
@@ -83,8 +73,15 @@ foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	#include_directories(SYSTEM ${dir})
 	string(APPEND INC_DIRS "-I${dir} ")
 endforeach(dir)
+if (PG_VERSION EQUAL 12)
+	message(STATUS PG_VERSION " ${PG_VERSION}")
+	#set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "-DPG_VERSION=12")
+	add_definitions(-DPG_VERSION=12)
+endif(PG_VERSION EQUAL 12)
 string(APPEND INC_DIRS " -I/opt/local/include/postgresql13 -I/opt/local/include/postgresql13/server")
 set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
+set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
+
 
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 
