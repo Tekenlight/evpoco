@@ -52,6 +52,7 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
+string(APPEND LINK_TIME_FLAGS " ")
 foreach(lib ${ADD_LIBRARY_PATH})
 string(APPEND LINK_TIME_FLAGS " ")
 string(APPEND LINK_TIME_FLAGS "-L${lib}")
@@ -59,9 +60,8 @@ string(APPEND LINK_TIME_FLAGS " ")
 endforeach(lib)
 string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
 set(LTF ${LINK_TIME_FLAGS})
-#message(STATUS "Here ${LTF}")
-#target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata "-L/opt/local/lib/postgresql13" pq)
-#target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata pq "-L/opt/local/lib/postgresql13" pgtypes)
+
+
 target_link_libraries( "${LIBNAME}" "${LTF}" evnet evdata pq "-L/opt/local/lib/postgresql13")
 target_include_directories( "${LIBNAME}"
     PUBLIC

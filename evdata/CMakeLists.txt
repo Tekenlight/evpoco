@@ -49,6 +49,7 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
+string(APPEND LINK_TIME_FLAGS " ")
 foreach(lib ${ADD_LIBRARY_PATH})
 string(APPEND LINK_TIME_FLAGS "-L${lib}")
 string(APPEND LINK_TIME_FLAGS " ")
