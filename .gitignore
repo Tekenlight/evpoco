@@ -15,6 +15,7 @@
 *.d
 *.vsp
 *.psess
+cmake.env
 
 # Gradle #
 ##########
