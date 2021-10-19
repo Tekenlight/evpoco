@@ -161,7 +161,7 @@ namespace evpoco {
 	static int make_tcp_connection_initiate(lua_State* L);
 	static int use_pooled_connection(lua_State* L);
 	static int set_socket_managed(lua_State* L);
-	static int cleanup_ss(lua_State* L);
+	static int cleanup_stream_socket(lua_State* L);
 	static int recv_data_from_socket_initiate(lua_State* L);
 	static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_socket_initiate(lua_State* L);
@@ -342,7 +342,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
 	{ "use_pooled_connection", &evpoco::use_pooled_connection },
 	{ "set_socket_managed", &evpoco::set_socket_managed },
-	{ "cleanup_stream_socket", &evpoco::cleanup_ss },
+	{ "cleanup_stream_socket", &evpoco::cleanup_stream_socket },
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
 	{ "recv_data_from_socket", &evpoco::recv_data_from_socket_initiate },
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
@@ -420,7 +420,7 @@ public:
 	~LUAStateCache() {
 		lua_State* l = NULL;
 		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
-			DEBUGPOINT("Destructor\n");
+			DEBUGPOINT("LUAStateCache Destructor\n");
 			lua_close(l);
 		}
 		destroy_ev_queue(_queue);
@@ -1077,13 +1077,14 @@ static int set_socket_managed(lua_State* L)
 	return 0;
 }
 
-static int cleanup_ss(lua_State* L)
+static int cleanup_stream_socket(lua_State* L)
 {
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
 
 	/* Set the managed flag of ss_ptr to false so that
 	 * the corresponding __gc will delete the object.
 	 */
+	//DEBUGPOINT("HERE\n");
 	ss_ptr->impl()->managed(false);
 
 	return 0;
@@ -1563,7 +1564,7 @@ static int close_http_connection(lua_State* L)
 		reqHandler->closeHTTPSession(*session);
 	}
 
-	DEBUGPOINT("HERE %p\n",session);
+	//DEBUGPOINT("HERE %p\n",session);
 	return 0;
 }
 
@@ -1577,7 +1578,12 @@ static int req__gc(lua_State *L)
 static int ss__gc(lua_State *L)
 {
 	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
-	if (!(ss_ptr->impl()->isManaged())) delete ss_ptr;
+	//DEBUGPOINT("HERE managed = [%d]\n", ss_ptr->impl()->isManaged());
+	if (!(ss_ptr->impl()->isManaged())) {
+		//DEBUGPOINT("HERE\n");
+		delete ss_ptr;
+	}
+	//DEBUGPOINT("HERE\n");
 	return 0;
 }
 
@@ -3479,11 +3485,11 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 	Poco::Util::AbstractConfiguration& config = appConfig();
 	bool enable_lua_cache = config.getBool(SERVER_PREFIX_CFG_NAME + ENABLE_CACHE , true);
 
+	//DEBUGPOINT("ELC = [%d]\n", enable_lua_cache);
 	if (enable_lua_cache) {
 		lua_pushlightuserdata(_L, (void*) NULL);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 		lua_gc(_L, LUA_GCCOLLECT, 0);
-		//lua_gc(_L, LUA_GCCOLLECT, 0);
 		lua_settop(_L, 0);
 		//DEBUGPOINT("Here _L=[%p] status = [%d]\n", _L);
 		if (lua_status(_L) == LUA_OK) enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
