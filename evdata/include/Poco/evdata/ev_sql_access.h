@@ -172,6 +172,7 @@ typedef enum lua_push_type {
 
 
 
+#define REDIS_DB_TYPE_NAME "REDIS"
 #define POSTGRES_DB_TYPE_NAME "POSTGRESQL"
 #define SQLITE_DB_TYPE_NAME "SQLITE"
 #define MYSQL_DB_TYPE_NAME "MYSQL"

@@ -2943,6 +2943,12 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("FILEREAD_NOTIFICATION from %d\n", tn->getSockfd());
 				pollFileReadEvent(srNF);
 				break;
+			case EVTCPServiceRequest::INITIATE_REDIS_CONNECTION:
+				//DEBUGPOINT("FILEREAD_NOTIFICATION from %d\n", tn->getSockfd());
+				break;
+			case EVTCPServiceRequest::TRANSCEIVE_REDIS_COMMAND:
+				//DEBUGPOINT("FILEREAD_NOTIFICATION from %d\n", tn->getSockfd());
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -3161,5 +3167,12 @@ long EVTCPServer::notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *en, int fd
 	return sr_num;
 }
 
+void EVTCPServer::redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr)
+{
+
+	fptr(_loop, ac);
+
+	return;
+}
 
 } } // namespace Poco::evnet

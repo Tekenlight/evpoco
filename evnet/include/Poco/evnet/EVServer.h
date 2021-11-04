@@ -1,6 +1,10 @@
 #ifndef EVNet_EVServer_INCLUDED
 #define EVNet_EVServer_INCLUDED
 
+#include <hiredis/hiredis.h>
+#include <hiredis/async.h>
+#include <hiredis/adapters/libev.h>
+
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"
 #include "Poco/Net/StreamSocket.h"
@@ -11,6 +15,7 @@ namespace evnet {
 
 typedef void* (*generic_task_handler_t)(void*);
 typedef void (*generic_task_handler_nr_t)(void*);
+typedef int (*redisLibevAttach_funcptr)(struct ev_loop *loop, redisAsyncContext *ac);
 
 class Net_API EVServer {
 public:
@@ -31,6 +36,7 @@ public:
 	virtual long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data) = 0;
 	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;
+	virtual void redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr) = 0;
 };
 
 }

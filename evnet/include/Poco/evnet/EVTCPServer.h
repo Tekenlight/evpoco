@@ -317,6 +317,9 @@ public:
 	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 		/// Functions needed for asynchronous file operations.
+	
+	virtual void redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr);
+		/// Initiate a redis connection based on input parameters
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
