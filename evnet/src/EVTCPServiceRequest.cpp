@@ -116,6 +116,21 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 {
 }
 
+EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, void * data):
+	_sr_num(sr_num),
+	_cb_evid_num(cb_evid_num),
+	_acc_fd(-1),
+	_event(event),
+	_domain_name(0),
+	_serv_name(0),
+	_task_func(0),
+	_task_input_data(data),
+	_file_fd(-1),
+	_poll_for(0),
+	_conn_socket_managed(0)
+{
+}
+
 EVTCPServiceRequest::~EVTCPServiceRequest()
 {
 }

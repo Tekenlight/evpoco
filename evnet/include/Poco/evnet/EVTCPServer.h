@@ -321,6 +321,9 @@ public:
 	virtual void redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr);
 		/// Initiate a redis connection based on input parameters
 
+	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncCommand_funcptr func_ptr, redisAsyncContext *ac, const char * message);
+		/// Initiate a transceive (send and receive pair) on a redis connection
+
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
@@ -359,11 +362,14 @@ private:
 	int initiateGenericTaskNR(EVTCPServiceRequest * sr);
 	int pollFileOpenEvent(EVTCPServiceRequest * sr);
 	int pollFileReadEvent(EVTCPServiceRequest * sr);
+	int addRedisSocketToPoll(EVTCPServiceRequest * sr);
 	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
 	int closeTCPConnection(EVTCPServiceRequest * sr);
 	int pollSocketForReadOrWrite(EVTCPServiceRequest * sr);
+
+	void handle_redis_transceive_complete(struct redis_call_related_data * redis_data_ptr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 	typedef std::map<int,file_event_status_s> FileEvtSubscrMap;

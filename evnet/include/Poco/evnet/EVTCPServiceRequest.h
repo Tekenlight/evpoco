@@ -56,6 +56,7 @@ public:
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss, Net::SocketAddress& addr);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, const char* domain_name, const char* serv_name);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, task_func_with_return_t tf, void* td);
+	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, void * data);
 
 	~EVTCPServiceRequest();
 
