@@ -63,6 +63,13 @@ static void debug_conn(redis_connection_t *conn)
 	return;
 }
 
+static int lua_debug_conn(lua_State *L)
+{
+	redis_connection_t *conn = (redis_connection_t *)luaL_checkudata(L, 1, EV_REDIS_CONNECTION);
+	debug_conn(conn);
+	return 0;
+}
+
 static int open_connection_initiate(lua_State *L)
 {
     int n = lua_gettop(L);
@@ -230,6 +237,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 
 	if (reply->type != REDIS_REPLY_ERROR) {
 		if ((reply->type != REDIS_REPLY_NIL) && (reply->type != REDIS_REPLY_STRING) && (reply->type != REDIS_REPLY_STATUS)) {
+			conn->free_reply_obj(reply);
 			luaL_error(L, "Support fot reply type [%d] not yet implemented\n", reply->type);
 			return 0;
 		}
@@ -240,12 +248,10 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 			lua_pushstring(L, out_str);
 			free(out_str);
 
-			conn->free_reply_obj(reply);
 		}
 		else {
 			lua_pushnil(L);
 		}
-		return 2;
 	}
 	else {
 		lua_pushboolean(L, 0);
@@ -253,8 +259,9 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 		char * out_str = strndup(reply->str, reply->len);
 		lua_pushstring(L, reply->str);
 		free(out_str);
-		return 2;
 	}
+	conn->free_reply_obj(reply);
+	return 2;
 }
 
 /*
@@ -292,6 +299,7 @@ static int ev_redis_connection(lua_State *L)
 		{"close", connection_close},
 		{"ping", connection_ping},
 		{"transceive", transceive},
+		{"debug_conn", lua_debug_conn},
 		{NULL, NULL}
 	};
 
