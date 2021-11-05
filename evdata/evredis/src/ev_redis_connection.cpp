@@ -252,6 +252,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 		else {
 			lua_pushnil(L);
 		}
+		lua_pushnil(L);
 	}
 	else {
 		lua_pushboolean(L, 0);
@@ -261,7 +262,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 		free(out_str);
 	}
 	conn->free_reply_obj(reply);
-	return 2;
+	return 3;
 }
 
 /*
