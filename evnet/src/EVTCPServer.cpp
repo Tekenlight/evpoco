@@ -3176,7 +3176,6 @@ typedef void (EVTCPServer::*transceive_complete_handler)(struct redis_call_relat
 struct redis_call_related_data {
 	redisAsyncContext *ac;
 	const char * message;
-	redisAsyncCommand_funcptr async_cmd_fptr;
 	EVTCPServer * server_ptr;
 	redisReply * reply;
 	long sr_num;
@@ -3195,6 +3194,7 @@ void EVTCPServer::handle_redis_transceive_complete(struct redis_call_related_dat
 	}
 	EVUpstreamEventNotification * usN =
 		new EVUpstreamEventNotification(redis_data_ptr->sr_num, redis_data_ptr->cb_evid_num);
+	usN->setTaskReturnValue(redis_data_ptr->reply);
 
 	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
 		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
@@ -3241,26 +3241,24 @@ int EVTCPServer::addRedisSocketToPoll(EVTCPServiceRequest * sr)
 	redis_data_ptr->cb_evid_num = sr->getCBEVIDNum();
 	redis_data_ptr->acc_fd = sr->accSockfd();
 
-
-	redis_data_ptr->async_cmd_fptr(redis_data_ptr->ac, redis_callback, (void*)redis_data_ptr, redis_data_ptr->message);
+	redisAsyncCommand(redis_data_ptr->ac, redis_callback, (void*)redis_data_ptr, redis_data_ptr->message);
 
 	tn->incrNumCSEvents();
 
 	return 0;
 }
 
-long EVTCPServer::redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncCommand_funcptr func_ptr, redisAsyncContext *ac, const char * message)
+long EVTCPServer::redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * message)
 {
 	long sr_num = getNextSRSrlNum();
 	struct redis_call_related_data *redis_data_ptr = (struct redis_call_related_data*)malloc(sizeof(struct redis_call_related_data));
 	redis_data_ptr->ac = ac;
 	redis_data_ptr->message = message;
-	redis_data_ptr->async_cmd_fptr = func_ptr;
 	redis_data_ptr->server_ptr = NULL;
 
 	/* Enque the socket */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
-									EVTCPServiceRequest::TRANSCEIVE_REDIS_COMMAND, (void*)redis_data_ptr));
+									EVTCPServiceRequest::TRANSCEIVE_REDIS_COMMAND, en->getSockfd(), (void*)redis_data_ptr));
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(_loop, this->_stop_watcher_ptr2);
@@ -3271,10 +3269,12 @@ long EVTCPServer::redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAs
 	return sr_num;
 }
 
-void EVTCPServer::redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr)
+void EVTCPServer::redisLibevAttach(redisAsyncContext *ac)
 {
 
-	fptr(_loop, ac);
+	//DEBUGPOINT("BEGIN OF THE ENTIRE SAGA\n");
+
+	::redisLibevAttach(_loop, ac);
 
 	return;
 }

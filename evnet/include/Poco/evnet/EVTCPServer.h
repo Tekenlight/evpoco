@@ -318,10 +318,10 @@ public:
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd);
 		/// Functions needed for asynchronous file operations.
 	
-	virtual void redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr);
+	virtual void redisLibevAttach(redisAsyncContext *ac);
 		/// Initiate a redis connection based on input parameters
 
-	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncCommand_funcptr func_ptr, redisAsyncContext *ac, const char * message);
+	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * message);
 		/// Initiate a transceive (send and receive pair) on a redis connection
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);

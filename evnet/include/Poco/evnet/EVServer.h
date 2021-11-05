@@ -15,8 +15,6 @@ namespace evnet {
 
 typedef void* (*generic_task_handler_t)(void*);
 typedef void (*generic_task_handler_nr_t)(void*);
-typedef int (*redisLibevAttach_funcptr)(struct ev_loop *loop, redisAsyncContext *ac);
-typedef int (*redisAsyncCommand_funcptr)(redisAsyncContext *, redisCallbackFn *, void *, const char *, ...);
 
 class Net_API EVServer {
 public:
@@ -37,8 +35,8 @@ public:
 	virtual long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data) = 0;
 	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;
-	virtual void redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr) = 0;
-	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncCommand_funcptr func_ptr, redisAsyncContext *ac, const char * messge) = 0;
+	virtual void redisLibevAttach(redisAsyncContext *ac) = 0;
+	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * messge) = 0;
 };
 
 }

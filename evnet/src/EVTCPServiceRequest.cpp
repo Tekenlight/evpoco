@@ -116,10 +116,10 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 {
 }
 
-EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, void * data):
+EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, void * data):
 	_sr_num(sr_num),
 	_cb_evid_num(cb_evid_num),
-	_acc_fd(-1),
+	_acc_fd(acc_fd),
 	_event(event),
 	_domain_name(0),
 	_serv_name(0),

@@ -56,6 +56,24 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
+long EVHTTPRequestHandler::redistransceive(TCallback cb, redisAsyncContext *ac, const char * message)
+{
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+	
+	Poco::evnet::EVServer & server = getServer();
+
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = cb;
+
+	sr_num = server.redistransceive(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), ac,  message);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
 long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed)
 {
 	Net::StreamSocket css;
