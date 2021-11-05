@@ -228,17 +228,33 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 	redisReply * reply = (redisReply*)usN.getTaskReturnValue();
 	usN.setTaskReturnValue(NULL); // So that usN destructor will not free task_return_value
 
-	if ((reply->type != REDIS_REPLY_STRING) && (reply->type != REDIS_REPLY_STATUS)) {
-		luaL_error(L, "Support fot reply type [%d] not yet implemented\n", reply->type);
-		return 0;
+	if (reply->type != REDIS_REPLY_ERROR) {
+		if ((reply->type != REDIS_REPLY_NIL) && (reply->type != REDIS_REPLY_STRING) && (reply->type != REDIS_REPLY_STATUS)) {
+			luaL_error(L, "Support fot reply type [%d] not yet implemented\n", reply->type);
+			return 0;
+		}
+
+		lua_pushboolean(L, 1);
+		if (reply->str) {
+			char * out_str = strndup(reply->str, reply->len);
+			lua_pushstring(L, out_str);
+			free(out_str);
+
+			conn->free_reply_obj(reply);
+		}
+		else {
+			lua_pushnil(L);
+		}
+		return 2;
 	}
-
-	char * out_str = strndup(reply->str, reply->len);
-	lua_pushstring(L, out_str);
-	free(out_str);
-
-	conn->free_reply_obj(reply);
-	return 1;
+	else {
+		lua_pushboolean(L, 0);
+		lua_pushnil(L);
+		char * out_str = strndup(reply->str, reply->len);
+		lua_pushstring(L, reply->str);
+		free(out_str);
+		return 2;
+	}
 }
 
 /*
