@@ -34,7 +34,7 @@ static void dummy_free_reply(void * p)
 //void EVTCPServer::redisLibevAttach(redisAsyncContext *ac, redisLibevAttach_funcptr fptr)
 static redisAsyncContext * initiate_connection(lua_State *L, const char * ip_address, const char * port, const char * dbname,  const char * user, const char* password)
 {
-	redisAsyncContext *ac = redisAsyncConnect("127.0.0.1", 6379);
+	redisAsyncContext *ac = redisAsyncConnect(ip_address, atoi(port));
     if (ac->err) {
         /* Let *c leak for now... */
         DEBUGPOINT("Error: %s\n", ac->errstr);
