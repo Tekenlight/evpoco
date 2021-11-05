@@ -228,7 +228,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 	redisReply * reply = (redisReply*)usN.getTaskReturnValue();
 	usN.setTaskReturnValue(NULL); // So that usN destructor will not free task_return_value
 
-	if (reply->type != REDIS_REPLY_STRING) {
+	if ((reply->type != REDIS_REPLY_STRING) && (reply->type != REDIS_REPLY_STATUS)) {
 		luaL_error(L, "Support fot reply type [%d] not yet implemented\n", reply->type);
 		return 0;
 	}
