@@ -3188,8 +3188,9 @@ void EVTCPServer::handle_redis_transceive_complete(struct redis_call_related_dat
 {
 	EVAcceptedStreamSocket *tn = getTn(redis_data_ptr->acc_fd);
 	if (!tn) {
-		DEBUGPOINT("Here tn has become null while task was being processed\n");
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
 		free(redis_data_ptr);
+		std::abort();
 		return;
 	}
 	EVUpstreamEventNotification * usN =
@@ -3198,6 +3199,7 @@ void EVTCPServer::handle_redis_transceive_complete(struct redis_call_related_dat
 
 	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
 		enqueue(tn->getUpstreamIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
 		if (!(tn->sockBusy())) {
 			//tn->setSockBusy();
 			//_pDispatcher->enqueue(tn);
@@ -3209,8 +3211,10 @@ void EVTCPServer::handle_redis_transceive_complete(struct redis_call_related_dat
 	}
 	else {
 		delete usN;
+		free(redis_data_ptr);
 		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
 		std::abort();
+		return;
 	}
 
 	tn->decrNumCSEvents();

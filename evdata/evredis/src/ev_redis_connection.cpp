@@ -134,6 +134,11 @@ static int open_connection_initiate(lua_State *L)
 				n_conn->s_dbname = conn->s_dbname;
 				n_conn->conn_in_error = conn->conn_in_error;
 				n_conn->free_reply_obj = conn->free_reply_obj;
+				/* Reassigning the dummy_free_reply because, change of lua_State
+				 * removes the loaded .so thus the old function pointer
+				 * is stale. It needs to be reassigned to the latest dummy function pointer.
+				 */
+				n_conn->ac->c.reader->fn->freeObject = dummy_free_reply;
 			}
 		}
 		free(conn);
