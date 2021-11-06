@@ -37,7 +37,7 @@ static redisAsyncContext * initiate_connection(lua_State *L, const char * ip_add
 	redisAsyncContext *ac = redisAsyncConnect(ip_address, atoi(port));
     if (ac->err) {
         /* Let *c leak for now... */
-        DEBUGPOINT("Error: %s\n", ac->errstr);
+        luaL_error(L, "Error: %s\n", ac->errstr);
         return NULL;
     }
 
@@ -86,23 +86,20 @@ static int open_connection_initiate(lua_State *L)
 	const char * password = luaL_checkstring(L, -1);
 	redis_connection_t * conn = (redis_connection_t *) get_conn_from_pool(REDIS_DB_TYPE_NAME, host, dbname);
 	if ( conn && !socket_live(conn->ac->c.fd)) {
-		DEBUGPOINT("SOCKET IS IN ERROR\n");
+		int fd = conn->ac->c.fd;
 		close_connection(conn);
 		free(conn);
 		conn = NULL;
-		/*
-		 * This abort is only for debug purpose.
-		 * It should eventually be removed.
-		 */
-		//std::abort();
-		poco_assert((1 != 1));
 	}
 
 	//DEBUGPOINT("CONN = [%p]\n", conn);
 	if (conn == NULL) {
 		//DEBUGPOINT("DID NOT FIND CONNECTION from pool\n");
 		redisAsyncContext * p = initiate_connection(L, host, port, dbname, user, password);
-		{
+		if (!p) {
+			return 0;
+		}
+		else {
 			redis_connection_t * n_conn = (redis_connection_t *)lua_newuserdata(L, sizeof(redis_connection_t));
 			memset(n_conn, 0, sizeof(redis_connection_t));
 			{
@@ -283,6 +280,7 @@ static int transceive(lua_State *L)
 		int status = socket_live(conn->ac->c.fd);
 
 		if (!status) {
+			conn->conn_in_error = 1;
 			luaL_error(L, "Socket connection to redis server [%d] not live\n", conn->ac->c.fd);
 			return 0;
 		}
@@ -291,7 +289,6 @@ static int transceive(lua_State *L)
 
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
-	//DEBUGPOINT("Here ac = [%p]\n", conn->ac);
 	reqHandler->redistransceive(NULL, conn->ac, message);
 	return lua_yieldk(L, 0, (lua_KContext)conn, transceive_complete);
 }
