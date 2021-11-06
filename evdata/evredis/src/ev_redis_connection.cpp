@@ -242,11 +242,9 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 		lua_pushboolean(L, 1);
 		switch (reply->type) {
 			case REDIS_REPLY_NIL:
-				DEBUGPOINT("Here\n");
 				lua_pushnil(L);
 				break;
 			case REDIS_REPLY_STRING:
-				DEBUGPOINT("Here\n");
 				{
 					char * out_str = strndup(reply->str, reply->len);
 					lua_pushstring(L, out_str);
@@ -254,7 +252,6 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 				}
 				break;
 			case REDIS_REPLY_STATUS:
-				DEBUGPOINT("Here\n");
 				{
 					char * out_str = strndup(reply->str, reply->len);
 					lua_pushstring(L, out_str);
@@ -262,19 +259,15 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 				}
 				break;
 			case REDIS_REPLY_INTEGER:
-				DEBUGPOINT("Here\n");
 				lua_pushinteger(L, reply->integer);
 				break;
 			case REDIS_REPLY_BOOL:
-				DEBUGPOINT("Here\n");
 				lua_pushboolean(L, reply->integer);
 				break;
 			case REDIS_REPLY_DOUBLE:
-				DEBUGPOINT("Here\n");
 				lua_pushnumber(L, reply->dval);
 				break;
 			default:
-				DEBUGPOINT("Here\n");
 				conn->free_reply_obj(reply);
 				luaL_error(L, "Support for reply type [%d] not yet implemented\n", reply->type);
 				return 0;
