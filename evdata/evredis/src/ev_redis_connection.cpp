@@ -241,7 +241,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 	if (reply->type != REDIS_REPLY_ERROR) {
 		if ((reply->type != REDIS_REPLY_NIL) && (reply->type != REDIS_REPLY_STRING) && (reply->type != REDIS_REPLY_STATUS)) {
 			conn->free_reply_obj(reply);
-			luaL_error(L, "Support fot reply type [%d] not yet implemented\n", reply->type);
+			luaL_error(L, "Support for reply type [%d] not yet implemented\n", reply->type);
 			return 0;
 		}
 
