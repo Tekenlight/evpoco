@@ -143,13 +143,8 @@ static int open_connection_initiate(lua_State *L)
 	if ( conn && !socket_live(PQsocket(conn->pg_conn))) {
 		DEBUGPOINT("SOCKET IS IN ERROR\n");
 		close_connection(conn);
+		free(conn);
 		conn = NULL;
-		/*
-		 * This abort is only for debug purpose.
-		 * It should eventually be removed.
-		 */
-		//std::abort();
-		poco_assert((1 != 1));
 	}
 
 	//DEBUGPOINT("CONN = [%p]\n", conn);
@@ -218,9 +213,9 @@ static int close_connection(connection_t *conn)
 
 	if (conn->cached_stmts) {
 		delete conn->cached_stmts;
-		delete conn->s_host;
-		delete conn->s_dbname;
 	}
+	delete conn->s_host;
+	delete conn->s_dbname;
 
 	return disconnect;
 
