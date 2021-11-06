@@ -15,7 +15,7 @@ void add_conn_to_pool(const char * db_type, const char * host, const char * dbna
 static redisAsyncContext * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);
 static int open_connection_initiate(lua_State *L);
-static int connection_close(lua_State *L);
+static int repurpose_connection(lua_State *L);
 static int connection_gc(lua_State *L);
 static int connection_tostring(lua_State *L);
 static int orchestrate_connection_process(lua_State *L, int step_to_continue);
@@ -88,6 +88,7 @@ static int open_connection_initiate(lua_State *L)
 	if ( conn && !socket_live(conn->ac->c.fd)) {
 		DEBUGPOINT("SOCKET IS IN ERROR\n");
 		close_connection(conn);
+		free(conn);
 		conn = NULL;
 		/*
 		 * This abort is only for debug purpose.
@@ -176,7 +177,7 @@ static int orig_connection_close(lua_State *L)
 }
 
 
-static int connection_close(lua_State *L)
+static int repurpose_connection(lua_State *L)
 {
     redis_connection_t *conn = (redis_connection_t *)luaL_checkudata(L, 1, EV_REDIS_CONNECTION);
 	//socket_live(PQsocket(conn->pg_conn));
@@ -200,7 +201,7 @@ static int connection_close(lua_State *L)
 static int connection_gc(lua_State *L)
 {
 	//DEBUGPOINT("Here in GC\n");
-	int ret =  connection_close(L);
+	int ret =  repurpose_connection(L);
 	return ret;
 }
 
@@ -302,7 +303,7 @@ static int ev_redis_connection(lua_State *L)
 	static const luaL_Reg connection_methods[] = {
 		{"__gc", connection_gc},
 		{"__tostring", connection_tostring},
-		{"close", connection_close},
+		{"close", orig_connection_close},
 		{"ping", connection_ping},
 		{"transceive", transceive},
 		{"debug_conn", lua_debug_conn},
