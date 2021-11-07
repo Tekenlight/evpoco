@@ -2949,6 +2949,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("TRANSCEIVE_REDIS_COMMAND from %d\n", tn->getSockfd());
 				addRedisSocketToPoll(srNF);
 				break;
+			case EVTCPServiceRequest::CLOSE_REDIS_CONNECTION:
+				//DEBUGPOINT("CLOSE_REDIS_CONNECTION from %d\n", tn->getSockfd());
+				closeRedisConnection(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -3271,6 +3275,40 @@ long EVTCPServer::redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAs
 
 
 	return sr_num;
+}
+
+int EVTCPServer::closeRedisConnection(EVTCPServiceRequest * sr)
+{
+	struct redis_call_related_data * redis_data_ptr ;
+	redis_data_ptr = (struct redis_call_related_data *)sr->getTaskInputData();
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+
+	redisAsyncDisconnect(redis_data_ptr->ac);
+
+	free(redis_data_ptr);
+	tn->newdecrNumCSEvents();
+
+	return 0;
+}
+
+long EVTCPServer::redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac)
+{
+	long sr_num = getNextSRSrlNum();
+	struct redis_call_related_data *redis_data_ptr = (struct redis_call_related_data*)malloc(sizeof(struct redis_call_related_data));
+	redis_data_ptr->ac = ac;
+	redis_data_ptr->message = NULL;
+	redis_data_ptr->server_ptr = NULL;
+
+	/* Enque the socket */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::CLOSE_REDIS_CONNECTION, en->getSockfd(), (void*)redis_data_ptr));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and closeRedisConnection */
+
+	return 0;
 }
 
 void EVTCPServer::redisLibevAttach(redisAsyncContext *ac)

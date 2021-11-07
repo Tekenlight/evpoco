@@ -196,6 +196,7 @@ public:
 	long makeNewSocketConnection(TCallback cb, const char * domain_name, const unsigned short port_num);
 	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed = 1);
 	long redistransceive(TCallback cb, redisAsyncContext *ac, const char * message);
+	void redisDisconnect(TCallback cb, redisAsyncContext *ac);
 
 	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
 

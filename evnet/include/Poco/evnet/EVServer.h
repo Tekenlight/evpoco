@@ -37,6 +37,7 @@ public:
 	virtual long notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;
 	virtual void redisLibevAttach(redisAsyncContext *ac) = 0;
 	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * messge) = 0;
+	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac) = 0;
 };
 
 }

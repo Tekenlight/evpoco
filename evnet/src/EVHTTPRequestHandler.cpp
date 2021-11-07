@@ -56,6 +56,24 @@ void EVHTTPRequestHandler::setState(int state)
 	_state = state;
 }
 
+// This is a fire and forget call
+void EVHTTPRequestHandler::redisDisconnect(TCallback cb, redisAsyncContext *ac)
+{
+	//SRData * srdata = new SRData();
+	
+	Poco::evnet::EVServer & server = getServer();
+
+	//srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	//srdata->cb = cb;
+
+	server.redisDisconnect(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), ac);
+
+	//srdata->ref_sr_num = sr_num;
+	//_srColl[sr_num] = srdata;
+
+	return ;
+}
+
 long EVHTTPRequestHandler::redistransceive(TCallback cb, redisAsyncContext *ac, const char * message)
 {
 	long sr_num = 0;

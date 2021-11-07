@@ -324,6 +324,9 @@ public:
 	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * message);
 		/// Initiate a transceive (send and receive pair) on a redis connection
 
+	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac);
+		/// Disconnect the redis connection and cleanup
+
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
@@ -363,6 +366,7 @@ private:
 	int pollFileOpenEvent(EVTCPServiceRequest * sr);
 	int pollFileReadEvent(EVTCPServiceRequest * sr);
 	int addRedisSocketToPoll(EVTCPServiceRequest * sr);
+	int closeRedisConnection(EVTCPServiceRequest * sr);
 	int makeTCPConnection(EVConnectedStreamSocket * cn);
 	int sendDataOnConnSocket(EVTCPServiceRequest *);
 	int recvDataOnConnSocket(EVTCPServiceRequest *);

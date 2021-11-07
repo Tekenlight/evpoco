@@ -5,7 +5,7 @@
 
 int socket_live(int fd)
 {
-	int time_out = 10;
+	int time_out = 0;
 
 	struct pollfd fd_item;
 	memset(&fd_item, 0, sizeof(struct pollfd));
@@ -15,7 +15,7 @@ int socket_live(int fd)
 
 	int ret = poll(&fd_item, 1, time_out);
 
-	//printf("ret = [%d] fd = [%d] revents = [%00X]\n", ret, fd_item.fd, fd_item.revents);
+	//printf("ret = [%d] orig_fd = [%d] fd = [%d] revents = [%00X]\n", ret, fd, fd_item.fd, fd_item.revents);
 
 	if (ret < 0) {
 		printf("%s\n", strerror(errno));

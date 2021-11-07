@@ -24,6 +24,7 @@ extern "C" {
 typedef void (*free_reply_funcptr_type)(void * p);
 
 typedef struct _redis_connection {
+	int orig_fd;
     redisAsyncContext *ac;
 	std::string * s_host;
 	std::string * s_dbname;
