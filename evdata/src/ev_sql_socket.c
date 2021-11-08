@@ -16,11 +16,14 @@ int socket_live(int fd)
 	int ret = poll(&fd_item, 1, time_out);
 
 	//printf("ret = [%d] orig_fd = [%d] fd = [%d] revents = [%00X]\n", ret, fd, fd_item.fd, fd_item.revents);
-
 	if (ret < 0) {
 		printf("%s\n", strerror(errno));
 		return 0;
 	}
+
+	// Basically, upon timeout return OK. as we are not waiting at all.
+	// As such if there are any errors we will return 0
+	if (ret == 0) ret = 1;
 
 	if (fd_item.revents & POLLHUP) {
 		printf("POLLHUP = [%X]\n", POLLHUP);
