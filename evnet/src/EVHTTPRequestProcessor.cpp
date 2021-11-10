@@ -120,7 +120,7 @@ void EVHTTPRequestProcessor::evrun()
 		session->setSockFdForReuse(true);
 
 	} catch (std::exception e) {
-		DEBUGPOINT("Here %s for %d\n", e.what(), socket().impl()->sockfd());
+		DEBUGPOINT("EXCEPTION: Here %s for %d\n", e.what(), socket().impl()->sockfd());
 		throw;
 	}
 
@@ -133,7 +133,7 @@ void EVHTTPRequestProcessor::evrun()
 			_reqProcState->setResponse(response);
 		}
 	} catch (...) {
-		DEBUGPOINT("Here %p\n", _reqProcState->getResponse());
+		DEBUGPOINT("EXCEPTION: Here %p\n", _reqProcState->getResponse());
 		throw;
 	}
 
@@ -145,7 +145,7 @@ void EVHTTPRequestProcessor::evrun()
 			_reqProcState->setRequest(request);
 		}
 	} catch (...) {
-		DEBUGPOINT("Here %p\n", _reqProcState->getRequest());
+		DEBUGPOINT("EXCEPTION: Here %p\n", _reqProcState->getRequest());
 		throw;
 	}
 
@@ -171,7 +171,7 @@ void EVHTTPRequestProcessor::evrun()
 			 * */
 			int ret = _reqProcState->continueRead();
 			if (ret < 0) {
-				DEBUGPOINT("Here\n");
+				DEBUGPOINT("EXCEPTION: Here\n");
 				sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 				throw NetException("Badly formed HTTP Request");
 				return ;
@@ -187,14 +187,14 @@ void EVHTTPRequestProcessor::evrun()
 					case HTTP_MESSAGE_TILL_EOF:
 					case HTTP_INVALID_TYPE:
 					default:
-						DEBUGPOINT("Here\n");
+						DEBUGPOINT("EXCEPTION: Here\n");
 						throw NetException("Unsupported HTTP Request type");
 						return;
 				}
 
 				if ((request->getVersion().compare("HTTP/1.1"))) {
 					//sendErrorResponse(*session, *response, HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
-					DEBUGPOINT("Here\n");
+					DEBUGPOINT("EXCEPTION: Here\n");
 					throw Poco::Exception("Unsupported HTTP Version", HTTPResponse::HTTP_VERSION_NOT_SUPPORTED);
 					return ;
 				}
@@ -232,37 +232,49 @@ void EVHTTPRequestProcessor::evrun()
 			 * */
 			EVHTTPRequestHandler * pHandler = _reqProcState->getRequestHandler();
 			if (!pHandler) {
-				pHandler = _pFactory->createRequestHandler(*request);
-				_reqProcState->setRequestHandler(pHandler);
-				pHandler->setServer(_reqProcState->getServer());
-				pHandler->setAccSockfd(socket().impl()->sockfd());
-				pHandler->setAcceptedSocket(getAcceptedSocket());
-				pHandler->setRequest(request);
-				pHandler->setResponse(response);
+				try {
+					pHandler = _pFactory->createRequestHandler(*request);
+					_reqProcState->setRequestHandler(pHandler);
+					pHandler->setServer(_reqProcState->getServer());
+					pHandler->setAccSockfd(socket().impl()->sockfd());
+					pHandler->setAcceptedSocket(getAcceptedSocket());
+					pHandler->setRequest(request);
+					pHandler->setResponse(response);
 
-				Poco::Timestamp now;
-				response->setDate(now);
-				response->setVersion(request->getVersion());
-				response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
-				if (!server.empty())
-					response->set("Server", server);
+					Poco::Timestamp now;
+					response->setDate(now);
+					response->setVersion(request->getVersion());
+					response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
+					if (!server.empty())
+						response->set("Server", server);
 
-				if (pHandler) {
-					int ret = EVHTTPRequestHandler::PROCESSING;
-					ret = pHandler->handleRequestSurrogateInitial();
-					if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-					switch (ret) {
-						case EVHTTPRequestHandler::PROCESSING:
-							_reqProcState->setState(REQUEST_PROCESSING);
-							break;
-						case EVHTTPRequestHandler::PROCESSING_COMPLETE:
-						case EVHTTPRequestHandler::PROCESSING_ERROR:
-						default:
-							_reqProcState->setState(PROCESS_COMPLETE);
-							break;
+					if (pHandler) {
+						int ret = EVHTTPRequestHandler::PROCESSING;
+						ret = pHandler->handleRequestSurrogateInitial();
+						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+						switch (ret) {
+							case EVHTTPRequestHandler::PROCESSING:
+								_reqProcState->setState(REQUEST_PROCESSING);
+								break;
+							case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+							case EVHTTPRequestHandler::PROCESSING_ERROR:
+							default:
+								_reqProcState->setState(PROCESS_COMPLETE);
+								break;
+						}
 					}
+					else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 				}
-				else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+				catch (Exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					throw e;
+				}
+				catch (std::exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					char msg[100] = {0};
+					sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+					throw new Exception(msg);
+				}
 			}
 			else {
 				if (_reqProcState->getUpstreamEventQ() &&
@@ -293,8 +305,14 @@ void EVHTTPRequestProcessor::evrun()
 							}
 						}
 						catch (Exception e) {
-							DEBUGPOINT("Here\n");
+							DEBUGPOINT("EXCEPTION: Here\n");
 							throw e;
+						}
+						catch (std::exception e) {
+							DEBUGPOINT("EXCEPTION: Here\n");
+							char msg[100] = {0};
+							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+							throw new Exception(msg);
 						}
 						//elem = NULL;
 						elem = dequeue(_reqProcState->getUpstreamEventQ());
@@ -309,32 +327,32 @@ void EVHTTPRequestProcessor::evrun()
 			if (!response->sent()) {
 				try
 				{
-					DEBUGPOINT("Here\n");
+					DEBUGPOINT("EXCEPTION: Here\n");
 					sendErrorResponse(*session, *response, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 				}
 				catch (...)
 				{
-				DEBUGPOINT("Here\n");
+				DEBUGPOINT("EXCEPTION: Here\n");
 				}
 			}
-			DEBUGPOINT("Here\n");
+			DEBUGPOINT("EXCEPTION: Here\n");
 			throw e;
 		}
 		catch (...) {
-			DEBUGPOINT("Here\n");
+			DEBUGPOINT("EXCEPTION: Here\n");
 			sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 			throw;
 		}
 	}
 	catch (NoMessageException& e)
 	{
-		DEBUGPOINT("Here\n");
+		DEBUGPOINT("EXCEPTION: Here\n");
 		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
 	catch (MessageException& e)
 	{
-		DEBUGPOINT("Here\n");
+		DEBUGPOINT("EXCEPTION: Here\n");
 		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw e;
 	}
@@ -342,7 +360,7 @@ void EVHTTPRequestProcessor::evrun()
 	{
 		if (session->networkException())
 		{
-			DEBUGPOINT("Here\n");
+			DEBUGPOINT("EXCEPTION: Here\n");
 			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == e.code())
 				sendErrorResponse("HTTP/1.0", *session, *response, (HTTPResponse::HTTPStatus)e.code());
@@ -350,7 +368,7 @@ void EVHTTPRequestProcessor::evrun()
 			session->networkException()->rethrow();
 		}
 		else { 
-			DEBUGPOINT("Here %s %d\n", e.what(), e.code());
+			DEBUGPOINT("EXCEPTION: Here %s %d\n", e.what(), e.code());
 			if (0 == e.code()) sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == (HTTPResponse::HTTPStatus)e.code())
 				sendErrorResponse("HTTP/1.0", *session, *response, (HTTPResponse::HTTPStatus)e.code());
@@ -359,7 +377,7 @@ void EVHTTPRequestProcessor::evrun()
 		}
 	}
 	catch (...) {
-		DEBUGPOINT("Here\n");
+		DEBUGPOINT("EXCEPTION: Here\n");
 		sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 		throw;
 	}

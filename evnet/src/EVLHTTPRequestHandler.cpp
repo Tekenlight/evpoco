@@ -2601,7 +2601,7 @@ static int parse_form(lua_State* L)
 			try {
 				form = new Net::HTMLForm(request, request.stream(), *partHandler);
 			} catch (std::exception& ex) {
-				DEBUGPOINT("CHA %s\n",ex.what());
+				DEBUGPOINT("EXCEPTION: %s\n",ex.what());
 				throw(ex);
 			}
 			reqHandler->addToComponents(EVLHTTPRequestHandler::html_form, form);
@@ -2723,7 +2723,7 @@ static int get_query_parameters(lua_State* L)
 			URI uri(request.getURI());
 			qp = uri.getQueryParameters();
 		} catch (std::exception ex) {
-			luaL_error(L, "%s", ex.what());
+			luaL_error(L, "EXCEPTION: %s", ex.what());
 			return 0;
 		}
 		lua_newtable(L);
@@ -3145,7 +3145,7 @@ static int set_date(lua_State* L)
 			DateTime dt = DateTimeParser::parse(value, tzd);
 			response.setDate(dt.timestamp());
 		} catch (std::exception ex) {
-			luaL_error(L, ex.what());
+			luaL_error(L, "EXCEPTION: %s",  ex.what());
 			return 0;
 		}
 	}
@@ -3788,16 +3788,18 @@ int EVLHTTPRequestHandler::handleRequest()
 
 Poco::Util::AbstractConfiguration& EVLHTTPRequestHandler::appConfig()
 {
-	try
-	{
+	try {
 		return Poco::Util::Application::instance().config();
 	}
-	catch (Poco::NullPointerException&)
-	{
+	catch (Poco::NullPointerException&) {
 		throw Poco::IllegalStateException(
 			"An application configuration is required to initialize the Poco::Net::SSLManager, "
 			"but no Poco::Util::Application instance is available."
 		);
+	}
+	catch (std::exception e) {
+		DEBUGPOINT("EXCEPTION: Here\n");
+		throw e;
 	}
 }
 
