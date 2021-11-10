@@ -273,7 +273,7 @@ void EVHTTPRequestProcessor::evrun()
 					DEBUGPOINT("EXCEPTION: Here\n");
 					char msg[100] = {0};
 					sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
-					throw new Exception(msg);
+					throw Exception(msg);
 				}
 			}
 			else {
@@ -312,7 +312,7 @@ void EVHTTPRequestProcessor::evrun()
 							DEBUGPOINT("EXCEPTION: Here\n");
 							char msg[100] = {0};
 							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
-							throw new Exception(msg);
+							throw Exception(msg);
 						}
 						//elem = NULL;
 						elem = dequeue(_reqProcState->getUpstreamEventQ());
