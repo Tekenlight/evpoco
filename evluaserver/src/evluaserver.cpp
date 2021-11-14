@@ -30,6 +30,12 @@
 #include "Poco/Util/HelpFormatter.h"
 #include <iostream>
 
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <arpa/inet.h>
+
 
 using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
@@ -160,6 +166,9 @@ protected:
 			unsigned short port = (unsigned short) config().getInt("evluaserver.port", 9980);
 
 			p->setBlocking(config().getBool("evluaserver.blocking", false));
+
+			getLocalIpAddress();
+			printf("Running on %s:%d\n", hostIPAddress, port);
 			
 			// set-up a server socket
 			ServerSocket svs(port);
@@ -175,8 +184,41 @@ protected:
 		return Application::EXIT_OK;
 	}
 	
+
 private:
+	void getLocalIpAddress()
+	{
+		struct ifaddrs * ifAddrStruct=NULL;
+		struct ifaddrs * ifa=NULL;
+		void * tmpAddrPtr=NULL;
+		memset(hostIPAddress, 0, (INET_ADDRSTRLEN+1));
+
+		std::string prop_value = config().getString(std::string("evluaserver.networkInterfaceToRunOn"));
+
+		getifaddrs(&ifAddrStruct);
+		for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+			if (!ifa->ifa_addr) {
+				continue;
+			}
+			if ((ifa->ifa_addr->sa_family == AF_INET) && // check it is IP4
+				(!strcmp(ifa->ifa_name, prop_value.c_str()))) {
+				// is a valid IP4 Address
+				tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+				inet_ntop(AF_INET, tmpAddrPtr, hostIPAddress, INET_ADDRSTRLEN);
+				if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+				return ;
+			}
+		}
+		if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+
+		if (*hostIPAddress == '\0') {
+			printf("Could not establish local IP address\n");
+			exit(Application::EXIT_CONFIG);
+		}
+	}
+
 	bool _helpRequested;
+	char hostIPAddress[INET_ADDRSTRLEN+1];
 };
 
 int func(int argc, char ** argv)

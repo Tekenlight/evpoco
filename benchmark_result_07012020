@@ -11,14 +11,14 @@ Memory is not a bottleneck.
 
 Results are as follows
 
- ----------------------------------
++----------------------------------+
 |SERVER          |  C++   |   LUA  |
 |----------------------------------|
 |TOTAL TIME      |  180s  |   202s |
 |----------------------------------|
 |RESPONSE TIME   |  18ms  |   20ms |
 |PER REQUEST     |        |        |
- ---------------------------------- 
++----------------------------------+
 
 
 We can conculde from this, that LUA server is taking an additional 2ms of CPU time per request
