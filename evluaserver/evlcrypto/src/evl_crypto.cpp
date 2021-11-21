@@ -110,7 +110,7 @@ extern "C" int luaopen_libevlcrypto(lua_State *L);
 int luaopen_libevlcrypto(lua_State *L)
 {
 	static const luaL_Reg lua_crypto_methods[] = {
-		{"s_sha265_hash", generate_hash_from_string_sha256}
+		{"s_sha256_hash", generate_hash_from_string_sha256}
 		,{"s_sha384_hash", generate_hash_from_string_sha384}
 		,{"s_sha512_hash", generate_hash_from_string_sha512}
 		,{"hmac_digest", hmac_fdigest}

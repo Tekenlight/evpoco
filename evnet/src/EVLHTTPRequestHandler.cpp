@@ -234,6 +234,7 @@ namespace evpoco {
 			}
 		}
 		namespace httpresp {
+			static int get_status(lua_State* L);
 			static int set_status(lua_State* L);
 			static int set_date(lua_State* L);
 			static int send(lua_State* L);
@@ -323,6 +324,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 	{ "get_hdr_field", &evpoco::httpmessage::get_hdr_field },
 	{ "get_hdr_fields", &evpoco::httpmessage::get_hdr_fields },
 	{ "set_status", &evpoco::httpmessage::httpresp::set_status },
+	{ "get_status", &evpoco::httpmessage::httpresp::get_status },
 	{ "set_date", &evpoco::httpmessage::httpresp::set_date },
 	{ "send", &evpoco::httpmessage::httpresp::send },
 	{ "write", &evpoco::httpmessage::httpresp::write },
@@ -945,8 +947,21 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN.getErrNo()));
 		lua_pushnil(L);
 		lua_pushstring(L, msg);
+		lua_pushnil(L);
+		luaL_error(L, msg);
 
-		return 2;
+		return 3;
+	}
+	if ((usN.getRet() < 0) || usN.getErrNo()) {
+		delete session;
+		char msg[1024];
+		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN.getErrNo()));
+		lua_pushnil(L);
+		lua_pushstring(L, msg);
+		lua_pushnil(L);
+		luaL_error(L, msg);
+
+		return 3;
 	}
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 
@@ -954,9 +969,16 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 	*(EVHTTPClientSession **)ptr = session; //Stack: session
 	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
 	lua_pushnil(L); // Stack session nil
+	{
+		Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
+		*(ss_ptr) = session->getSS();
+		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+		luaL_setmetatable(L, _stream_socket_type_name);
+	}
 
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
-	return 2;
+	return 3;
 }
 
 static int make_http_connection_initiate(lua_State* L)
@@ -1442,17 +1464,38 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN_ptr->getErrNo()));
 		lua_pushnil(L);
 		lua_pushstring(L, msg);
-		return 2;
+		lua_pushnil(L);
+		luaL_error(L, msg);
+
+		return 3;
+	}
+	if ((usN_ptr->getRet() < 0) || usN_ptr->getErrNo()) {
+		delete session;
+		char msg[1024];
+		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN_ptr->getErrNo()));
+		lua_pushnil(L);
+		lua_pushstring(L, msg);
+		lua_pushnil(L);
+		luaL_error(L, msg);
+
+		return 3;
 	}
 
 	void * ptr = lua_newuserdata(L, sizeof(EVHTTPClientSession *)); //Stack: ptr
 	*(EVHTTPClientSession **)ptr = session; //Stack: session
 	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
 	lua_pushnil(L); // Stack session nil
+	{
+		Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
+		*(ss_ptr) = session->getSS();
+		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+		luaL_setmetatable(L, _stream_socket_type_name);
+	}
 
 	delete usN_ptr;
 	reqHandler->getAsyncTaskList().erase(task_id);
-	return 2;
+	return 3;
 }
 
 static int task_return_value(lua_State* L)
@@ -3096,6 +3139,19 @@ static int empty(lua_State* L)
 }
 
 namespace httpresp {
+
+static int get_status(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	EVHTTPResponse* response = (*(EVHTTPResponse**)luaL_checkudata(L, 1, _http_cresp_type_name));
+	int status = response->getStatus();
+
+	lua_pushinteger(L, status);
+
+	return 1;
+}
+
 static int set_status(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
