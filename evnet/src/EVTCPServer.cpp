@@ -2231,8 +2231,16 @@ void host_resolution(void * ptr)
 	cb_ref_data_ptr_type ref_data = 0;
 	dns_io_ptr_type dio_ptr = (dns_io_ptr_type)ptr; 
 
+	errno = 0;
 	dio_ptr->_out._return_value = getaddrinfo(dio_ptr->_in._host_name,
 								dio_ptr->_in._serv_name, &dio_ptr->_in._hints, &dio_ptr->_out._result);
+	/*
+	DEBUGPOINT("ret = [%d]\n", dio_ptr->_out._return_value);
+	DEBUGPOINT("hn = [%s]\n", dio_ptr->_in._host_name);
+	DEBUGPOINT("sn = [%p]\n", dio_ptr->_in._serv_name);
+	DEBUGPOINT("errno = [%d]\n", errno);
+	DEBUGPOINT("error = [%s]\n", strerror(errno));
+	*/
 	dio_ptr->_out._errno = errno;
 
 	ref_data = (cb_ref_data_ptr_type)dio_ptr->_in._ref_data;
@@ -2267,6 +2275,7 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 		EVUpstreamEventNotification * usN = ref_data->_usN;;
 		dio_ptr->_in._ref_data = NULL;
 
+		usN->setHRRet(dio_ptr->_out._return_value);
 		usN->setRet(dio_ptr->_out._return_value);
 		usN->setErrNo(dio_ptr->_out._errno);
 		usN->setAddrInfo(dio_ptr->_out._result);

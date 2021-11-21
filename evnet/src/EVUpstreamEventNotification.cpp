@@ -28,6 +28,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, int cb_evi
 	_file_fd(-1),
 	_oper(-1),
 	_ref_sr_num(-1),
+	_hr_ret(0),
 	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
 {
 }
@@ -45,6 +46,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_file_fd(-1),
 	_oper(-1),
 	_ref_sr_num(-1),
+	_hr_ret(0),
 	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
 {
 }
@@ -62,6 +64,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_file_fd(-1),
 	_oper(-1),
 	_ref_sr_num(-1),
+	_hr_ret(0),
 	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
 {
 }
@@ -79,6 +82,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification():
 	_file_fd(-1),
 	_oper(-1),
 	_ref_sr_num(-1),
+	_hr_ret(0),
 	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
 {
 }
@@ -96,6 +100,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_file_fd(-1),
 	_oper(-1),
 	_ref_sr_num(-1),
+	_hr_ret(0),
 	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
 {
 }
@@ -114,6 +119,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(EVUpstreamEventNotifica
 	this->_file_fd = from._file_fd;
 	this->_oper = from._oper;
 	this->_ref_sr_num = from._ref_sr_num;
+	this->_hr_ret = from._hr_ret;
 	this->_conn_sock_state = from._conn_sock_state;
 
 	from._send_stream = NULL;

@@ -842,7 +842,7 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
 	struct addrinfo** addr_info_ptr_ptr = (struct addrinfo**)ctx;
 
 	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
-	if (usN.getRet() < 0) {
+	if (usN.getHRRet() != 0) {
 		if (usN.getAddrInfo()) {
 			//DEBUGPOINT("Here\n");
 			usN.setAddrInfo(NULL);
@@ -850,7 +850,7 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
 		}
 		//DEBUGPOINT("Here\n");
 		free(addr_info_ptr_ptr);
-		luaL_error(L, "resolve_host_address: address resolution could not happen: %s", strerror(usN.getErrNo()));
+		luaL_error(L, "resolve_host_address: address resolution could not happen: %s", gai_strerror(usN.getHRRet()));
 		return 0;
 	}
 
@@ -952,10 +952,10 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 
 		return 3;
 	}
-	if ((usN.getRet() < 0) || usN.getErrNo()) {
+	if (usN.getHRRet() != 0) {
 		delete session;
 		char msg[1024];
-		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN.getErrNo()));
+		sprintf(msg, "make_http_connection: could not establish connection: %s", gai_strerror(usN.getHRRet()));
 		lua_pushnil(L);
 		lua_pushstring(L, msg);
 		lua_pushnil(L);
@@ -1024,6 +1024,15 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 		sprintf(msg, "make_tcp_connection: could not establish connection: %s", strerror(usN.getErrNo()));
 		lua_pushnil(L);
 		lua_pushstring(L, msg);
+
+		return 2;
+	}
+	if (usN.getHRRet() != 0) {
+		char msg[1024];
+		sprintf(msg, "make_tcp_connection: could not establish connection: %s", gai_strerror(usN.getHRRet()));
+		lua_pushnil(L);
+		lua_pushstring(L, msg);
+		luaL_error(L, msg);
 
 		return 2;
 	}

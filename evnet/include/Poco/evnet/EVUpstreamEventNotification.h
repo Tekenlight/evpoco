@@ -54,6 +54,9 @@ public:
 	ssize_t getRet();
 	void setRet(ssize_t ret);
 
+	int getHRRet();
+	void setHRRet(ssize_t ret);
+
 	int getCBEVIDNum();
 	void setCBEVIDNum(int);
 
@@ -84,6 +87,7 @@ private:
 	poco_socket_t			_sockfd;
 	int						_errno;
 	ssize_t					_ret;
+	int						_hr_ret;
 	int						_cb_evid_num;
 	long					_sr_num;
 	chunked_memory_stream*	_send_stream;
@@ -196,6 +200,16 @@ inline void EVUpstreamEventNotification::setErrNo(int err_no)
 inline int EVUpstreamEventNotification::getErrNo()
 {
 	return _errno;
+}
+
+inline void EVUpstreamEventNotification::setHRRet(ssize_t ret)
+{
+	_hr_ret = ret;;
+}
+
+inline int EVUpstreamEventNotification::getHRRet()
+{
+	return _hr_ret;
 }
 
 inline void EVUpstreamEventNotification::setRet(ssize_t ret)

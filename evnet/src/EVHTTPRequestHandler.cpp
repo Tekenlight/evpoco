@@ -468,7 +468,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			break;
 		case HTTPRH_HTTPCONN_HOSTRESOLVED:
 			{
-				if ((_usN->getRet() < 0) || _usN->getErrNo()) {
+				if (_usN->getRet() != 0) {
 					it->second->session_ptr->setState(EVHTTPClientSession::IN_ERROR);
 					_usN->setCBEVIDNum((it->second)->cb_evid_num);
 				}
