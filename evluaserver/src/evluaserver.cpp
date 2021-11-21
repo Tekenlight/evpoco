@@ -36,6 +36,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include <dlfcn.h>
 
 using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
@@ -55,6 +56,26 @@ using Poco::Util::HelpFormatter;
 using Poco::CountingInputStream;
 using Poco::NullOutputStream;
 using Poco::StreamCopier;
+
+static std::map<std::string, void*> sg_dlls;
+
+extern "C" void * open_so(const char * libname);
+void * open_so(const char * libname)
+{
+	void * lib = NULL;
+	std::string name(libname);
+	auto it = sg_dlls.find(name);
+	if (sg_dlls.end() == it) {
+		lib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
+		if (lib) {
+			sg_dlls[name] = lib;
+		}
+		return lib;
+	}
+	else {
+		return it->second;
+	}
+}
 
 
 class EVFormRequestHandler: public EVLHTTPRequestHandler
