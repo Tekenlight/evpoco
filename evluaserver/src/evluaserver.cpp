@@ -59,8 +59,8 @@ using Poco::StreamCopier;
 
 static std::map<std::string, void*> sg_dlls;
 
-extern "C" void * open_so(const char * libname);
-void * open_so(const char * libname)
+extern "C" void * pin_loaded_so(const char * libname);
+void * pin_loaded_so(const char * libname)
 {
 	void * lib = NULL;
 	std::string name(libname);
