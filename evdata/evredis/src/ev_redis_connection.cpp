@@ -355,6 +355,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 			{
 				redisReply *array_element = NULL;
 				if (reply->elements > 0 && reply->element == NULL) {
+					conn->free_reply_obj(reply);
 					luaL_error(L, "[%s:%d] Impossible condition", __FILE__, __LINE__);
 					return 0;
 				}
