@@ -262,6 +262,46 @@ static int connection_ping(lua_State *L)
 	return 1;
 }
 
+static int push_element(lua_State *L, redisReply *reply)
+{
+	switch (reply->type) {
+		case REDIS_REPLY_NIL:
+			lua_pushnil(L);
+			break;
+		case REDIS_REPLY_STRING:
+			{
+				char * out_str = strndup(reply->str, reply->len);
+				lua_pushstring(L, out_str);
+				free(out_str);
+			}
+			break;
+		case REDIS_REPLY_STATUS:
+			{
+				char * out_str = strndup(reply->str, reply->len);
+				lua_pushstring(L, out_str);
+				free(out_str);
+			}
+			break;
+		case REDIS_REPLY_INTEGER:
+			lua_pushinteger(L, reply->integer);
+			break;
+		case REDIS_REPLY_BOOL:
+			lua_pushboolean(L, reply->integer);
+			break;
+		case REDIS_REPLY_DOUBLE:
+			lua_pushnumber(L, reply->dval);
+			break;
+		default:
+		{
+			char err[512] = {0};
+			sprintf(err, "[%s:%d] Support for reply type [%d] not yet implemented\n", __FILE__, __LINE__, reply->type);
+			luaL_error(L, err);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 {
 	//DEBUGPOINT("Here\n");
@@ -311,10 +351,35 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 			case REDIS_REPLY_DOUBLE:
 				lua_pushnumber(L, reply->dval);
 				break;
+			case REDIS_REPLY_ARRAY:
+			{
+				redisReply *array_element = NULL;
+				if (reply->elements > 0 && reply->element == NULL) {
+					luaL_error(L, "[%s:%d] Impossible condition", __FILE__, __LINE__);
+					return 0;
+				}
+				lua_newtable(L);
+				for (int i = 0; i < reply->elements; i++) {
+					array_element = reply->element[i];
+					if (!push_element(L, array_element)) {
+						char err[512] = {0};
+						sprintf(err, "Support for reply type [%d] not yet implemented\n", array_element->type);
+						conn->free_reply_obj(reply);
+						luaL_error(L, err);
+						return 0;
+					}
+					lua_seti(L, -2, (i+1));
+				}
+				break;
+			}
 			default:
+			{
+				char err[512] = {0};
+				sprintf(err, "[%s:%d] Support for reply type [%d] not yet implemented\n", __FILE__, __LINE__, reply->type);
 				conn->free_reply_obj(reply);
-				luaL_error(L, "Support for reply type [%d] not yet implemented\n", reply->type);
+				luaL_error(L, err);
 				return 0;
+			}
 		}
 		lua_pushnil(L);
 	}
