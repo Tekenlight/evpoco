@@ -250,7 +250,7 @@ void * heart_beat(void * inputs)
 		c = redisConnectWithTimeout(config_server_host.c_str(), config_server_port, timeout);
 		if ((c == NULL) || (c->err)) {
 			if (c) {
-				DEBUGPOINT("Connection error: %s\n", c->errstr);
+				//DEBUGPOINT("Connection error: %s\n", c->errstr);
 				redisFree(c);
 			} else {
 				DEBUGPOINT("Connection error: can't allocate redis context\n");
