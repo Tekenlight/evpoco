@@ -186,10 +186,10 @@ static void add_ref_range(Poco::Util::AbstractConfiguration& config, modules_lis
 	c = redisConnectWithTimeout(config_server_host.c_str(), config_server_port, timeout);
 	if ((c == NULL) || (c->err)) {
 		if (c) {
-			DEBUGPOINT("Connection error: %s\n", c->errstr);
+			DEBUGPOINT("Redis Connection error: %s\n", c->errstr);
 			redisFree(c);
 		} else {
-			DEBUGPOINT("Connection error: can't allocate redis context\n");
+			DEBUGPOINT("Redis Connection error: can't allocate redis context\n");
 		}
 	}
 	else {
