@@ -181,6 +181,7 @@ static int finalize_statement_processing(lua_State *L, int status, lua_KContext 
 	status = PQresultStatus(result);
 	//DEBUGPOINT("RESULT = [%d]\n", status);
 	if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+		DEBUGPOINT("RESULT = [%d]\n", status);
 
 		const char *err_string = PQresultErrorMessage(result);
 
