@@ -1256,8 +1256,8 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 	else {
 		//DEBUGPOINT("Here %ld\n", ret);
 		if ((ret + wp->_written) == wp->_size) {
-			free(wp);
 			lua_pushinteger(L, wp->_size);
+			free(wp);
 			return 1;
 		}
 		else {
