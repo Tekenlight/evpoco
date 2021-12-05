@@ -45,6 +45,9 @@
 
 #include <dlfcn.h>
 
+#include <ev_rwlock_struct.h>
+#include <ev_rwlock.h>
+
 using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
 using Poco::evnet::EVLHTTPRequestHandler;
@@ -65,6 +68,8 @@ using Poco::NullOutputStream;
 using Poco::StreamCopier;
 
 static std::map<std::string, void*> sg_dlls;
+static atomic_int sg_lock_init_done = 0;
+static struct ev_rwlock_s sg_dlls_lock;
 
 extern "C" unsigned char *base64_encode(const unsigned char *data, size_t input_length,
 								size_t *output_length, int add_line_breaks);
@@ -86,17 +91,29 @@ void * pin_loaded_so(const char * libname)
 {
 	void * lib = NULL;
 	std::string name(libname);
+	ev_rwlock_rdlock(&sg_dlls_lock);
 	auto it = sg_dlls.find(name);
 	if (sg_dlls.end() == it) {
-		lib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
-		if (lib) {
-			sg_dlls[name] = lib;
+		ev_rwlock_rdunlock(&sg_dlls_lock);
+		ev_rwlock_wrlock(&sg_dlls_lock);
+		it = sg_dlls.find(name);
+		if (sg_dlls.end() == it) {
+			lib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
+			if (lib) {
+				sg_dlls[name] = lib;
+			}
 		}
-		return lib;
+		else {
+			lib = it->second;
+		}
+		ev_rwlock_wrunlock(&sg_dlls_lock);
+		ev_rwlock_rdlock(&sg_dlls_lock);
 	}
 	else {
-		return it->second;
+		lib = it->second;
 	}
+	ev_rwlock_rdunlock(&sg_dlls_lock);
+	return lib;
 }
 
 static int sg_heart_beat_running = 1;
@@ -415,6 +432,8 @@ protected:
 		}
 		else
 		{
+			EV_RW_LOCK_S_INIT(sg_dlls_lock);
+			sg_lock_init_done = 1;
 			HTTPServerParams *p = new HTTPServerParams();
 			unsigned short port = (unsigned short) config().getInt("evluaserver.port", 9980);
 
