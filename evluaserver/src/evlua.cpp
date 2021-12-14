@@ -210,7 +210,6 @@ protected:
 			}
 			char * buf = (char*)malloc(buf_size);
 			memset(buf, 0, buf_size);
-			//write(wr_fd, "HELLO WORLD\n", 12); 
 			for (int i = 0; i < n; i++) {
 				if (i != 0) strcat(buf, " ");
 				strcat(buf,  args[i].c_str());
@@ -221,7 +220,6 @@ protected:
 			char out[100] = {0};
 			memset(out, 0, 100);
 			ret = read(rd_fd, out, 10);
-			DEBUGPOINT("OUT = [%s] ret = [%d]\n", out, ret);
 			ret = atoi(out);
 
 			// wait for CTRL-C or kill
