@@ -23,14 +23,17 @@
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVTCPServerConnection.h"
 #include "Poco/Net/HTTPResponse.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVServerSession.h"
 #include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/evnet/EVHTTPServerResponseImpl.h"
+#include "Poco/evnet/EVCLServerResponseImpl.h"
+#include "Poco/evnet/EVCLServerRequestImpl.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Mutex.h"
 #include "Poco/evnet/EVProcessingState.h"
 #include "Poco/evnet/EVHTTPProcessingState.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVCommandLineProcessingState.h"
+#include "Poco/evnet/EVServerSession.h"
 
 using Poco::Net::HTTPServerSession;
 using Poco::Net::StreamSocket;
@@ -61,13 +64,17 @@ public:
 	void run();
 		/// Handles all HTTP requests coming in.
 
-	void evrun();
+	void procHTTPReq(EVHTTPProcessingState*);
 		/// Handles HTTP requests coming, in an event driven way.
 	
+	void procCLReq(EVCommandLineProcessingState*);
+		/// Handles CommandLine requests coming, in an event driven way.
+
 protected:
-	void sendErrorResponse(std::string http_version, EVHTTPServerSession& session,
+	void sendErrorResponse(EVCLServerResponseImpl & response, HTTPResponse::HTTPStatus status);
+	void sendErrorResponse(std::string http_version, EVServerSession& session,
 				EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status);
-	void sendErrorResponse(EVHTTPServerSession& session,
+	void sendErrorResponse(EVServerSession& session,
 				EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status);
 	void onServerStopped(const bool& abortCurrent);
 	EVProcessingState * getProcState();
@@ -78,7 +85,7 @@ private:
 	EVHTTPRequestHandlerFactory::Ptr	_pFactory;
 	bool								_stopped;
 	Poco::FastMutex						_mutex;
-	EVHTTPProcessingState*				_reqProcState;
+	EVProcessingState*					_reqProcState;
 	chunked_memory_stream				*_mem_stream;
 };
 

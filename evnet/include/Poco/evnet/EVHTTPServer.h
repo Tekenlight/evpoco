@@ -86,6 +86,16 @@ public:
 		///
 		/// New threads are taken from the given thread pool.
 
+	EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, int pipe_rd_fd, int pipe_wr_fd,  HTTPServerParams::Ptr pParams);
+		/// Creates the EVHTTPServer, using the given read end of the IPC-pipe.
+		///
+		/// The server takes ownership of the HTTPRequstHandlerFactory
+		/// and deletes it when it's no longer needed.
+		///
+		/// The server also takes ownership of the HTTPServerParams object.
+		///
+		/// New threads are taken from the default thread pool.
+
 	~EVHTTPServer();
 		/// Destroys the EVHTTPServer and its EVHTTPRequestHandlerFactory.
 

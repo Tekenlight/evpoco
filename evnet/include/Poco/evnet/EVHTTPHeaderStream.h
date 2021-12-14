@@ -21,7 +21,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVServer.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVServerSession.h"
 #include "Poco/MemoryPool.h"
 #include <cstddef>
 #include <istream>

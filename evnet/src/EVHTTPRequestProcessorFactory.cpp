@@ -51,4 +51,9 @@ EVProcessingState* EVHTTPRequestProcessorFactory::createReqProcState(EVServer * 
 	return new EVHTTPProcessingState(server);
 }
 
+EVProcessingState* EVHTTPRequestProcessorFactory::createCLProcState(EVServer * server)
+{
+	return new EVCommandLineProcessingState(server);
+}
+
 } } // namespace Poco::evnet

@@ -31,6 +31,10 @@
 #include "Poco/Net/HTTPRequest.h"
 #include "Poco/evnet/EVHTTPRequest.h"
 #include "Poco/evnet/EVHTTPClientSession.h"
+#include "Poco/evnet/EVHTTPServerRequestImpl.h"
+#include "Poco/evnet/EVHTTPServerResponseImpl.h"
+#include "Poco/evnet/EVCLServerRequestImpl.h"
+#include "Poco/evnet/EVCLServerResponseImpl.h"
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVUpstreamEventNotification.h"
 #include "Poco/evnet/EVAcceptedStreamSocket.h"
@@ -83,6 +87,11 @@ public:
 		,WRITE = 2
 		,READWRITE = 3
 	} poll_for;
+
+	enum EVHTTP_RH_MODE {
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
+	};
+
 	typedef std::function<int ()> TCallback;
 	typedef std::function<void ()> VTCallback;
 
@@ -91,6 +100,7 @@ public:
 		EventHandler() { }
 		virtual int operator ()() =0;
 	};
+
 	struct SRData {
 		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
 				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1), ss_ptr(0) {}
@@ -108,6 +118,7 @@ public:
 		long					ref_sr_num;
 		Net::StreamSocket*		ss_ptr;
 	} ;
+
 	typedef std::map<long,SRData *> SRColMapType;
 	typedef std::map<int,file_handle*> FilesMapType;
 	static const int INITIAL = 0;
@@ -161,10 +172,16 @@ public:
 	void setServer(EVServer * server);
 	poco_socket_t getAccSockfd();
 	void setAccSockfd(poco_socket_t fd);
-	Net::HTTPServerRequest& getRequest();
-	void setRequest(Net::HTTPServerRequest* req);
-	Net::HTTPServerResponse& getResponse();
-	void setResponse(Net::HTTPServerResponse* res);
+	EVHTTPServerRequestImpl& getHTTPRequest();
+	EVHTTPServerRequestImpl* getHTTPRequestPtr();
+	EVCLServerRequestImpl* getCLRequestPtr();
+	void setHTTPRequest(EVHTTPServerRequestImpl* req);
+	void setCLRequest(EVCLServerRequestImpl* cl_req);
+	EVHTTPServerResponseImpl& getHTTPResponse();
+	EVHTTPServerResponseImpl* getHTTPResponsePtr();
+	EVCLServerResponseImpl* getCLResponsePtr();
+	void setHTTPResponse(EVHTTPServerResponseImpl* res);
+	void setCLResponse(EVCLServerResponseImpl* cl_res);
 	void setAcceptedSocket(EVAcceptedStreamSocket * tn);
 	EVAcceptedStreamSocket* getAcceptedSocket();
 
@@ -210,6 +227,8 @@ public:
 	ssize_t ev_file_write(file_handle_p fh, void *buf, size_t nbyte);
 	int ev_file_close(file_handle_p fh);
 	file_handle_p ev_get_file_handle(int fd);
+	void setEVRHMode(int mode);
+	int getEVRHMode();
 
 private:
 	EVHTTPRequestHandler(const EVHTTPRequestHandler&);
@@ -222,11 +241,24 @@ private:
 	EVServer*						_server;
 	poco_socket_t					_acc_fd;
 	EVAcceptedStreamSocket*			_tn;
-	Net::HTTPServerRequest*			_req = NULL;
-	Net::HTTPServerResponse*		_rsp = NULL;
+	EVHTTPServerRequestImpl*		_req = NULL;
+	EVHTTPServerResponseImpl*		_rsp = NULL;
+	EVCLServerRequestImpl*			_cl_req = NULL;
+	EVCLServerResponseImpl*			_cl_rsp = NULL;
 	SRColMapType					_srColl;
 	FilesMapType					_opened_files;
+	int								_ev_rh_mode;
 };
+
+inline int EVHTTPRequestHandler::getEVRHMode()
+{
+	return _ev_rh_mode;
+}
+
+inline void EVHTTPRequestHandler::setEVRHMode(int mode)
+{
+	_ev_rh_mode = mode;
+}
 
 inline void EVHTTPRequestHandler::setAcceptedSocket(EVAcceptedStreamSocket * tn)
 {
@@ -288,22 +320,52 @@ inline void EVHTTPRequestHandler::setAccSockfd(poco_socket_t fd)
 	_acc_fd = fd;
 }
 
-inline Net::HTTPServerRequest& EVHTTPRequestHandler::getRequest()
+inline EVHTTPServerRequestImpl* EVHTTPRequestHandler::getHTTPRequestPtr()
+{
+	return _req;
+}
+
+inline EVCLServerRequestImpl* EVHTTPRequestHandler::getCLRequestPtr()
+{
+	return _cl_req;
+}
+
+inline EVHTTPServerRequestImpl& EVHTTPRequestHandler::getHTTPRequest()
 {
 	return *_req;
 }
 
-inline void EVHTTPRequestHandler::setRequest(Net::HTTPServerRequest* req)
+inline void EVHTTPRequestHandler::setCLRequest(EVCLServerRequestImpl* cl_req)
+{
+	_cl_req = cl_req;
+}
+
+inline void EVHTTPRequestHandler::setHTTPRequest(EVHTTPServerRequestImpl* req)
 {
 	_req = req;
 }
 
-inline Net::HTTPServerResponse& EVHTTPRequestHandler::getResponse()
+inline EVCLServerResponseImpl* EVHTTPRequestHandler::getCLResponsePtr()
+{
+	return _cl_rsp;
+}
+
+inline EVHTTPServerResponseImpl* EVHTTPRequestHandler::getHTTPResponsePtr()
+{
+	return _rsp;
+}
+
+inline EVHTTPServerResponseImpl& EVHTTPRequestHandler::getHTTPResponse()
 {
 	return *_rsp;
 }
 
-inline void EVHTTPRequestHandler::setResponse(Net::HTTPServerResponse* rsp)
+inline void EVHTTPRequestHandler::setCLResponse(EVCLServerResponseImpl* cl_rsp)
+{
+	_cl_rsp = cl_rsp;
+}
+
+inline void EVHTTPRequestHandler::setHTTPResponse(EVHTTPServerResponseImpl* rsp)
 {
 	_rsp = rsp;
 }

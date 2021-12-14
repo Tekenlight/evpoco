@@ -23,7 +23,8 @@
 #include "Poco/evnet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/HTTPServerSession.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVServerRequest.h"
+#include "Poco/evnet/EVServerSession.h"
 #include "Poco/Net/HTTPHeaderStream.h"
 #include "Poco/Net/HTTPStream.h"
 #include "Poco/evnet/EVHTTPStream.h"
@@ -58,7 +59,7 @@ namespace Poco {
 
 namespace evnet {
 
-class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest
+class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest , public EVServerRequest
 	/// This subclass of HTTPServerRequest is used for
 	/// representing server-side HTTP requests.
 	///
@@ -66,9 +67,9 @@ class Net_API EVHTTPServerRequestImpl: public HTTPServerRequest
 	/// handleRequest() method of HTTPRequestHandler.
 {
 public:
-	EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, EVHTTPServerSession& session, HTTPServerParams* pParams);
+	EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response, EVServerSession& session, HTTPServerParams* pParams);
 		/// Creates the EVHTTPServerRequestImpl, using the
-		/// given EVHTTPServerSession.
+		/// given EVServerSession.
 
 	//EVHTTPServerRequestImpl(EVHTTPServerResponseImpl &response, StreamSocket& socket, HTTPServerParams* pParams);
 		/// Creates the EVHTTPServerRequestImpl, using the
@@ -128,7 +129,7 @@ public:
 
 private:
 	EVHTTPServerResponseImpl&       _response;
-	EVHTTPServerSession&            _session;
+	EVServerSession&            	_session;
 	//StreamSocket&					_socket;
 	std::istream*                   _pStream;
 	Poco::AutoPtr<HTTPServerParams> _pParams;

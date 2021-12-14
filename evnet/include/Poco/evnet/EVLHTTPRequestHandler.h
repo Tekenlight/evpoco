@@ -253,7 +253,7 @@ public:
 	virtual int handleRequest();
 		/// Handles the given request.
 
-	virtual std::string getMappingScript(const Net::HTTPServerRequest& request) = 0;
+	virtual std::string getMappingScript(const EVServerRequest* requestPtr) = 0;
 
 	void addToComponents(mapped_item_type, void*);
 	void* getFromComponents(mapped_item_type);

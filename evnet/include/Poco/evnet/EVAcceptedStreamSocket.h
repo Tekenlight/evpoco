@@ -50,10 +50,20 @@ public:
 		,WAITING_FOR_WRITE = EV_WRITE
 		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
 	} accepted_sock_state;
+
+	enum SOCK_MODE {
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
+	};
+
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
+	EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd);
 	~EVAcceptedStreamSocket();
 
+	StreamSocket & getOutStreamSocket();
 	StreamSocket & getStreamSocket();
+	/// This method gives the stored StreamSocket
+
+	void setStreamSocket(StreamSocket &ss);
 	/// This method gives the stored StreamSocket
 
 	StreamSocket *  getStreamSocketPtr();
@@ -126,12 +136,19 @@ public:
 	void setBaseSRSrlNum(unsigned long sr_srl_num);
 	void setWaitingTobeEnqueued(bool flg);
 	bool waitingTobeEnqueued();
+	int getSockMode();
+	int getCLRdFd();
+	int getCLWrFd();
 
 private:
+	int							_sock_mode;
+	int							_clRdFd;
+	int							_clWrFd;
 	poco_socket_t				_sockFd;
 	struct ev_loop*				_loop;
 	ev_io*						_socket_watcher;
 	StreamSocket				_streamSocket;
+	StreamSocket				_out_streamSocket;
 	Net::SocketAddress			_clientAddress;
 	Net::SocketAddress			_serverAddress;
 	time_t						_timeOfLastUse;
@@ -153,6 +170,26 @@ private:
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
 };
+
+inline int EVAcceptedStreamSocket::getSockMode()
+{
+	return _sock_mode;
+}
+
+inline int EVAcceptedStreamSocket::getCLRdFd()
+{
+	return _clRdFd;
+}
+
+inline int EVAcceptedStreamSocket::getCLWrFd()
+{
+	return _clWrFd;
+}
+
+inline void EVAcceptedStreamSocket::setStreamSocket(StreamSocket &ss)
+{
+	_streamSocket = ss;
+}
 
 inline void EVAcceptedStreamSocket::setWaitingTobeEnqueued(bool flg)
 {

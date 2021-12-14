@@ -63,8 +63,11 @@ public:
 	Net::SocketAddress& clientAddress();
 	Net::SocketAddress& serverAddress();
 	std::map<int,int>& getFileEvtSubscriptions();
+	void setMode(int mode);
+	int getMode();
 
 private:
+	int							_mode;
 	EVServer*					_server;
 	int							_no_new_data;
 	int							_need_more_data;
@@ -75,12 +78,22 @@ private:
 	std::map<int,int>			_file_evt_subscriptions;
 };
 
+inline void EVProcessingState::setMode(int mode)
+{
+	this->_mode = mode;
+}
+
+inline int EVProcessingState::getMode()
+{
+	return this->_mode;
+}
+
 inline std::map<int,int>& EVProcessingState::getFileEvtSubscriptions()
 {
 	return _file_evt_subscriptions;
 }
 
-inline EVProcessingState::EVProcessingState(EVServer * server):_server(server),
+inline EVProcessingState::EVProcessingState(EVServer * server): _mode(0), _server(server),
 												_no_new_data(0), _need_more_data(0), _upstream_io_event_queue(0) { }
 inline EVProcessingState::~EVProcessingState()
 {

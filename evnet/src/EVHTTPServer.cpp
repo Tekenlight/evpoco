@@ -40,6 +40,12 @@ EVHTTPServer::EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, Poco::Thre
 	_pFactory = pFactory;
 }
 
+EVHTTPServer::EVHTTPServer(EVHTTPRequestHandlerFactory::Ptr pFactory, int pipe_rd_fd, int pipe_wr_fd, HTTPServerParams::Ptr pParams)
+{
+	_pTCPServer = new EVTCPServer(new EVHTTPRequestProcessorFactory(pParams, pFactory), pipe_rd_fd, pipe_wr_fd, pParams);
+	_pFactory = pFactory;
+}
+
 
 EVHTTPServer::~EVHTTPServer()
 {

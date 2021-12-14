@@ -21,6 +21,8 @@ using Poco::Net::StreamSocket;
 namespace Poco{ namespace evnet {
 
 EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
+	_clRdFd(-1),
+	_clWrFd(-1),
 	_sockFd(streamSocket.impl()->sockfd()),
 	_socket_watcher(0),
 	_streamSocket(streamSocket),
@@ -38,6 +40,35 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_base_sr_srl_num(0),
 	_waiting_tobe_enqueued(false)
 {
+	_sock_mode = EVAcceptedStreamSocket::SERVER_MODE;
+	struct timeval tv;
+	gettimeofday(&tv,0);
+	_timeOfLastUse = tv.tv_sec;
+	_req_memory_stream = new chunked_memory_stream();
+	_res_memory_stream = new chunked_memory_stream();
+}
+
+EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
+	_clRdFd(CL_rd_fd),
+	_clWrFd(CL_wr_fd),
+	_sockFd(CL_rd_fd),
+	_socket_watcher(0),
+	_prevPtr(0),
+	_nextPtr(0),
+	_sockBusy(false),
+	_reqProcState(0),
+	_req_memory_stream(0),
+	_res_memory_stream(0),
+	_state(NOT_WAITING),
+	_socketInError(0),
+	_upstream_io_event_queue(create_ev_queue()),
+	_active_cs_events(0),
+	_new_active_cs_events(0),
+	_base_sr_srl_num(0),
+	_waiting_tobe_enqueued(false)
+{
+	_sock_mode = EVAcceptedStreamSocket::COMMAND_LINE_MODE;
+	_out_streamSocket.setFd(CL_wr_fd);
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec;
@@ -84,6 +115,11 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
 {
 	return (this->_streamSocket);
+}
+
+StreamSocket &  EVAcceptedStreamSocket::getOutStreamSocket()
+{
+	return (this->_out_streamSocket);
 }
 
 void EVAcceptedStreamSocket::setSockBusy()
@@ -161,7 +197,7 @@ void EVAcceptedStreamSocket::deleteState()
 
 size_t EVAcceptedStreamSocket::pushResData(void * buffer, size_t size)
 {
-	return _req_memory_stream->push(buffer, size);
+	return _res_memory_stream->push(buffer, size);
 }
 
 size_t EVAcceptedStreamSocket::pushReqData(void * buffer, size_t size)

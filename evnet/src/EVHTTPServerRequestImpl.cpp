@@ -31,7 +31,7 @@ namespace evnet {
  *
  * */
 EVHTTPServerRequestImpl::EVHTTPServerRequestImpl(EVHTTPServerResponseImpl& response,
-													EVHTTPServerSession& session,
+													EVServerSession& session,
 													HTTPServerParams* pParams):
 	_response(response),
 	_pStream(0),

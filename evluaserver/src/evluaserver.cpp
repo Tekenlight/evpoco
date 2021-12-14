@@ -48,6 +48,9 @@
 #include <ev_rwlock_struct.h>
 #include <ev_rwlock.h>
 
+#define EVLUA_PATH "EVLUA_PATH"
+#define PROPERTIES_FILE "evluaserver.properties"
+
 using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
 using Poco::evnet::EVLHTTPRequestHandler;
@@ -330,7 +333,7 @@ static void stop_heart_beat(pthread_t tid)
 class EVFormRequestHandler: public EVLHTTPRequestHandler
 {
 public:
-	virtual std::string getMappingScript(const Poco::Net::HTTPServerRequest& request)
+	virtual std::string getMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
@@ -346,7 +349,7 @@ public:
 	{
 	}
 
-	EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request)
+	EVHTTPRequestHandler* createRequestHandler(const Poco::evnet::EVServerRequest& request)
 	{
 		return new EVFormRequestHandler;
 	}
@@ -385,9 +388,21 @@ public:
 protected:
 	void initialize(Application& self)
 	{
-		DEBUGPOINT("Here\n");
-		if (!loadConfiguration("evluaserver.properties")) { // load default configuration files, if present in current directory
-			loadConfiguration(); // load default configuration files, if present in executable directory
+		try {
+			DEBUGPOINT("Here\n");
+			loadConfiguration(PROPERTIES_FILE);
+		}
+		catch (...) {
+			char * path_env = getenv(EVLUA_PATH);
+			if (path_env) {
+				std::string path(path_env);
+				path = path + "/" + PROPERTIES_FILE;
+				DEBUGPOINT("Here [%s]\n", path.c_str());
+				loadConfiguration(path); // load default configuration files, if present in path
+			}
+			else {
+				loadConfiguration(); // load default configuration files, if present in executable directory
+			}
 		}
 		ServerApplication::initialize(self);
 	}

@@ -809,7 +809,12 @@ static int wait_all(lua_State* L)
 static int get_http_request(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerRequest& request = reqHandler->getRequest();
+	Net::HTTPServerRequest* requestPtr = reqHandler->getHTTPRequestPtr();
+	if (requestPtr == NULL) {
+		luaL_error(L, "HTTP Request not available");
+	}
+
+	Net::HTTPServerRequest& request = *requestPtr;
 
 	void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerRequest*));
 	*(Net::HTTPServerRequest**)ptr = &request;
@@ -827,7 +832,11 @@ static int get_lua_state(lua_State* L)
 static int get_http_response(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerResponse& response = reqHandler->getResponse();
+	Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
+	if (responsePtr == NULL) {
+		luaL_error(L, "Response handle is not available");
+	}
+	Net::HTTPServerResponse& response = *responsePtr;
 
 	void * ptr = lua_newuserdata(L, sizeof(Net::HTTPServerResponse*));
 	*(Net::HTTPServerResponse**)ptr = &response;
@@ -3043,7 +3052,12 @@ static int get_form_field(lua_State* L)
 {
 	//DEBUGPOINT("Here\n");
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPRequest& request = reqHandler->getRequest();
+	Net::HTTPServerRequest* requestPtr = reqHandler->getHTTPRequestPtr();
+	if (requestPtr == NULL) {
+		luaL_error(L, "HTTP Request not available");
+	}
+	Net::HTTPServerRequest& request = *requestPtr;
+
 	//DEBUGPOINT("Here\n");
 	if (lua_isnil(L, -1) || !lua_isstring(L, -1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
@@ -3164,7 +3178,13 @@ static int get_status(lua_State* L)
 static int set_status(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerResponse& response = reqHandler->getResponse();
+
+	Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
+	if (responsePtr == NULL) {
+		luaL_error(L, "Response handle is not available");
+	}
+	Net::HTTPServerResponse& response = *responsePtr;
+
 	if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
 		luaL_error(L, "set_status: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
@@ -3187,7 +3207,12 @@ static int set_status(lua_State* L)
 static int set_date(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Net::HTTPServerResponse& response = reqHandler->getResponse();
+	Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
+	if (responsePtr == NULL) {
+		luaL_error(L, "Response handle is not available");
+	}
+	Net::HTTPServerResponse& response = *responsePtr;
+
 	if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
 		luaL_error(L, "set_date: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
@@ -3673,13 +3698,23 @@ evl_async_task* EVLHTTPRequestHandler::get_async_task(long sr_num)
 
 void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 {
-	Net::HTTPServerRequest& request = (getRequest());
-	Net::HTTPServerResponse& response = (getResponse());
+	Net::HTTPServerRequest* requestPtr = getHTTPRequestPtr();
+	if (requestPtr == NULL) {
+		DEBUGPOINT("HTTP Request not available");
+		std::abort();
+	}
+	Net::HTTPServerRequest& request = *requestPtr;
+	Net::HTTPServerResponse* responsePtr = getHTTPResponsePtr();
+	if (responsePtr == NULL) {
+		DEBUGPOINT("Response handle is not available");
+		std::abort();
+	}
+	Net::HTTPServerResponse& response = *responsePtr;
 
 	response.setChunkedTransferEncoding(true);
 	response.setContentType("text/plain");
 	response.setStatusAndReason(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-	std::ostream& ostr = getResponse().send();
+	std::ostream& ostr = response.send();
 
 	ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
 
@@ -3763,6 +3798,10 @@ int EVLHTTPRequestHandler::loadReqHandler()
 
 int EVLHTTPRequestHandler::handleRequest()
 {
+	//DEBUGPOINT("CONTROL REACHED TILL HERE\n");
+	//std::abort();
+	return PROCESSING_COMPLETE;
+
 	int status = 0;
 	int nargs = 0;
 	/* Request object is necessary for deduction of script names
@@ -3770,7 +3809,11 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * constructor of this class.
 	 * */
 	if (INITIAL == getState()) {
-		_mapping_script = getMappingScript(getRequest());
+		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE)
+			_mapping_script = getMappingScript(getHTTPRequestPtr());
+		else
+			_mapping_script = getMappingScript(getCLRequestPtr());
+
 		if (0 != loadReqMapper()) {
 			return PROCESSING_ERROR;
 		}
@@ -3819,13 +3862,17 @@ int EVLHTTPRequestHandler::handleRequest()
 	//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
-		if (getResponse().sent()) {
-			std::ostream& ostr = getResponse().getOStream();
-			ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
-			ostr.flush();
+		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
+			if (getHTTPResponse().sent()) {
+				std::ostream& ostr = getHTTPResponse().getOStream();
+				ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
+				ostr.flush();
+			}
+			else {
+				send_string_response(__LINE__, lua_tostring(_L, -1));
+			}
 		}
 		else {
-			send_string_response(__LINE__, lua_tostring(_L, -1));
 		}
 		return PROCESSING_ERROR;
 	}
@@ -3837,13 +3884,17 @@ int EVLHTTPRequestHandler::handleRequest()
 		if (!lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
 			std::string output = lua_tostring(_L, -1);
 			lua_pop(_L, 1);
-			if (getResponse().sent()) {
-				std::ostream& ostr = getResponse().getOStream();
-				ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
-				ostr.flush();
+			if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
+				if (getHTTPResponse().sent()) {
+					std::ostream& ostr = getHTTPResponse().getOStream();
+					ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
+					ostr.flush();
+				}
+				else {
+					send_string_response(__LINE__, output.c_str());
+				}
 			}
 			else {
-				send_string_response(__LINE__, output.c_str());
 			}
 		}
 		//DEBUGPOINT("Here complete for %d\n", getAccSockfd());

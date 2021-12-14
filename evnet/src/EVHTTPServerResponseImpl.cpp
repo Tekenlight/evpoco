@@ -29,7 +29,7 @@ namespace Poco {
 namespace evnet {
 
 
-EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,EVHTTPServerSession& session):
+EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,EVServerSession& session):
 	_session(session),
 	_pRequest(request),
 	_pStream(0),
@@ -37,7 +37,7 @@ EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * req
 {
 }
 
-EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerSession& session):
+EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVServerSession& session):
 	_session(session),
 	_pRequest(0),
 	_pStream(0),

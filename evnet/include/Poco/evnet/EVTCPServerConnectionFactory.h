@@ -57,6 +57,8 @@ public:
 
 	virtual EVProcessingState* createReqProcState(EVServer *) = 0;
 		/// Creates an instance of EVHTTPProcessingState
+	virtual EVProcessingState* createCLProcState(EVServer *) = 0;
+		/// Creates an instance of EVCommandLineProcessingState
 protected:
 	EVTCPServerConnectionFactory();
 		/// Creates the EVTCPServerConnectionFactory.

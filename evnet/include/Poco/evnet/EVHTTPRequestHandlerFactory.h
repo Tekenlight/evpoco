@@ -19,7 +19,9 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/Net/HTTPServerRequest.h"
+#include "Poco/evnet/EVServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
+#include "Poco/evnet/EVServerResponse.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
 #include "Poco/SharedPtr.h"
@@ -47,7 +49,7 @@ public:
 	virtual ~EVHTTPRequestHandlerFactory();
 		/// Destroys the EVHTTPRequestHandlerFactory.
 
-	virtual EVHTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) = 0;
+	virtual EVHTTPRequestHandler* createRequestHandler(const EVServerRequest& request) = 0;
 		/// Must be overridden by subclasses.
 		///
 		/// Creates a new request handler for the given HTTP request.

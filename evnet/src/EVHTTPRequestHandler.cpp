@@ -26,7 +26,8 @@ namespace evnet {
 
 
 EVHTTPRequestHandler::EVHTTPRequestHandler():
-	_state(INITIAL)
+	_state(INITIAL),
+	_ev_rh_mode(0)
 {
 }
 

@@ -216,6 +216,21 @@ public:
 		///
 		/// New threads are taken from the given thread pool.
 
+	EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, int pipe_rd_fd, int pipe_wr_fd, TCPServerParams::Ptr pParams = 0);
+		/// Creates the EVTCPServer, with pipe_rd_fd listening on the fd.
+		/// This instance of the server executes a single command available
+		/// on the fd stream and the server is then shut
+		/// This is used for running lua files on the command line and via cron
+		///
+		/// The server takes ownership of the EVTCPServerConnectionFactory
+		/// and deletes it when it's no longer needed.
+		///
+		/// The server also takes ownership of the TCPServerParams object.
+		/// If no TCPServerParams object is given, the server's TCPServerDispatcher
+		/// creates its own one.
+		///
+		/// New threads are taken from the default thread pool.
+
 	virtual ~EVTCPServer();
 		/// Destroys the EVTCPServer and its EVTCPServerConnectionFactory.
 
@@ -328,7 +343,9 @@ public:
 		/// Disconnect the redis connection and cleanup
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
+	static ssize_t readData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
+	static ssize_t writeData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t receiveData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(StreamSocket&, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 
@@ -339,6 +356,7 @@ protected:
 		/// object is destroyed, which implicitly calls
 		/// the stop() method.
 
+	static std::string threadName(int pipe_rd_fd);
 	static std::string threadName(const ServerSocket& socket);
 		/// Returns a thread name for the server thread.
 
@@ -390,17 +408,24 @@ private:
 	EVTCPServer(const EVTCPServer&);
 	EVTCPServer& operator = (const EVTCPServer&);
 	
+	void addCLPrimaryFdToAcceptedList(int fd, int wr_fd);
+		/// Function to add the primary pipe rd fd to IO monitoring to listen to commands
 	void handleConnReq(const bool& abortCurrent);
 		/// Function to handle the event of socket receiving a connection request.
+	ssize_t handleCLWrFdWritable(StreamSocket & streamSocket, const bool& ev_occured);
 	ssize_t handleAccSocketWritable(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket becoming writable.
 		/// Returns the number of bytes remaining to be written.
+	ssize_t handleCLFdReadable(StreamSocket & ss, const bool& ev_occured);
+		/// Function to handle the event of CL pipe fd becoming readable
 	ssize_t handleAccSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
 	virtual void dataReadyForSend(int fd);
 		/// Function to handle the event of data being ready to be sent on a socket.
-	void sendDataOnAccSocket(EVAcceptedStreamSocket *tn);
+	void sendDataOnAccSocket(EVAcceptedStreamSocket *tn, int onEvent);
 		/// Function to data on a sockets for which data is ready.
+	void sendDataOnReturnPipe(EVAcceptedStreamSocket *tn, int OnEvent);
+		/// Function to data on a commandline return pipe for which data is ready.
 	virtual void receivedDataConsumed(int fd);
 		/// Function to handle the event of completion of one request.
 	void monitorDataOnAccSocket(EVAcceptedStreamSocket *tn);
@@ -423,6 +448,15 @@ private:
 	unsigned long getNextSRSrlNum();
 	EVAcceptedStreamSocket* getTn(poco_socket_t fd);
 
+	enum EVTCP_MODE
+	{
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
+	};
+
+
+	EVTCP_MODE							_mode;
+	int									_pipe_rd_fd;
+	int									_pipe_wr_fd;
 	ServerSocket						_socket;
 	EVTCPServerDispatcher*				_pDispatcher;
 	TCPServerConnectionFilter::Ptr		_pConnectionFilter;

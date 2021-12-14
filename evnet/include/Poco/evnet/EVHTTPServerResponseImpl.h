@@ -23,7 +23,8 @@
 #include "Poco/Net/HTTPRequest.h"
 
 #include "Poco/Net/HTTPServerSession.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVServerResponse.h"
+#include "Poco/evnet/EVServerSession.h"
 #include "Poco/Net/HTTPHeaderStream.h"
 #include "Poco/Net/HTTPStream.h"
 #include "Poco/Net/HTTPFixedLengthStream.h"
@@ -67,7 +68,7 @@ namespace evnet {
 class EVHTTPServerRequestImpl;
 
 
-class Net_API EVHTTPServerResponseImpl: public HTTPServerResponse
+class Net_API EVHTTPServerResponseImpl: public HTTPServerResponse, public EVServerResponse
 	/// This subclass of HTTPServerResponse is used for
 	/// representing server-side HTTP responses.
 	///
@@ -79,15 +80,15 @@ class Net_API EVHTTPServerResponseImpl: public HTTPServerResponse
 	/// as necessary, and provide a message body.
 {
 public:
-	EVHTTPServerResponseImpl(EVHTTPServerRequestImpl *request,EVHTTPServerSession& session);
+	EVHTTPServerResponseImpl(EVHTTPServerRequestImpl *request,EVServerSession& session);
 		/// Creates the EVHTTPServerResponseImpl.
 
-	EVHTTPServerResponseImpl(EVHTTPServerSession& session);
+	EVHTTPServerResponseImpl(EVServerSession& session);
 		/// Creates the EVHTTPServerResponseImpl.
 
 	~EVHTTPServerResponseImpl();
 		/// Destroys the EVHTTPServerResponseImpl.
-	void attachSession(EVHTTPServerSession &session);
+	void attachSession(EVServerSession &session);
 
 	void sendContinue();
 		/// Sends a 100 Continue response to the
@@ -155,7 +156,7 @@ public:
 protected:
 	
 private:
-	EVHTTPServerSession& _session;
+	EVServerSession& _session;
 	EVHTTPServerRequestImpl* _pRequest;
 	std::ostream*      _pStream;
 	chunked_memory_stream* _out_memory_stream;
@@ -166,7 +167,7 @@ private:
 
 //
 // inlines
-inline void EVHTTPServerResponseImpl::attachSession(EVHTTPServerSession & session)
+inline void EVHTTPServerResponseImpl::attachSession(EVServerSession & session)
 {
 	_session = session;
 }

@@ -15,7 +15,7 @@
 #include <chunked_memory_stream.h>
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVHTTPRequestProcessor.h"
-#include "Poco/evnet/EVHTTPServerSession.h"
+#include "Poco/evnet/EVServerSession.h"
 #include "Poco/evnet/EVHTTPServerRequestImpl.h"
 #include "Poco/evnet/EVHTTPServerResponseImpl.h"
 #include "Poco/Net/HTTPRequestHandler.h"
@@ -60,7 +60,7 @@ EVHTTPRequestProcessor::EVHTTPRequestProcessor(StreamSocket& socket,
 	_pParams(pParams),
 	_pFactory(pFactory),
 	_stopped(false),
-	_reqProcState((EVHTTPProcessingState*)procState)
+	_reqProcState(procState)
 {
 	poco_check_ptr (pFactory);
 	
@@ -88,7 +88,224 @@ EVProcessingState * EVHTTPRequestProcessor::getProcState()
 
 void EVHTTPRequestProcessor::setProcState(EVProcessingState *s)
 {
-	_reqProcState = (EVHTTPProcessingState *)s;
+	_reqProcState = s;
+}
+
+/* This is the event driven equivalent of run method.
+ * This method is reentrant.
+ * The socket connection is expected to be non-blocking,
+ * such that when there is no data to be read (EWOULDBLOCK/EAGAIN)
+ * this function will return to the caller. whenever data reading is not
+ * complete and the socket fd would block.
+ * The caller is expected to call this function agian, when the 
+ * socket fd becomes readable. */
+void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcState)
+{
+	std::string server = _pParams->getSoftwareVersion();
+	EVServerSession * session = NULL;
+	if (_stopped) return ;
+
+
+	EVCLServerResponseImpl *response = 0;
+	EVCLServerRequestImpl *request = 0;
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+		session = reqProcState->getSession();
+		if (!session) {
+			session = new EVServerSession(socket(), _pParams);
+			session->setServer(reqProcState->getServer());
+			reqProcState->setSession(session);
+		}
+		/* To prevent Poco library from closing the socket. */
+		session->setSockFdForReuse(true);
+
+	} catch (std::exception e) {
+		DEBUGPOINT("EXCEPTION: Here %s for %d\n", e.what(), socket().impl()->sockfd());
+		throw;
+	}
+
+	request = static_cast<EVCLServerRequestImpl *>(reqProcState->getRequest());
+	response = static_cast<EVCLServerResponseImpl *>(reqProcState->getResponse());
+	try {
+		if (!response) {
+			response = new EVCLServerResponseImpl(*session);
+			response->setMemoryStream(reqProcState->getResMemStream());
+			reqProcState->setResponse(response);
+		}
+	} catch (...) {
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getResponse());
+		throw;
+	}
+
+	try {
+		if (!request) {
+			request = new EVCLServerRequestImpl(*response, *session);
+			reqProcState->setRequest(request);
+		}
+	} catch (...) {
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getRequest());
+		throw;
+	}
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+
+		if (MESSAGE_COMPLETE > reqProcState->getState()) {
+			int ret = reqProcState->continueRead();
+			if (ret < 0) {
+				DEBUGPOINT("EXCEPTION: Here\n");
+				sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+				throw NetException("Badly formed Request");
+				return ;
+			}
+			reqProcState->setState(ret);
+			if (MESSAGE_COMPLETE > reqProcState->getState()) {
+				return ;
+			}
+		}
+
+		try {
+			EVHTTPRequestHandler * pHandler = reqProcState->getRequestHandler();
+			if (!pHandler) {
+				try {
+					pHandler = _pFactory->createRequestHandler(*request);
+					reqProcState->setRequestHandler(pHandler);
+					pHandler->setServer(reqProcState->getServer());
+					pHandler->setAccSockfd(socket().impl()->sockfd());
+					pHandler->setAcceptedSocket(getAcceptedSocket());
+					pHandler->setCLRequest(request);
+					pHandler->setCLResponse(response);
+					pHandler->setEVRHMode(reqProcState->getMode());
+
+					if (pHandler) {
+						int ret = EVHTTPRequestHandler::PROCESSING;
+						ret = pHandler->handleRequestSurrogateInitial();
+						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+						switch (ret) {
+							case EVHTTPRequestHandler::PROCESSING:
+								reqProcState->setState(REQUEST_PROCESSING);
+								break;
+							case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+							case EVHTTPRequestHandler::PROCESSING_ERROR:
+							default:
+								reqProcState->setState(PROCESS_COMPLETE);
+								break;
+						}
+					}
+					else sendErrorResponse(*response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+				}
+				catch (Exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					throw e;
+				}
+				catch (std::exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					char msg[100] = {0};
+					sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+					throw Exception(msg);
+				}
+			}
+			else {
+				if (reqProcState->getUpstreamEventQ() &&
+						!queue_empty(reqProcState->getUpstreamEventQ())) {
+					void * elem = dequeue(reqProcState->getUpstreamEventQ());
+					bool processing_complete = false;
+					while (!processing_complete && elem) {
+						/* Process upstream events here. */
+						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						try {
+							pHandler->setState(usN->getCBEVIDNum());
+							pHandler->setUNotification(usN.get());
+							{
+								int ret = EVHTTPRequestHandler::PROCESSING;
+								ret = pHandler->handleRequestSurrogate();
+								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+								switch (ret) {
+									case EVHTTPRequestHandler::PROCESSING:
+										reqProcState->setState(REQUEST_PROCESSING);
+										break;
+									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+									case EVHTTPRequestHandler::PROCESSING_ERROR:
+									default:
+										processing_complete = true;
+										reqProcState->setState(PROCESS_COMPLETE);
+										break;
+								}
+							}
+						}
+						catch (Exception e) {
+							DEBUGPOINT("EXCEPTION: Here\n");
+							throw e;
+						}
+						catch (std::exception e) {
+							DEBUGPOINT("EXCEPTION: Here\n");
+							char msg[100] = {0};
+							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+							throw Exception(msg);
+						}
+						//elem = NULL;
+						elem = dequeue(reqProcState->getUpstreamEventQ());
+						//if (elem) DEBUGPOINT("Found additional queued event\n");
+					}
+				}
+			}
+		}
+		catch (Poco::Exception& e) {
+			try {
+				DEBUGPOINT("EXCEPTION: Here\n");
+				sendErrorResponse(*response, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+			}
+			catch (...) {
+				DEBUGPOINT("EXCEPTION: Here\n");
+			}
+			DEBUGPOINT("EXCEPTION: Here\n");
+			throw e;
+		}
+		catch (...) {
+			DEBUGPOINT("EXCEPTION: Here\n");
+			sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+			throw;
+		}
+	}
+	catch (NoMessageException& e)
+	{
+		DEBUGPOINT("EXCEPTION: Here\n");
+		sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+		throw e;
+	}
+	catch (MessageException& e)
+	{
+		DEBUGPOINT("EXCEPTION: Here\n");
+		sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+		throw e;
+	}
+	catch (Poco::Exception& e)
+	{
+		if (session->networkException())
+		{
+			DEBUGPOINT("EXCEPTION: Here\n");
+			if (0 == e.code()) sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == e.code())
+				sendErrorResponse(*response, (HTTPResponse::HTTPStatus)e.code());
+			else sendErrorResponse(*response, (HTTPResponse::HTTPStatus)e.code());
+			session->networkException()->rethrow();
+		}
+		else { 
+			DEBUGPOINT("EXCEPTION: Here %s %d\n", e.what(), e.code());
+			if (0 == e.code()) sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+			else if (HTTPResponse::HTTP_VERSION_NOT_SUPPORTED == (HTTPResponse::HTTPStatus)e.code())
+				sendErrorResponse(*response, (HTTPResponse::HTTPStatus)e.code());
+			else sendErrorResponse(*response, (HTTPResponse::HTTPStatus)e.code());
+			throw e;
+		}
+	}
+	catch (...) {
+		DEBUGPOINT("EXCEPTION: Here\n");
+		sendErrorResponse(*response, HTTPResponse::HTTP_BAD_REQUEST);
+		throw;
+	}
+	return ;
 }
 
 
@@ -100,10 +317,10 @@ void EVHTTPRequestProcessor::setProcState(EVProcessingState *s)
  * complete and the socket fd would block.
  * The caller is expected to call this function agian, when the 
  * socket fd becomes readable. */
-void EVHTTPRequestProcessor::evrun()
+void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 {
 	std::string server = _pParams->getSoftwareVersion();
-	EVHTTPServerSession * session = NULL;
+	EVServerSession * session = NULL;
 	if (_stopped) return ;
 
 	EVHTTPServerResponseImpl *response = 0;
@@ -111,12 +328,13 @@ void EVHTTPRequestProcessor::evrun()
 
 	try {
 		Poco::FastMutex::ScopedLock lock(_mutex);
-		session = _reqProcState->getSession();
+		session = reqProcState->getSession();
 		if (!session) {
-			session = new EVHTTPServerSession(socket(), _pParams);
-			session->setServer(_reqProcState->getServer());
-			_reqProcState->setSession(session);
+			session = new EVServerSession(socket(), _pParams);
+			session->setServer(reqProcState->getServer());
+			reqProcState->setSession(session);
 		}
+		/* To prevent Poco library from closing the socket. */
 		session->setSockFdForReuse(true);
 
 	} catch (std::exception e) {
@@ -124,28 +342,28 @@ void EVHTTPRequestProcessor::evrun()
 		throw;
 	}
 
-	request = _reqProcState->getRequest();
-	response = _reqProcState->getResponse();
+	request = reqProcState->getRequest();
+	response = reqProcState->getResponse();
 	try {
 		if (!response) {
 			response = new EVHTTPServerResponseImpl(*session);
-			response->setMemoryStream(_reqProcState->getResMemStream());
-			_reqProcState->setResponse(response);
+			response->setMemoryStream(reqProcState->getResMemStream());
+			reqProcState->setResponse(response);
 		}
 	} catch (...) {
-		DEBUGPOINT("EXCEPTION: Here %p\n", _reqProcState->getResponse());
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getResponse());
 		throw;
 	}
 
 	try {
 		if (!request) {
 			request = new EVHTTPServerRequestImpl(*response, *session, _pParams);
-			request->setClientAddress(_reqProcState->clientAddress());
-			request->setServerAddress(_reqProcState->serverAddress());
-			_reqProcState->setRequest(request);
+			request->setClientAddress(reqProcState->clientAddress());
+			request->setServerAddress(reqProcState->serverAddress());
+			reqProcState->setRequest(request);
 		}
 	} catch (...) {
-		DEBUGPOINT("EXCEPTION: Here %p\n", _reqProcState->getRequest());
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getRequest());
 		throw;
 	}
 
@@ -164,20 +382,20 @@ void EVHTTPRequestProcessor::evrun()
 		 * Which will read the status-line plus the header fields of the HTTP
 		 * request.
 		 * */
-		if (MESSAGE_COMPLETE > _reqProcState->getState()) {
+		if (MESSAGE_COMPLETE > reqProcState->getState()) {
 			/* TBD: 
 			 * Pass the state to reading process, in order to retain 
 			 * partially read name or value within the reading process.
 			 * */
-			int ret = _reqProcState->continueRead();
+			int ret = reqProcState->continueRead();
 			if (ret < 0) {
 				DEBUGPOINT("EXCEPTION: Here\n");
 				sendErrorResponse(*session, *response, HTTPResponse::HTTP_BAD_REQUEST);
 				throw NetException("Badly formed HTTP Request");
 				return ;
 			}
-			_reqProcState->setState(ret);
-			if (HEADER_READ_COMPLETE <= _reqProcState->getState()) {
+			reqProcState->setState(ret);
+			if (HEADER_READ_COMPLETE <= reqProcState->getState()) {
 				switch (request->getReqType()) {
 					case HTTP_HEADER_ONLY:
 					case HTTP_FIXED_LENGTH:
@@ -215,7 +433,7 @@ void EVHTTPRequestProcessor::evrun()
 				}
 			}
 
-			if (MESSAGE_COMPLETE > _reqProcState->getState()) {
+			if (MESSAGE_COMPLETE > reqProcState->getState()) {
 				return ;
 			}
 
@@ -230,16 +448,16 @@ void EVHTTPRequestProcessor::evrun()
 			 * upstream sockets those events will trigger handling of requests againa and
 			 * again until complete processing of request.
 			 * */
-			EVHTTPRequestHandler * pHandler = _reqProcState->getRequestHandler();
+			EVHTTPRequestHandler * pHandler = reqProcState->getRequestHandler();
 			if (!pHandler) {
 				try {
 					pHandler = _pFactory->createRequestHandler(*request);
-					_reqProcState->setRequestHandler(pHandler);
-					pHandler->setServer(_reqProcState->getServer());
+					reqProcState->setRequestHandler(pHandler);
+					pHandler->setServer(reqProcState->getServer());
 					pHandler->setAccSockfd(socket().impl()->sockfd());
 					pHandler->setAcceptedSocket(getAcceptedSocket());
-					pHandler->setRequest(request);
-					pHandler->setResponse(response);
+					pHandler->setHTTPRequest(request);
+					pHandler->setHTTPResponse(response);
 
 					Poco::Timestamp now;
 					response->setDate(now);
@@ -254,12 +472,12 @@ void EVHTTPRequestProcessor::evrun()
 						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
 						switch (ret) {
 							case EVHTTPRequestHandler::PROCESSING:
-								_reqProcState->setState(REQUEST_PROCESSING);
+								reqProcState->setState(REQUEST_PROCESSING);
 								break;
 							case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 							case EVHTTPRequestHandler::PROCESSING_ERROR:
 							default:
-								_reqProcState->setState(PROCESS_COMPLETE);
+								reqProcState->setState(PROCESS_COMPLETE);
 								break;
 						}
 					}
@@ -277,9 +495,9 @@ void EVHTTPRequestProcessor::evrun()
 				}
 			}
 			else {
-				if (_reqProcState->getUpstreamEventQ() &&
-						!queue_empty(_reqProcState->getUpstreamEventQ())) {
-					void * elem = dequeue(_reqProcState->getUpstreamEventQ());
+				if (reqProcState->getUpstreamEventQ() &&
+						!queue_empty(reqProcState->getUpstreamEventQ())) {
+					void * elem = dequeue(reqProcState->getUpstreamEventQ());
 					bool processing_complete = false;
 					while (!processing_complete && elem) {
 						/* Process upstream events here. */
@@ -293,13 +511,13 @@ void EVHTTPRequestProcessor::evrun()
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
-										_reqProcState->setState(REQUEST_PROCESSING);
+										reqProcState->setState(REQUEST_PROCESSING);
 										break;
 									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
 									case EVHTTPRequestHandler::PROCESSING_ERROR:
 									default:
 										processing_complete = true;
-										_reqProcState->setState(PROCESS_COMPLETE);
+										reqProcState->setState(PROCESS_COMPLETE);
 										break;
 								}
 							}
@@ -315,7 +533,7 @@ void EVHTTPRequestProcessor::evrun()
 							throw Exception(msg);
 						}
 						//elem = NULL;
-						elem = dequeue(_reqProcState->getUpstreamEventQ());
+						elem = dequeue(reqProcState->getUpstreamEventQ());
 						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
 				}
@@ -386,10 +604,22 @@ void EVHTTPRequestProcessor::evrun()
 
 void EVHTTPRequestProcessor::run()
 {
-	return evrun();
+	if (_reqProcState->getMode() == 1) {
+		EVCommandLineProcessingState *reqProcState = dynamic_cast<EVCommandLineProcessingState*>(_reqProcState);
+		return procCLReq(reqProcState);
+	}
+	else {
+		EVHTTPProcessingState *reqProcState = dynamic_cast<EVHTTPProcessingState*>(_reqProcState);
+		return procHTTPReq(reqProcState);
+	}
 }
 
-void EVHTTPRequestProcessor::sendErrorResponse(std::string http_version, EVHTTPServerSession& session,
+void EVHTTPRequestProcessor::sendErrorResponse(EVCLServerResponseImpl & response, HTTPResponse::HTTPStatus status)
+{
+	response.setReturnStatus(1);
+}
+
+void EVHTTPRequestProcessor::sendErrorResponse(std::string http_version, EVServerSession& session,
 			EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status)
 {
 	response.setVersion(http_version);
@@ -400,7 +630,7 @@ void EVHTTPRequestProcessor::sendErrorResponse(std::string http_version, EVHTTPS
 	session.setKeepAlive(false);
 }
 
-void EVHTTPRequestProcessor::sendErrorResponse(EVHTTPServerSession& session,
+void EVHTTPRequestProcessor::sendErrorResponse(EVServerSession& session,
 			EVHTTPServerResponseImpl & response, HTTPResponse::HTTPStatus status)
 {
 	response.setVersion(HTTPMessage::HTTP_1_1);

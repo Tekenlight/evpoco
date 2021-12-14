@@ -487,7 +487,7 @@ int EVHTTPProcessingState::continueRead()
 	return _state;
 }
 
-void EVHTTPProcessingState::setSession(EVHTTPServerSession *session)
+void EVHTTPProcessingState::setSession(EVServerSession *session)
 {
 	_session = session;
 }
@@ -512,7 +512,7 @@ chunked_memory_stream* EVHTTPProcessingState::getReqMemStream()
 	return _req_memory_stream;
 }
 
-EVHTTPServerSession * EVHTTPProcessingState::getSession()
+EVServerSession * EVHTTPProcessingState::getSession()
 {
 	return _session;
 }

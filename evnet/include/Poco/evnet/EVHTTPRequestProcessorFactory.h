@@ -23,6 +23,7 @@
 #include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/evnet/EVHTTPProcessingState.h"
+#include "Poco/evnet/EVCommandLineProcessingState.h"
 #include "Poco/evnet/EVServer.h"
 
 using Poco::Net::HTTPServerParams;
@@ -53,6 +54,9 @@ public:
 	
 	EVProcessingState* createReqProcState(EVServer *);
 		/// Creates an instance of EVHTTPProcessingState
+
+	EVProcessingState* createCLProcState(EVServer *);
+		/// Creates an instance of EVCommandLineProcessingState
 
 private:
 	HTTPServerParams::Ptr          _pParams;

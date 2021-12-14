@@ -1,11 +1,11 @@
 //
-// EVHTTPServerSession.h
+// EVServerSession.h
 //
 // Library: evnet
 // Package: EVHTTPServer
-// Module:  EVHTTPServerSession
+// Module:  EVServerSession
 //
-// Definition of the EVHTTPServerSession class.
+// Definition of the EVServerSession class.
 //
 // Copyright (c) 2018-2019, Tekenlight Solutions Pvt Ltd.
 // and Contributors.
@@ -14,8 +14,8 @@
 //
 
 
-#ifndef EVNet_EVHTTPServerSession_INCLUDED
-#define EVNet_EVHTTPServerSession_INCLUDED
+#ifndef EVNet_EVServerSession_INCLUDED
+#define EVNet_EVServerSession_INCLUDED
 
 
 #include <chunked_memory_stream.h>
@@ -34,26 +34,18 @@ namespace Poco {
 namespace evnet {
 
 
-class Net_API EVHTTPServerSession: public Net::HTTPServerSession
+class Net_API EVServerSession : public Net::HTTPServerSession
 	/// This class handles the server side of a
 	/// HTTP session. It is used internally by
 	/// HTTPServer.
 {
 public:
-	EVHTTPServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
-		/// Creates the EVHTTPServerSession.
+	EVServerSession(const StreamSocket& socket, HTTPServerParams::Ptr pParams);
+		/// Creates the EVServerSession.
 	
-	virtual ~EVHTTPServerSession();
-		/// Destroys the EVHTTPServerSession.
+	virtual ~EVServerSession();
+		/// Destroys the EVServerSession.
 				
-	bool hasMoreRequests();
-		/// Returns true if there are requests available.
-	
-	bool canKeepAlive() const;
-		/// Returns true if the session can be kept alive.
-
-	virtual int receive(char* buffer, int length);
-
 	EVServer* getServer();
 	void setServer(EVServer * server);
 
@@ -67,13 +59,8 @@ private:
 //
 // inlines
 //
-inline bool EVHTTPServerSession::canKeepAlive() const
-{
-	return true;
-}
-
 
 } } // namespace Poco::evnet
 
 
-#endif // EVNet_EVHTTPServerSession_INCLUDED
+#endif // EVNet_EVServerSession_INCLUDED
