@@ -60,7 +60,15 @@ public:
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
-		return config.getString("evlua.requestMappingScript", "mapper.lua");
+		char * path_env = getenv(EVLUA_PATH);
+		if (!path_env) {
+			return config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+		}
+		else {
+			std::string s;
+			s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+			return s;
+		}
 	}
 };
 
@@ -83,65 +91,6 @@ public:
 #include <pthread.h>
 
 #include <ev.h>
-
-static void data_cb(EV_P_ ev_io *w, int revents)
-{
-	char buf[1024];
-	errno = 0;
-	memset(buf, 0, 1024);
-	DEBUGPOINT("fd = [%d]\n", w->fd);
-	read(w->fd, buf, 11);
-	if (errno) {
-		DEBUGPOINT("Error = [%s]\n", strerror(errno));
-	}
-	else {
-		DEBUGPOINT("fd = [%d] buf = [%s]\n", w->fd, buf);
-	}
-}
-
-static void * ev_lua_server(void* inp)
-{
-	int fd = *(int*)inp;
-	ev_io stdin_watcher;
-	struct ev_loop *loop = EV_DEFAULT;
-	ev_io_init (&stdin_watcher, data_cb, fd, EV_READ);
-	ev_io_start (loop, &stdin_watcher);
-
-	ev_run (loop, 0);
-
-	return (void*)0;
-}
-
-static void * server(void* inp)
-{
-	int fd = *(int*)inp;
-	fd_set active_fd_set, read_fd_set;
-	fd_set * rd_set = (fd_set *)malloc(1024 * sizeof(fd_set));
-	FD_ZERO (&read_fd_set);
-	//FD_SET (filedes[0], &read_fd_set);
-	FD_SET (fd, rd_set);
-	//int ret = select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL);
-	errno = 0;
-	int ret = select(1024, rd_set, NULL, NULL, NULL);
-	DEBUGPOINT("ret = [%d] errno = [%d] error[%s]\n", ret, errno, strerror(errno));
-	for (int i = 0; i < 1024; i++) {
-		if (i == fd) {
-			char buf[1024];
-			errno = 0;
-			memset(buf, 0, 1024);
-			read(i, buf, 11);
-			if (errno) {
-				DEBUGPOINT("Error = [%s]\n", strerror(errno));
-			}
-			else {
-				DEBUGPOINT("fd = [%d] buf = [%s]\n", i, buf);
-			}
-		}
-	}
-
-	return (void*)0;
-
-}
 
 class evlua: public Poco::Util::ServerApplication
 	/// The main application class to start a LUA
@@ -176,7 +125,6 @@ protected:
 	void initialize(Application& self)
 	{
 		try {
-			DEBUGPOINT("Here\n");
 			loadConfiguration(PROPERTIES_FILE);
 		}
 		catch (...) {
@@ -184,7 +132,6 @@ protected:
 			if (path_env) {
 				std::string path(path_env);
 				path = path + "/" + PROPERTIES_FILE;
-				DEBUGPOINT("Here [%s]\n", path.c_str());
 				loadConfiguration(path); // load default configuration files, if present in path
 			}
 			else {
@@ -228,6 +175,7 @@ protected:
 
 	int main(const std::vector<std::string>& args)
 	{
+		int ret = 0;
 		if (_helpRequested)
 		{
 			displayHelp();
@@ -243,10 +191,6 @@ protected:
 				DEBUGPOINT("Unbable create an IPC pipe [%s]\n", strerror(errno));
 				return Application::EXIT_OSERR;
 			}
-			DEBUGPOINT("FILEDES[0] = %d\n", filedes[0]);
-			DEBUGPOINT("FILEDES[1] = %d\n", filedes[1]);
-			DEBUGPOINT("FILEDES[2] = %d\n", filedes[2]);
-			DEBUGPOINT("FILEDES[3] = %d\n", filedes[3]);
 			int wr_fd = filedes[1];
 			int rd_fd = filedes[2];
 			HTTPServerParams *p = new HTTPServerParams();
@@ -258,33 +202,34 @@ protected:
 			EVHTTPServer srv(new EVFormRequestHandlerFactory, filedes[0], filedes[3], p);
 			// start the HTTPServer
 			srv.start();
-			//
-			/*
-			pthread_t t;
-			{
-				pthread_attr_t attr;
 
-				pthread_attr_init(&attr);
-
-				//pthread_create(&t, &attr, server, filedes);
-				pthread_create(&t, &attr, ev_lua_server, filedes);
+			size_t n = args.size();
+			size_t buf_size = 1;
+			for (int i = 0; i < n; i++) {
+				buf_size += args[i].length() + 1;
 			}
-			*/
+			char * buf = (char*)malloc(buf_size);
+			memset(buf, 0, buf_size);
+			//write(wr_fd, "HELLO WORLD\n", 12); 
+			for (int i = 0; i < n; i++) {
+				if (i != 0) strcat(buf, " ");
+				strcat(buf,  args[i].c_str());
+			}
+			strcat(buf, "\n");
 
-			DEBUGPOINT("WR fd = [%d]\n", wr_fd);
-			write(wr_fd, "HELLO WORLD\n", 12); 
-
+			write(wr_fd, buf, strlen(buf)); 
 			char out[100] = {0};
-			DEBUGPOINT("Here\n");
-			int ret = read(rd_fd, out, 10);
+			memset(out, 0, 100);
+			ret = read(rd_fd, out, 10);
 			DEBUGPOINT("OUT = [%s] ret = [%d]\n", out, ret);
+			ret = atoi(out);
 
 			// wait for CTRL-C or kill
-			waitForTerminationRequest();
+			//waitForTerminationRequest();
 			// Stop the HTTPServer
 			srv.stop();
 		}
-		return Application::EXIT_OK;
+		return ret;
 	}
 	
 
@@ -296,6 +241,10 @@ private:
 int func(int argc, char ** argv)
 {
 	int ret = 0;
+	if (argc < 2) {
+		printf("Usage: evlua <lua_script> <arg1> <arg2> ...\n");
+		return(1);
+	}
 	evlua app;
 	ret =  app.run(argc, argv);
 	return ret;

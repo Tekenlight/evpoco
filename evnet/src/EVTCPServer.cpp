@@ -1722,7 +1722,6 @@ void EVTCPServer::sendDataOnReturnPipe(EVAcceptedStreamSocket *tn, int OnEvent)
 	}
 
 	StreamSocket ss = tn->getStreamSocket();
-	DEBUGPOINT("Here out fd = [%d]\n", ss.impl()->sockfd());
 	handleCLWrFdWritable(ss, false);
 
 	return;

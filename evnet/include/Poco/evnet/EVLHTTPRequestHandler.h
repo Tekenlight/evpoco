@@ -286,8 +286,10 @@ private:
 
 	void send_string_response(int line_no, const char * msg);
 	int deduceReqHandler();
+	int deduceFileToCall();
 	int loadReqHandler();
 	int loadReqMapper();
+	int loadScriptToExec(std::string script_name);
 	Poco::evnet::EVHTTPClientSession session;
 
 	lua_State*									_L0;

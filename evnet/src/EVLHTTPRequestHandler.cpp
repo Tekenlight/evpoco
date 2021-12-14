@@ -3698,33 +3698,78 @@ evl_async_task* EVLHTTPRequestHandler::get_async_task(long sr_num)
 
 void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 {
-	Net::HTTPServerRequest* requestPtr = getHTTPRequestPtr();
-	if (requestPtr == NULL) {
-		DEBUGPOINT("HTTP Request not available");
-		std::abort();
+	if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
+		Net::HTTPServerRequest* requestPtr = getHTTPRequestPtr();
+		if (requestPtr == NULL) {
+			DEBUGPOINT("HTTP Request not available");
+			std::abort();
+		}
+		Net::HTTPServerRequest& request = *requestPtr;
+		Net::HTTPServerResponse* responsePtr = getHTTPResponsePtr();
+		if (responsePtr == NULL) {
+			DEBUGPOINT("Response handle is not available");
+			std::abort();
+		}
+		Net::HTTPServerResponse& response = *responsePtr;
+
+		response.setChunkedTransferEncoding(true);
+		response.setContentType("text/plain");
+		response.setStatusAndReason(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+		std::ostream& ostr = response.send();
+
+		ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
+
+		ostr.flush();
 	}
-	Net::HTTPServerRequest& request = *requestPtr;
-	Net::HTTPServerResponse* responsePtr = getHTTPResponsePtr();
-	if (responsePtr == NULL) {
-		DEBUGPOINT("Response handle is not available");
-		std::abort();
+	else {
+		std::string out_msg;
+		char s_line_no[10] = {0};
+		sprintf(s_line_no, "%d", line_no);
+		out_msg = out_msg + "EVLHTTPRequestHandler.cpp:" + s_line_no + ": " + msg;
+		fprintf(stderr, "%s\n", out_msg.c_str());
 	}
-	Net::HTTPServerResponse& response = *responsePtr;
+}
 
-	response.setChunkedTransferEncoding(true);
-	response.setContentType("text/plain");
-	response.setStatusAndReason(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-	std::ostream& ostr = response.send();
+int EVLHTTPRequestHandler::deduceFileToCall()
+{
+	int status = 0;
+	char * cl_inp = getCLRequestPtr()->getBuf();
+	if (cl_inp == NULL) { 
+		send_string_response(__LINE__, "deduceFileToCall: Command line inputs not present");
+		return -1;
+	}
 
-	ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
+	lua_pushstring(_L, cl_inp);
+	status = lua_pcall(_L, 1, LUA_MULTRET, 0); 
+	if (LUA_OK != status) {
+		return -1;
+	}
 
-	ostr.flush();
+	int n = lua_gettop(_L);
+	if (1 > n) {
+		send_string_response(__LINE__, "deduceFileToCall: did not return any values");
+		return -1;
+	}
+
+	for (int i = 1; i <= n ; i++) {
+		if (NULL == lua_tostring(_L, i)) {
+			send_string_response(__LINE__, "Invalid return value from the mapper script");
+			return -1;
+		}
+
+		std::string s;
+		s = lua_tostring(_L, i);
+		_url_parts.push_back(s);
+	}
+
+	lua_pop(_L, n);
+	return 0;
 }
 
 int EVLHTTPRequestHandler::deduceReqHandler()
 {
 	int status = 0;
-	status = lua_pcall(_L, 0, 2, 0); 
+	status = lua_pcall(_L, 0, LUA_MULTRET, 0); 
 	if (LUA_OK != status) {
 		return -1;
 	}
@@ -3736,13 +3781,11 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 	}
 
 	for (int i = 1; i <= n ; i++) {
-		/*
-		const char * _s = NULL;
-		_s = lua_tostring(_L, i);
-		std::string s(_s);
-		_url_parts.push_back(s);
-		*/
-		//std::string s = new (std::string);
+		if (NULL == lua_tostring(_L, i)) {
+			send_string_response(__LINE__, "Invalid return value from the mapper script");
+			return -1;
+		}
+
 		std::string s;
 		s = lua_tostring(_L, i);
 		_url_parts.push_back(s);
@@ -3764,6 +3807,21 @@ int EVLHTTPRequestHandler::deduceReqHandler()
 	lua_pop(_L, n);
 
 	return 0;
+}
+
+int EVLHTTPRequestHandler::loadScriptToExec(std::string script_name)
+{
+	/*
+	 * TBD: Caching of compiled lua files
+	 * Same  _request_handler can get called again and again for multiple requests
+	 * The compiled output should be cached in a static map so that
+	 * Subsequent calls will be without FILE IO
+	 * */
+	int ret = luaL_loadfile(_L, script_name.c_str());
+	if (0 != ret) {
+		send_string_response(__LINE__, lua_tostring(_L, -1));
+	}
+	return ret;
 }
 
 int EVLHTTPRequestHandler::loadReqMapper()
@@ -3798,10 +3856,6 @@ int EVLHTTPRequestHandler::loadReqHandler()
 
 int EVLHTTPRequestHandler::handleRequest()
 {
-	//DEBUGPOINT("CONTROL REACHED TILL HERE\n");
-	//std::abort();
-	return PROCESSING_COMPLETE;
-
 	int status = 0;
 	int nargs = 0;
 	/* Request object is necessary for deduction of script names
@@ -3809,26 +3863,49 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * constructor of this class.
 	 * */
 	if (INITIAL == getState()) {
-		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE)
+		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
 			_mapping_script = getMappingScript(getHTTPRequestPtr());
-		else
+			if (0 != loadReqMapper()) {
+				return PROCESSING_ERROR;
+			}
+			if (0 != deduceReqHandler()) {
+				return PROCESSING_ERROR;
+			}
+			if (0 != loadReqHandler()) {
+				return PROCESSING_ERROR;
+			}
+			int i = 0;
+			for (auto it = _url_parts.begin(); it != _url_parts.end(); ++it) {
+				i++;
+				lua_pushstring(_L, it->c_str());
+			}
+			nargs=i;
+		}
+		else {
 			_mapping_script = getMappingScript(getCLRequestPtr());
-
-		if (0 != loadReqMapper()) {
-			return PROCESSING_ERROR;
+			if (0 != loadReqMapper()) {
+				return PROCESSING_ERROR;
+			}
+			if (0 != deduceFileToCall()) {
+				return PROCESSING_ERROR;
+			}
+			lua_settop(_L, 0);
+			int i = 0;
+			auto it = _url_parts.begin();
+			assert(it != _url_parts.end());
+			std::string script_name;
+			script_name = std::string(*it);
+			/* Prepare function */
+			if (0 != loadScriptToExec(script_name)) {
+				return PROCESSING_ERROR;
+			}
+			/* Prepare arguments to function */
+			for (++it; it != _url_parts.end(); ++it) {
+				lua_pushstring(_L, it->c_str());
+				i++;
+			}
+			nargs=i;
 		}
-		if (0 != deduceReqHandler()) {
-			return PROCESSING_ERROR;
-		}
-		if (0 != loadReqHandler()) {
-			return PROCESSING_ERROR;
-		}
-		int i = 0;
-		for (auto it = _url_parts.begin(); it != _url_parts.end(); ++it) {
-			i++;
-			lua_pushstring(_L, it->c_str());
-		}
-		nargs=i;
 	}
 	else {
 		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
@@ -3873,6 +3950,7 @@ int EVLHTTPRequestHandler::handleRequest()
 			}
 		}
 		else {
+			send_string_response(__LINE__, lua_tostring(_L, -1));
 		}
 		return PROCESSING_ERROR;
 	}
@@ -3895,6 +3973,7 @@ int EVLHTTPRequestHandler::handleRequest()
 				}
 			}
 			else {
+				send_string_response(__LINE__, output.c_str());
 			}
 		}
 		//DEBUGPOINT("Here complete for %d\n", getAccSockfd());

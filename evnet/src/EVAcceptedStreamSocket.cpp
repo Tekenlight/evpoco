@@ -69,6 +69,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 {
 	_sock_mode = EVAcceptedStreamSocket::COMMAND_LINE_MODE;
 	_out_streamSocket.setFd(CL_wr_fd);
+	_streamSocket.setFd(CL_rd_fd);
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec;

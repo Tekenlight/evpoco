@@ -192,6 +192,9 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 								reqProcState->setState(PROCESS_COMPLETE);
 								break;
 						}
+						if (ret == EVHTTPRequestHandler::PROCESSING_ERROR) {
+							response->setReturnStatus(1);
+						}
 					}
 					else sendErrorResponse(*response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
 				}
@@ -231,6 +234,9 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 										processing_complete = true;
 										reqProcState->setState(PROCESS_COMPLETE);
 										break;
+								}
+								if (ret == EVHTTPRequestHandler::PROCESSING_ERROR) {
+									response->setReturnStatus(1);
 								}
 							}
 						}

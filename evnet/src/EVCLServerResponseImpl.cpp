@@ -53,7 +53,6 @@ EVCLServerResponseImpl::~EVCLServerResponseImpl()
 	sprintf(str_ret_value, "%d", _status);
 	char * buf = (char*)malloc(strlen(str_ret_value));
 	strncpy(buf, str_ret_value, strlen(str_ret_value));
-	DEBUGPOINT("Here [%p] [%s]\n", _out_memory_stream, str_ret_value);
 	_out_memory_stream->push(buf, strlen(str_ret_value));
 }
 
