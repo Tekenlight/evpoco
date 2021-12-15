@@ -43,7 +43,7 @@ EVCLServerRequestImpl::EVCLServerRequestImpl(EVCLServerResponseImpl& response,
 
 EVCLServerRequestImpl::~EVCLServerRequestImpl()
 {
-	if (_buf) delete _buf;
+	if (_buf) free(_buf);
 }
 
 

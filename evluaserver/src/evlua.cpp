@@ -217,6 +217,7 @@ protected:
 			strcat(buf, "\n");
 
 			write(wr_fd, buf, strlen(buf)); 
+			free(buf);
 			char out[100] = {0};
 			memset(out, 0, 100);
 			ret = read(rd_fd, out, 10);

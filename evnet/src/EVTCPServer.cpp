@@ -579,6 +579,8 @@ void EVTCPServer::stop()
 	if (!_stopped)
 	{
 		_stopped = true;
+		_loop_active.clear(std::memory_order_acquire);
+		atomic_thread_fence(std::memory_order_release);
 		/* Calls stop_the_loop */
 		ev_async_send(this->_loop, this->_stop_watcher_ptr1);
 		_thread.join();
@@ -2428,6 +2430,8 @@ void EVTCPServer::run()
 	// now wait for events to arrive
 	errno = 0;
 	ev_set_syserr_cb(fatal_error);
+	_loop_active.test_and_set(std::memory_order_acquire);
+	atomic_thread_fence(std::memory_order_release);
 	ev_run (this->_loop, 0);
 
 	free(stop_watcher_2.data);
@@ -2884,7 +2888,6 @@ void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 				return;
 			}
 			EVUpstreamEventNotification * usN = fes._usN;;
-			//DEBUGPOINT("Here\n");
 			if (fe_ptr->_completed_oper == FILE_OPER_OPEN) {
 				errno = 0;
 				int status = ef_open_status(fe_ptr->_fd);
@@ -2949,7 +2952,7 @@ void EVTCPServer::pushFileEvent(int fd, int completed_oper)
 
 	/* Wake the event loop. */
 	/* This will invoke file_evt_occured and therefore EVTCPServer::handleFileEvtOccured */
-	ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
+	if (_loop_active.test(std::memory_order_acquire)) ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
 
 }
 

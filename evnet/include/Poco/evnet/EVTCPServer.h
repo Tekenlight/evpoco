@@ -454,6 +454,7 @@ private:
 	};
 
 
+	std::atomic_flag					_loop_active = ATOMIC_FLAG_INIT;
 	EVTCP_MODE							_mode;
 	int									_pipe_rd_fd;
 	int									_pipe_wr_fd;
