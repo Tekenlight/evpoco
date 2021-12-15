@@ -223,9 +223,6 @@ protected:
 			ret = read(rd_fd, out, 99);
 			ret = atoi(out);
 
-			// wait for CTRL-C or kill
-			//waitForTerminationRequest();
-			// Stop the HTTPServer
 			srv.stop();
 		}
 		return ret;
