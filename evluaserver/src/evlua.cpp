@@ -198,9 +198,7 @@ protected:
 
 			p->setBlocking(config().getBool("evlua.blocking", false));
 
-			// set-up a HTTPServer instance
 			EVHTTPServer srv(new EVFormRequestHandlerFactory, filedes[0], filedes[3], p);
-			// start the HTTPServer
 			srv.start();
 
 			size_t n = args.size();
