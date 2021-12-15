@@ -220,7 +220,7 @@ protected:
 			free(buf);
 			char out[100] = {0};
 			memset(out, 0, 100);
-			ret = read(rd_fd, out, 10);
+			ret = read(rd_fd, out, 99);
 			ret = atoi(out);
 
 			// wait for CTRL-C or kill
@@ -230,7 +230,7 @@ protected:
 		}
 		return ret;
 	}
-	
+
 
 private:
 
