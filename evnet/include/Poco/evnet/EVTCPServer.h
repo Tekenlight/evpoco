@@ -23,6 +23,7 @@
 #include <map>
 
 #include <ev_queue.h>
+#include <ev_spin_lock.h>
 #include <chunked_memory_stream.h>
 #include <thread_pool.h>
 
@@ -454,7 +455,7 @@ private:
 	};
 
 
-	std::atomic_flag					_loop_spin_lock = ATOMIC_FLAG_INIT;
+	spin_lock_p_type					_loop_spin_lock;
 	std::atomic_flag					_loop_active = ATOMIC_FLAG_INIT;
 	EVTCP_MODE							_mode;
 	int									_pipe_rd_fd;
