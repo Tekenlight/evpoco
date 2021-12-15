@@ -371,7 +371,7 @@ void EVTCPServer::init()
 	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 	_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN, false);
-	_prevent_loop_stopping.clear();
+	_loop_spin_lock.clear();
 	_loop_active.clear();
 }
 
@@ -581,11 +581,12 @@ void EVTCPServer::stop()
 	if (!_stopped)
 	{
 		_stopped = true;
-		while (_prevent_loop_stopping.test(std::memory_order_acquire)) {
+		while (_loop_spin_lock.test_and_set(std::memory_order_acquire)) {
 			EV_YIELD();
 		}
 		_loop_active.clear(std::memory_order_acquire);
 		atomic_thread_fence(std::memory_order_release);
+		_loop_spin_lock.clear();
 		/* Calls stop_the_loop */
 		ev_async_send(this->_loop, this->_stop_watcher_ptr1);
 		_thread.join();
@@ -2957,10 +2958,12 @@ void EVTCPServer::pushFileEvent(int fd, int completed_oper)
 
 	/* Wake the event loop. */
 	/* This will invoke file_evt_occured and therefore EVTCPServer::handleFileEvtOccured */
-	_prevent_loop_stopping.test_and_set(std::memory_order_acquire);
+	while (_loop_spin_lock.test_and_set(std::memory_order_acquire)) {
+		EV_YIELD();
+	}
 	atomic_thread_fence(std::memory_order_release);
 	if (_loop_active.test(std::memory_order_acquire)) ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
-	_prevent_loop_stopping.clear();
+	_loop_spin_lock.clear();
 	atomic_thread_fence(std::memory_order_release);
 
 }
