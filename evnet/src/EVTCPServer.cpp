@@ -543,6 +543,7 @@ void EVTCPServer::freeClear()
 	for (FileEvtSubscrMap::iterator it = _file_evt_subscriptions.begin(); it != _file_evt_subscriptions.end(); ++it) {
 		delete it->second._usN;
 	}
+	destroy_spin_lock(_loop_spin_lock);
 }
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
