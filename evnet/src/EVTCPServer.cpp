@@ -1652,6 +1652,52 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 	return;
 }
 
+void EVTCPServer::monitorDataOnCLFd(EVAcceptedStreamSocket *tn)
+{
+	ev_io * socket_watcher_ptr = 0;
+	if (tn->sockInError()) {
+		DEBUGPOINT("SOCK IN ERROR RETURNING for %d\n", tn->getSockfd());
+		return;
+	}
+	socket_watcher_ptr = tn->getSocketWatcher();
+	StreamSocket ss = tn->getStreamSocket();
+
+	{
+		/* If socket is not readable make it readable*/
+		if ((tn->getState() == EVAcceptedStreamSocket::NOT_WAITING) ||
+			 tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
+			int events = 0;
+			if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
+				events = EVAcceptedStreamSocket::WAITING_FOR_READWRITE;
+				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READWRITE);
+			}
+			else {
+				events = EVAcceptedStreamSocket::WAITING_FOR_READ;
+				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
+			}
+
+			ev_io_stop(this->_loop, socket_watcher_ptr);
+			ev_clear_pending(this->_loop, socket_watcher_ptr);
+			//ev_io_set (socket_watcher_ptr, ss.impl()->sockfd(), EV_READ);
+			ev_io_init(socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), events);
+			ev_io_start (this->_loop, socket_watcher_ptr);
+		}
+	}
+
+	if (tn->reqDataAvlbl()) {
+		/* There is residual data on socket.
+		 * This can be a cause for unnecessary thread context switching
+		 * opportunity for optimization.
+		 * */
+		handleCLFdReadable(ss, false);
+	}
+	else {
+		// TBD TO ADD SOCKET TO TIME OUT MONITORING LIST
+	}
+
+	return;
+}
+
 void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 {
 	ev_io * socket_watcher_ptr = 0;
@@ -1859,7 +1905,12 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 
 					/* SHOULD MONITOR FOR MORE DATA ONLY IF SOCKET IS FREE */
-					if (!(tn->sockBusy())) monitorDataOnAccSocket(tn);
+					if (this->_mode == SERVER_MODE) {
+						if (!(tn->sockBusy())) monitorDataOnAccSocket(tn);
+					}
+					else {
+						if (!(tn->sockBusy())) monitorDataOnCLFd(tn);
+					}
 				}
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:

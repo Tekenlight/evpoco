@@ -429,6 +429,7 @@ private:
 		/// Function to data on a commandline return pipe for which data is ready.
 	virtual void receivedDataConsumed(int fd);
 		/// Function to handle the event of completion of one request.
+	void monitorDataOnCLFd(EVAcceptedStreamSocket *tn);
 	void monitorDataOnAccSocket(EVAcceptedStreamSocket *tn);
 		/// Function to add the StreamSocket back to listening mode
 	void somethingHappenedInAnotherThread(const bool& flag);

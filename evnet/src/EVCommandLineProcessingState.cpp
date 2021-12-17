@@ -147,6 +147,7 @@ int EVCommandLineProcessingState::continueRead()
 				break;
 			}
 		}
+		if (MESSAGE_COMPLETE == _state) break;
 		nodeptr = _req_memory_stream->get_next(nodeptr);
 		buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
 		len1 = _req_memory_stream->get_buffer_len(nodeptr);
@@ -158,7 +159,6 @@ int EVCommandLineProcessingState::continueRead()
 		char * buf = (char*)malloc(len2 + 1);
 		memset(buf, 0, (len2+1));
 		_req_memory_stream->read(buf, len2);
-		_req_memory_stream->erase(len2);
 		assert(buf[len2-1] == '\n');
 		_request->setMessageBodySize(len2-1);
 		buf[len2-1] = '\0';
