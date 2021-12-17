@@ -10,8 +10,8 @@ set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
 set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
-add_executable( ${SAMPLE_NAME1} "src/evluaserver.cpp" )
-add_executable( ${SAMPLE_NAME2} "src/evlua.cpp" )
+add_executable( ${SAMPLE_NAME1} "src/evluaserver.cpp" "src/evlua_util.cpp" )
+add_executable( ${SAMPLE_NAME2} "src/evlua.cpp" "src/evlua_util.cpp" )
 target_link_libraries( ${SAMPLE_NAME1} PocoNet evnet PocoUtil PocoFoundation evglobals core_utils )
 target_link_libraries( ${SAMPLE_NAME2} PocoNet evnet PocoUtil PocoFoundation evglobals core_utils )
 

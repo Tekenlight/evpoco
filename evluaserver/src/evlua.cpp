@@ -34,6 +34,11 @@
 #define EVLUA_PATH "EVLUA_PATH"
 #define PROPERTIES_FILE "evlua.properties"
 
+extern "C" {
+void init_so_tracker_lock();
+void * pin_loaded_so(const char * libname);
+}
+
 using Poco::Net::ServerSocket;
 using Poco::evnet::EVHTTPRequestHandler;
 using Poco::evnet::EVLHTTPRequestHandler;
@@ -182,6 +187,7 @@ protected:
 		}
 		else
 		{
+			init_so_tracker_lock();
 			int filedes[4] = {-1, -1, -1, -1};
 			if (0 != pipe(&(filedes[0]))) {
 				DEBUGPOINT("Unbable create an IPC pipe [%s]\n", strerror(errno));

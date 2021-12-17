@@ -234,6 +234,7 @@ static int orig_connection_close(lua_State *L)
 
 static int connection_close(lua_State *L)
 {
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
 	//socket_live(PQsocket(conn->pg_conn));
 	if (conn->conn_in_error == 1) {
@@ -251,7 +252,8 @@ static int connection_close(lua_State *L)
 			n_conn->conn_in_error = conn->conn_in_error;
 		}
 		add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
-		DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
+		if (reqHandler->getEVRHMode() == Poco::evnet::EVHTTPRequestHandler::SERVER_MODE)
+			DEBUGPOINT("ADDED CONNECTION [%p][%p] TO POOL\n", n_conn, n_conn->pg_conn);
 		/*
 		*/
 		//c = conn->pg_conn;
