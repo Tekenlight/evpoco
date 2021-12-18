@@ -1479,7 +1479,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 		} while(!_blocking && ret1>0);
 	}
 
-handleDataAvlblOnAccSock_finally:
+handleAccSocketReadable_finally:
 	if ((ret >=0) && tn->reqDataAvlbl()) {
 		if (!(tn->getProcState()) ||
 			( tn->getProcState()->needMoreData() &&
