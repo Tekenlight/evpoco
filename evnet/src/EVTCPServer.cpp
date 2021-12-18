@@ -2133,17 +2133,9 @@ void EVTCPServer::handlePeriodicWakeup(const bool& ev_occured)
 
 ssize_t EVTCPServer::handleCLFdReadable(StreamSocket & ss, const bool& ev_occured)
 {
-	/*
-	char buf[1024];
-	memset(buf, 0, 1024);
-	read(_pipe_rd_fd, buf, 11);
-	DEBUGPOINT("COMMAND LINE MODE fd = [%d] [%s]\n", _pipe_rd_fd, buf);
-	std::abort();
-	*/
-
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
-	EVAcceptedStreamSocket *tn = getTn(_pipe_rd_fd);
+	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
 
@@ -2154,7 +2146,7 @@ ssize_t EVTCPServer::handleCLFdReadable(StreamSocket & ss, const bool& ev_occure
 			count ++;
 			void * buffer = malloc(TCP_BUFFER_SIZE);
 			memset(buffer,0,TCP_BUFFER_SIZE);
-			ret1 = readData(_pipe_rd_fd, buffer, TCP_BUFFER_SIZE);
+			ret1 = readData(ss.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
 				tn->pushReqData(buffer, (size_t)ret1);
 				ret += ret1;
