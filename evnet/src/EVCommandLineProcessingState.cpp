@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <assert.h>
 
 #include <ev_buffered_stream.h>
 #include <istream>

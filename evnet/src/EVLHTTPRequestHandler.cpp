@@ -16,6 +16,7 @@
 #include <pthread.h>
 #include <atomic>
 #include <errno.h>
+#include <assert.h>
 
 #include <ev_rwlock.h>
 #include <chunked_memory_stream.h>

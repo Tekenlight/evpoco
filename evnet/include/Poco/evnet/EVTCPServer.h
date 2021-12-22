@@ -456,8 +456,8 @@ private:
 	};
 
 
-	spin_lock_p_type					_loop_spin_lock;
-	std::atomic_flag					_loop_active = ATOMIC_FLAG_INIT;
+	spin_lock_p_type					_loop_active_spin_lock;
+	bool								_loop_active;
 	EVTCP_MODE							_mode;
 	int									_pipe_rd_fd;
 	int									_pipe_wr_fd;

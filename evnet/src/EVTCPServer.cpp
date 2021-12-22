@@ -371,8 +371,8 @@ void EVTCPServer::init()
 	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
 	_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN, false);
-	_loop_spin_lock = create_spin_lock();
-	_loop_active.clear();
+	_loop_active_spin_lock = create_spin_lock();
+	_loop_active = false;
 }
 
 
@@ -385,7 +385,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking()),
+	//_blocking(pParams->getBlocking()),
+	_blocking(false),
 	_pConnectionFactory(pFactory),
 	_receiveTimeOut(5),
 	_sr_srl_num(0),
@@ -424,7 +425,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking()),
+	//_blocking(pParams->getBlocking()),
+	_blocking(false),
 	_pConnectionFactory(pFactory),
 	_receiveTimeOut(5),
 	_sr_srl_num(0),
@@ -462,7 +464,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking()),
+	//_blocking(pParams->getBlocking()),
+	_blocking(false),
 	_pConnectionFactory(pFactory),
 	_receiveTimeOut(5),
 	_sr_srl_num(0),
@@ -493,7 +496,8 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, int pipe_rd
 	_ssLRUList(0,0),
 	_numThreads(2),
 	_numConnections(500),
-	_blocking(pParams->getBlocking()),
+	//_blocking(pParams->getBlocking()),
+	_blocking(false),
 	_pConnectionFactory(pFactory),
 	_receiveTimeOut(5),
 	_sr_srl_num(0),
@@ -543,7 +547,7 @@ void EVTCPServer::freeClear()
 	for (FileEvtSubscrMap::iterator it = _file_evt_subscriptions.begin(); it != _file_evt_subscriptions.end(); ++it) {
 		delete it->second._usN;
 	}
-	destroy_spin_lock(_loop_spin_lock);
+	destroy_spin_lock(_loop_active_spin_lock);
 }
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
@@ -584,13 +588,13 @@ void EVTCPServer::stop()
 		_stopped = true;
 		{
 
-			ev_spin_lock(this->_loop_spin_lock);
+			ev_spin_lock(this->_loop_active_spin_lock);
 			/* Calls stop_the_loop */
 			ev_async_send(this->_loop, this->_stop_watcher_ptr1);
 
-			_loop_active.clear(std::memory_order_acquire);
+			_loop_active = false;
 
-			ev_spin_unlock(this->_loop_spin_lock);
+			ev_spin_unlock(this->_loop_active_spin_lock);
 
 		}
 
@@ -674,12 +678,12 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 	//DEBUGPOINT("CONNECTED [%d]\n", cn->getStreamSocket().impl()->sockfd());
 	getsockopt(cn->getStreamSocket().impl()->sockfd(), SOL_SOCKET, SO_ERROR, (void*)&optval, &optlen);
 	/* Enqueue the notification only if the accepted socket is still being processed.
-	 * 
-	 * For consideration
-	 * TBD: We may have to further make sure that the service request for which this notification
-	 * is being passed is in the same session as the current state.
 	 * */
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+		if (!optval) {
+			cn->getStreamSocket().impl()->setBlocking(_blocking);
+			fcntl(cn->getStreamSocket().impl()->sockfd(), F_SETFL, O_NONBLOCK);
+		}
 		EVUpstreamEventNotification * usN = 0;
 		usN = new EVUpstreamEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
 												cb_ptr->cb_evid_num,
@@ -2484,7 +2488,7 @@ void EVTCPServer::run()
 	// now wait for events to arrive
 	errno = 0;
 	ev_set_syserr_cb(fatal_error);
-	_loop_active.test_and_set(std::memory_order_acquire);
+	_loop_active = true;
 	atomic_thread_fence(std::memory_order_release);
 	ev_run (this->_loop, 0);
 
@@ -3006,9 +3010,9 @@ void EVTCPServer::pushFileEvent(int fd, int completed_oper)
 
 	/* Wake the event loop. */
 	/* This will invoke file_evt_occured and therefore EVTCPServer::handleFileEvtOccured */
-	ev_spin_lock(this->_loop_spin_lock);
-	if (_loop_active.test(std::memory_order_acquire)) ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
-	ev_spin_unlock(this->_loop_spin_lock);
+	ev_spin_lock(this->_loop_active_spin_lock);
+	if (_loop_active) ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
+	ev_spin_unlock(this->_loop_active_spin_lock);
 
 }
 
