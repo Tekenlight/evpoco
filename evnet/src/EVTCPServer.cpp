@@ -373,6 +373,7 @@ void EVTCPServer::init()
 	_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN, false);
 	_loop_active_spin_lock = create_spin_lock();
 	_loop_active = false;
+	atomic_thread_fence(std::memory_order_release);
 }
 
 
@@ -593,6 +594,7 @@ void EVTCPServer::stop()
 			ev_async_send(this->_loop, this->_stop_watcher_ptr1);
 
 			_loop_active = false;
+			atomic_thread_fence(std::memory_order_release);
 
 			ev_spin_unlock(this->_loop_active_spin_lock);
 
@@ -3011,6 +3013,7 @@ void EVTCPServer::pushFileEvent(int fd, int completed_oper)
 	/* Wake the event loop. */
 	/* This will invoke file_evt_occured and therefore EVTCPServer::handleFileEvtOccured */
 	ev_spin_lock(this->_loop_active_spin_lock);
+	atomic_thread_fence(std::memory_order_acquire);
 	if (_loop_active) ev_async_send(this->_loop, this->_file_evt_watcher_ptr);
 	ev_spin_unlock(this->_loop_active_spin_lock);
 
