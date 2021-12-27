@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.2.0)
 
 project(Poco)
 
-set(CMAKE_C_COMPILER "/usr/bin//clang")
+set(CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 set(CMAKE_C_STANDARD 11)
