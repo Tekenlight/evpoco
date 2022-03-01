@@ -477,7 +477,7 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 						std::string access_control_request_hdrs = request->get("Access-Control-Request-Headers", "");
 						std::string access_control_request_mthd = request->get("Access-Control-Request-Method", "");
 						if (!(request->getMethod().compare("OPTIONS")) &&
-							(!access_control_request_hdrs.compare("") || !access_control_request_mthd.compare(""))) {
+							(access_control_request_hdrs.compare("") || access_control_request_mthd.compare(""))) {
 							response->sendPreFlightResponse();
 							reqProcState->setState(PROCESS_COMPLETE);
 							//session->setKeepAlive(true);
@@ -485,7 +485,6 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 							return;
 						}
 						else {
-							//DEBUGPOINT("HERE\n");
 							int ret = EVHTTPRequestHandler::PROCESSING;
 							ret = pHandler->handleRequestSurrogateInitial();
 							if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
