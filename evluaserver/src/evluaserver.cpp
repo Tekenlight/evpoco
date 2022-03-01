@@ -403,6 +403,7 @@ protected:
 			init_so_tracker_lock();
 			HTTPServerParams *p = new HTTPServerParams();
 			unsigned short port = (unsigned short) config().getInt("evluaserver.port", 9980);
+			p->setSoftwareVersion("evluaserver/1.0");
 
 			p->setBlocking(config().getBool("evluaserver.blocking", false));
 
@@ -422,6 +423,8 @@ protected:
 			srv.stop();
 			// Stop the heart_beat
 			stop_heart_beat(t);
+
+			//delete p; How to arrange for freeing of memory
 		}
 		return Application::EXIT_OK;
 	}

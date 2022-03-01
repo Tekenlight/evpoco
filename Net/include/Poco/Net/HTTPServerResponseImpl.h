@@ -52,6 +52,9 @@ public:
 		/// Sends a 100 Continue response to the
 		/// client.
 		
+	void sendPreFlightResponse();
+		/// Marker, not implemented
+
 	std::ostream& send();
 		/// Sends the response header to the client and
 		/// returns an output stream for sending the

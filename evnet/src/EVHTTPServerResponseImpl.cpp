@@ -61,6 +61,24 @@ void EVHTTPServerResponseImpl::sendContinue()
 
 }
 
+void EVHTTPServerResponseImpl::sendPreFlightResponse()
+{
+	setVersion(HTTPMessage::HTTP_1_1);
+	setStatusAndReason(HTTPStatus::HTTP_OK);
+	setKeepAlive(true);
+	setChunkedTransferEncoding(true);
+	set("Access-Control-Allow-Origin", "*");
+    set("Access-Control-Allow-Methods", "*");
+    set("Access-Control-Allow-Headers", "*");
+    set("Access-Control-Allow-Credentials", "true");
+
+	send();
+	getOStream() << "";
+
+	_session.getServer()->dataReadyForSend(_session.socket().impl()->sockfd());
+
+}
+
 void EVHTTPServerResponseImpl::setMemoryStream(chunked_memory_stream* cms)
 {
 	if (!_out_memory_stream) _out_memory_stream = cms;

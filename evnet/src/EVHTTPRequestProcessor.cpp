@@ -473,18 +473,32 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 						response->set("Server", server);
 
 					if (pHandler) {
-						int ret = EVHTTPRequestHandler::PROCESSING;
-						ret = pHandler->handleRequestSurrogateInitial();
-						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-						switch (ret) {
-							case EVHTTPRequestHandler::PROCESSING:
-								reqProcState->setState(REQUEST_PROCESSING);
-								break;
-							case EVHTTPRequestHandler::PROCESSING_COMPLETE:
-							case EVHTTPRequestHandler::PROCESSING_ERROR:
-							default:
-								reqProcState->setState(PROCESS_COMPLETE);
-								break;
+
+						std::string access_control_request_hdrs = request->get("Access-Control-Request-Headers", "");
+						std::string access_control_request_mthd = request->get("Access-Control-Request-Method", "");
+						if (!(request->getMethod().compare("OPTIONS")) &&
+							(!access_control_request_hdrs.compare("") || !access_control_request_mthd.compare(""))) {
+							response->sendPreFlightResponse();
+							reqProcState->setState(PROCESS_COMPLETE);
+							//session->setKeepAlive(true);
+
+							return;
+						}
+						else {
+							//DEBUGPOINT("HERE\n");
+							int ret = EVHTTPRequestHandler::PROCESSING;
+							ret = pHandler->handleRequestSurrogateInitial();
+							if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+							switch (ret) {
+								case EVHTTPRequestHandler::PROCESSING:
+									reqProcState->setState(REQUEST_PROCESSING);
+									break;
+								case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+								case EVHTTPRequestHandler::PROCESSING_ERROR:
+								default:
+									reqProcState->setState(PROCESS_COMPLETE);
+									break;
+							}
 						}
 					}
 					else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);

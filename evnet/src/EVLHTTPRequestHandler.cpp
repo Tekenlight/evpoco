@@ -3953,6 +3953,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		else {
 			send_string_response(__LINE__, lua_tostring(_L, -1));
 		}
+		//DEBUGPOINT("Here status = [%d]\n", status);
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {

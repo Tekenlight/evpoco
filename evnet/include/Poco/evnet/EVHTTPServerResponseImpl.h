@@ -94,6 +94,10 @@ public:
 		/// Sends a 100 Continue response to the
 		/// client.
 		
+	void sendPreFlightResponse();
+		/// Sends a 200 Ok response to the
+		/// preflight HTTP request.
+		
 	std::ostream& send();
 		/// Sends the response header to the client and
 		/// returns an output stream for sending the

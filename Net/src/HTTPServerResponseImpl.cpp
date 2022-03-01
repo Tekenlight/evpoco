@@ -63,6 +63,11 @@ void HTTPServerResponseImpl::sendContinue()
 	hs << getVersion() << " 100 Continue\r\n\r\n";
 }
 
+void HTTPServerResponseImpl::sendPreFlightResponse()
+{
+	std::abort();
+}
+
 std::ostream& HTTPServerResponseImpl::getOStream()
 {
 	return *_pStream;
