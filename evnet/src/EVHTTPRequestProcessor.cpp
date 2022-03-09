@@ -250,6 +250,7 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
 							throw Exception(msg);
 						}
+
 						elem = dequeue(reqProcState->getUpstreamEventQ());
 						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
