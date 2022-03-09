@@ -71,6 +71,7 @@ void EVHTTPServerResponseImpl::sendPreFlightResponse()
     set("Access-Control-Allow-Methods", "*");
     set("Access-Control-Allow-Headers", "*");
     set("Access-Control-Allow-Credentials", "true");
+    set("Access-Control-Max-Age", "360000");
 
 	send();
 	getOStream() << "";
