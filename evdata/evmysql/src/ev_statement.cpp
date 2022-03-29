@@ -196,7 +196,7 @@ static int statement_execute(lua_State *L) {
     }
 
     if (num_bind_params > 0) {
-        bind = malloc(sizeof(MYSQL_BIND) * num_bind_params);
+        bind = (MYSQL_BIND*) malloc(sizeof(MYSQL_BIND) * num_bind_params);
         if (bind == NULL) {
             luaL_error(L, "Could not alloc bind params\n");
         }
@@ -218,7 +218,7 @@ static int statement_execute(lua_State *L) {
 	switch(type) {
 	    case LUA_TNIL:
 		bind[i].buffer_type = MYSQL_TYPE_NULL;
-		bind[i].is_null = (int*)1;
+		bind[i].is_null = (my_bool*) 1;
 		break;
 
 	    case LUA_TBOOLEAN:
@@ -227,7 +227,7 @@ static int statement_execute(lua_State *L) {
 		*boolean = lua_toboolean(L, p);
 
 		bind[i].buffer_type = MYSQL_TYPE_LONG;
-		bind[i].is_null = (int*)0;
+		bind[i].is_null = (my_bool*) 0;
 		bind[i].buffer = (char *)boolean;
 		bind[i].length = 0;
 		break;
@@ -242,7 +242,7 @@ static int statement_execute(lua_State *L) {
 		*num = lua_tonumber(L, p);
 
 		bind[i].buffer_type = MYSQL_TYPE_DOUBLE;
-		bind[i].is_null = (int*)0;
+		bind[i].is_null = (my_bool*) 0;
 		bind[i].buffer = (char *)num;
 		bind[i].length = 0;
 		break;
@@ -253,7 +253,7 @@ static int statement_execute(lua_State *L) {
 		str = lua_tolstring(L, p, str_len);
 
 		bind[i].buffer_type = MYSQL_TYPE_STRING;
-		bind[i].is_null = (int*)0;
+		bind[i].is_null = (my_bool*) 0;
 		bind[i].buffer = (char *)str;
 		bind[i].length = str_len;
 		break;
@@ -329,9 +329,9 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 			statement->lengths = NULL;
 	}
 	
-	statement->lengths = calloc(column_count, sizeof(unsigned long));
+	statement->lengths = (unsigned long *) calloc(column_count, sizeof(unsigned long));
 
-        bind = malloc(sizeof(MYSQL_BIND) * column_count);
+        bind = (MYSQL_BIND *) malloc(sizeof(MYSQL_BIND) * column_count);
         memset(bind, 0, sizeof(MYSQL_BIND) * column_count);
 
 	fields = mysql_fetch_fields(statement->metadata);
@@ -424,7 +424,7 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 
 		    if (fields[i].type == MYSQL_TYPE_TIMESTAMP || fields[i].type == MYSQL_TYPE_DATETIME) {
 			char str[20];
-			MYSQL_TIME *t = bind[i].buffer;
+			MYSQL_TIME *t = (MYSQL_TIME *) bind[i].buffer;
 
 			snprintf(str, 20, "%d-%02d-%02d %02d:%02d:%02d", t->year, t->month, t->day, t->hour, t->minute, t->second);
 
@@ -435,7 +435,7 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 			}
 		    } else if (fields[i].type == MYSQL_TYPE_TIME) {
 			char str[9];
-			MYSQL_TIME *t = bind[i].buffer;
+			MYSQL_TIME *t = (MYSQL_TIME *) bind[i].buffer;
 
 			snprintf(str, 9, "%02d:%02d:%02d", t->hour, t->minute, t->second);
 
@@ -446,7 +446,7 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 			}
 		    } else if (fields[i].type == MYSQL_TYPE_DATE) {
 			char str[20];
-			MYSQL_TIME *t = bind[i].buffer;
+			MYSQL_TIME *t = (MYSQL_TIME *) bind[i].buffer;
 
 			snprintf(str, 11, "%d-%02d-%02d", t->year, t->month, t->day);
 
@@ -458,9 +458,9 @@ static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_
 
 		    } else {
 			if (named_columns) {
-			    LUA_PUSH_ATTRIB_STRING_BY_LENGTH(name, bind[i].buffer, *bind[i].length);
+			    LUA_PUSH_ATTRIB_STRING_BY_LENGTH(name, (const char *) bind[i].buffer, *bind[i].length);
 			} else {
-			    LUA_PUSH_ARRAY_STRING_BY_LENGTH(d, bind[i].buffer, *bind[i].length);
+			    LUA_PUSH_ARRAY_STRING_BY_LENGTH(d, (const char *) bind[i].buffer, *bind[i].length);
 			}
 		    }
 		} else if (lua_push == LUA_PUSH_BOOLEAN) {
