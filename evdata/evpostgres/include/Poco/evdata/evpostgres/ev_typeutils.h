@@ -7,7 +7,12 @@ extern "C" {
 #include "postgresql/libpq-fe.h"
 #include "postgresql/12/server/catalog/pg_type_d.h"
 #else
+#if defined (PG_VERSION) && (PG_VERSION == 14) 
+#include "postgresql/libpq-fe.h"
+#include "postgresql/14/server/catalog/pg_type_d.h"
+#else
 #error
+#endif
 #endif
 #endif
 }
