@@ -44,3 +44,5 @@ Side-by-side use of Boost and POCO is a very common occurrence.
 - cmake ..
 - cmake --build .
 - sudo make install
+
+Note: Make sure to export LD_LIBRARY_PATH to load .so libraries using this command: **export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/**
