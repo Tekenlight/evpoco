@@ -602,6 +602,7 @@ int ev_mysql_statement_create(lua_State *L, connection_t *conn, const char *sql_
     return 1;
 } 
 
+extern "C" int ev_mysql_statement(lua_State *L);
 int ev_mysql_statement(lua_State *L) {
     static const luaL_Reg statement_methods[] = {
         {"affected", statement_affected},

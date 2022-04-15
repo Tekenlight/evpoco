@@ -218,7 +218,7 @@ static int connection_tostring(lua_State *L) {
 
     return 1;
 }
-
+extern "C" int ev_mysql_connection(lua_State *L);
 int ev_mysql_connection(lua_State *L) {
     static const luaL_Reg connection_methods[] = {
 	{"autocommit", connection_autocommit},
