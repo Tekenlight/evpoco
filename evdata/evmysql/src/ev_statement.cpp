@@ -1,4 +1,11 @@
 #include "Poco/evdata/evmysql/ev_mysql.h"
+#include "Poco/evnet/evnet_lua.h"
+
+extern "C"
+{
+	int completion_common_routine(lua_State *L, int status, lua_KContext ctx);
+	gen_lua_user_data_t *get_generic_lua_userdata(const char *name, void *data, size_t size);
+}
 
 static lua_push_type_t mysql_to_lua_push(unsigned int mysql_type)
 {
@@ -93,6 +100,7 @@ static int statement_affected(lua_State *L)
 /*
  * success = statement:close()
  */
+/*
 static int statement_close(lua_State *L)
 {
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
@@ -117,6 +125,91 @@ static int statement_close(lua_State *L)
 
 	lua_pushboolean(L, 1);
 	return 1;
+}
+*/
+
+static void vs_nr_func(void *i)
+{
+	return;
+}
+
+/*
+ * cleanup function in use
+ */
+static void vs_nr_statement_close(void *v)
+{
+	statement_t *statement = (statement_t *)v;
+
+	mysql_free_result(statement->metadata);
+	statement->metadata = NULL;
+
+	free(statement->lengths);
+	statement->lengths = NULL;
+
+	mysql_stmt_close(statement->stmt);
+	int ok = 1;
+	statement->stmt = NULL;
+
+	free(statement);
+	statement = NULL;
+
+	return;
+}
+
+static void *vs_statement_close(void *v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+	// DEBUGPOINT("vs_statement_close() for %p\n", getL(iparams));
+	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
+	// DEBUGPOINT("Here udata of statement = %p\n", statement);
+
+	mysql_free_result(statement->metadata);
+	statement->metadata = NULL;
+
+	free(statement->lengths);
+	statement->lengths = NULL;
+
+	mysql_stmt_close(statement->stmt);
+	int ok = 1;
+	statement->stmt = NULL;
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &ok);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	return oparams;
+}
+
+static int initiate_statement_close(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
+
+	if (!(statement->metadata))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	if (!(statement->lengths))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	if (!(statement->stmt))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	// DEBUGPOINT("Here udata of statement = %p\n", statement);
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	reqHandler->executeGenericTask(NULL, &vs_statement_close, params);
+	return lua_yieldk(L, 0, (lua_KContext) "statement could not be closed", completion_common_routine);
 }
 
 /*
@@ -153,6 +246,7 @@ static int statement_columns(lua_State *L)
 /*
  * success,err = statement:execute(...)
  */
+/*
 static int statement_execute(lua_State *L)
 {
 	int n = lua_gettop(L);
@@ -171,9 +265,7 @@ static int statement_execute(lua_State *L)
 
 	int p;
 
-	/*
-	 * Sanity check(s)
-	 */
+
 	if (statement->conn->mysql == NULL)
 	{
 		lua_pushstring(L, EV_SQL_ERR_STATEMENT_BROKEN);
@@ -182,9 +274,7 @@ static int statement_execute(lua_State *L)
 
 	if (statement->metadata)
 	{
-		/*
-		 * free existing metadata from any previous executions
-		 */
+
 		mysql_free_result(statement->metadata);
 		statement->metadata = NULL;
 	}
@@ -200,10 +290,7 @@ static int statement_execute(lua_State *L)
 
 	if (expected_params != num_bind_params)
 	{
-		/*
-		 * mysql_stmt_bind_param does not handle this condition,
-		 * and the client library will segfault if these do no match
-		 */
+
 		lua_pushboolean(L, 0);
 		lua_pushfstring(L, EV_SQL_ERR_PARAM_MISCOUNT, expected_params, num_bind_params);
 		return 2;
@@ -251,10 +338,7 @@ static int statement_execute(lua_State *L)
 			break;
 
 		case LUA_TNUMBER:
-			/*
-			 * num needs to be it's own
-			 * memory here
-			 */
+
 			num = (double *)(buffer + offset);
 			offset += sizeof(double);
 			*num = lua_tonumber(L, p);
@@ -325,6 +409,194 @@ cleanup:
 
 	lua_pushboolean(L, 1);
 	return 1;
+}
+*/
+
+static void *vs_statement_execute(void *v)
+{
+	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
+	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
+
+	iparams = destroy_generic_task_in_params(iparams);
+
+	generic_task_params_ptr_t oparams = new_generic_task_params();
+
+	if (mysql_stmt_bind_param(statement->stmt, bind))
+	{
+		error_message = EV_SQL_ERR_BINDING_PARAMS;
+		goto cleanup;
+	}
+
+	if (mysql_stmt_execute(statement->stmt))
+	{
+		error_message = EV_SQL_ERR_BINDING_EXEC;
+		goto cleanup;
+	}
+
+	metadata = mysql_stmt_result_metadata(statement->stmt);
+
+	if (metadata)
+	{
+		mysql_stmt_store_result(statement->stmt);
+	}
+
+cleanup:
+	if (bind)
+	{
+		free(bind);
+	}
+
+	if (buffer)
+	{
+		free(buffer);
+	}
+
+	if (error_message)
+	{
+		lua_pushboolean(L, 0);
+		lua_pushfstring(L, error_message, errstr ? errstr : mysql_stmt_error(statement->stmt));
+		return 2;
+	}
+
+	statement->metadata = metadata;
+
+	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &ok);
+
+	// DEBUGPOINT("Here\n");
+	return oparams;
+}
+
+static int initiate_statement_execute(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
+	// DEBUGPOINT("initiate_statement_execute() for %d\n", reqHandler->getAccSockfd());
+	int n = lua_gettop(L);
+	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
+	int num_bind_params = n - 1;
+	int expected_params;
+
+	unsigned char *buffer = NULL;
+	int offset = 0;
+
+	MYSQL_BIND *bind = NULL;
+	MYSQL_RES *metadata = NULL;
+
+	char *error_message = NULL;
+	char *errstr = NULL;
+
+	int p;
+
+	/*
+	 * Sanity check(s)
+	 */
+	if (statement->conn->mysql == NULL)
+	{
+		lua_pushstring(L, EV_SQL_ERR_STATEMENT_BROKEN);
+		lua_error(L);
+	}
+
+	if (statement->metadata)
+	{
+		/*
+		 * free existing metadata from any previous executions
+		 */
+		mysql_free_result(statement->metadata);
+		statement->metadata = NULL;
+	}
+
+	if (!statement->stmt)
+	{
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, EV_SQL_ERR_EXECUTE_INVALID);
+		return 2;
+	}
+
+	expected_params = mysql_stmt_param_count(statement->stmt);
+	if (expected_params != num_bind_params)
+	{
+		/*
+		 * mysql_stmt_bind_param does not handle this condition,
+		 * and the client library will segfault if these do no match
+		 */
+		lua_pushboolean(L, 0);
+		lua_pushfstring(L, EV_SQL_ERR_PARAM_MISCOUNT, expected_params, num_bind_params);
+		return 2;
+	}
+
+	for (p = 2; p <= n; p++)
+	{
+		int type = lua_type(L, p);
+		int i = p - 2;
+
+		const char *str = NULL;
+		size_t *str_len = NULL;
+		double *num = NULL;
+		int *boolean = NULL;
+		char err[64];
+
+		switch (type)
+		{
+		case LUA_TNIL:
+		{
+			bind[i].buffer_type = MYSQL_TYPE_NULL;
+			bind[i].is_null = (my_bool *)1;
+			break;
+		}
+		case LUA_TBOOLEAN:
+		{
+			boolean = (int *)(buffer + offset);
+			offset += sizeof(int);
+			*boolean = lua_toboolean(L, p);
+
+			bind[i].buffer_type = MYSQL_TYPE_LONG;
+			bind[i].is_null = (my_bool *)0;
+			bind[i].buffer = (char *)boolean;
+			bind[i].length = 0;
+			break;
+		}
+		case LUA_TNUMBER:
+		{
+			num = (double *)(buffer + offset);
+			offset += sizeof(double);
+			*num = lua_tonumber(L, p);
+
+			bind[i].buffer_type = MYSQL_TYPE_DOUBLE;
+			bind[i].is_null = (my_bool *)0;
+			bind[i].buffer = (char *)num;
+			bind[i].length = 0;
+			break;
+		}
+		case LUA_TSTRING:
+		{
+			str_len = (size_t *)(buffer + offset);
+			offset += sizeof(size_t);
+			str = lua_tolstring(L, p, str_len);
+
+			bind[i].buffer_type = MYSQL_TYPE_STRING;
+			bind[i].is_null = (my_bool *)0;
+			bind[i].buffer = (char *)str;
+			bind[i].length = str_len;
+			break;
+		}
+		default:
+		{
+			/*
+			 * Unknown/unsupported value type
+			 */
+			snprintf(err, sizeof(err) - 1, EV_SQL_ERR_BINDING_TYPE_ERR, lua_typename(L, type));
+			errstr = err;
+			error_message = EV_SQL_ERR_BINDING_PARAMS;
+			goto cleanup;
+		}
+		}
+	}
+
+	// DEBUGPOINT("Here\n");
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	poco_assert(reqHandler != NULL);
+	// DEBUGPOINT("Here for %d\n", reqHandler->getAccSockfd());
+	reqHandler->executeGenericTask(NULL, &vs_statement_execute, params);
+	return lua_yieldk(L, 0, (lua_KContext) "statement could not be executed", completion_common_routine);
 }
 
 static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
@@ -662,10 +934,45 @@ static int statement_rows(lua_State *L)
 /*
  * __gc
  */
+/*
 static int statement_gc(lua_State *L)
 {
-	/* always free the handle */
 	statement_close(L);
+
+	return 0;
+}
+*/
+
+static int new_statement_gc(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
+	poco_assert(reqHandler != NULL);
+
+	statement_t *l_statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
+
+	if (!(l_statement->metadata))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	if (!(l_statement->lengths))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	if (!(l_statement->stmt))
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	statement_t *statement = NULL;
+	statement = (statement_t *)malloc(sizeof(statement_t));
+	memcpy(statement, l_statement, sizeof(statement_t));
+
+	vs_nr_statement_close(statement);
 
 	return 0;
 }
@@ -725,10 +1032,10 @@ extern "C" int ev_mysql_statement(lua_State *L);
 int ev_mysql_statement(lua_State *L)
 {
 	static const luaL_Reg statement_methods[] = {
-		{"affected", statement_affected},
-		{"close", statement_close},
-		{"columns", statement_columns},
-		{"execute", statement_execute},
+		{"affected", statement_affected},	 // Done
+		{"close", initiate_statement_close}, // Done
+		{"columns", statement_columns},		 // Done
+		{"execute", initiate_statement_execute},
 		{"fetch", statement_fetch},
 		{"rowcount", statement_rowcount},
 		{"rows", statement_rows},
@@ -739,7 +1046,7 @@ int ev_mysql_statement(lua_State *L)
 
 	ev_sql_register(L, EV_MYSQL_STATEMENT,
 					statement_methods, statement_class_methods,
-					statement_gc, statement_tostring);
+					new_statement_gc, statement_tostring); // Done
 
 	return 1;
 }

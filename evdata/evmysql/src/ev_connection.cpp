@@ -84,6 +84,7 @@ static void *vs_connection_new(void *v)
     generic_task_params_ptr_t oparams = new_generic_task_params();
 
     conn = (connection_t *)malloc(sizeof(connection_t));
+    memset(conn, 0, sizeof(connection_t));
 
     conn->mysql = mysql_init(NULL);
 
@@ -93,6 +94,7 @@ static void *vs_connection_new(void *v)
         char str[1024];
         sprintf(str, EV_SQL_ERR_CONNECTION_FAILED, mysql_error(conn->mysql));
         set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+        mysql_close(conn->mysql);
         free(conn);
         return (void *)oparams;
     }
