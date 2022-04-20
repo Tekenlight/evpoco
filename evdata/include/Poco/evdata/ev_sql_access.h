@@ -44,31 +44,72 @@ extern "C" {
     lua_pushinteger(L, v); \
     lua_rawset(L, -3); 
 
+#define EVLUA_TABLE_PUSH_ATTRIB_INT(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TINTEGER; \
+	val.value.int_value = v; \
+	add_nv_tuple(t, n, val); \
+}
+
 #define LUA_PUSH_ATTRIB_FLOAT(n, v) \
     lua_pushstring(L, n); \
     lua_pushnumber(L, v); \
     lua_rawset(L, -3); 
+
+#define EVLUA_TABLE_PUSH_ATTRIB_FLOAT(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TNUMBER; \
+	val.value.number_value = (lua_Number)v; \
+	add_nv_tuple(t, n, val); \
+}
 
 #define LUA_PUSH_ATTRIB_STRING_BY_LENGTH(n, v, len) \
     lua_pushstring(L, n); \
     lua_pushlstring(L, v, len); \
     lua_rawset(L, -3); 
 
+#define EVLUA_TABLE_PUSH_ATTRIB_STRING_BY_LENGTH(t, n, v, len) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TSTRING; \
+	val.value.string_value = strdup(v); \
+	add_nv_tuple(t, n, val); \
+}
+
 #define LUA_PUSH_ATTRIB_STRING(n, v) \
     lua_pushstring(L, n); \
     lua_pushstring(L, v); \
     lua_rawset(L, -3); 
+
+#define EVLUA_TABLE_PUSH_ATTRIB_STRING(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TSTRING; \
+	val.value.string_value = strdup(v); \
+	add_nv_tuple(t, n, val); \
+}
 
 #define LUA_PUSH_ATTRIB_BOOL(n, v) \
     lua_pushstring(L, n); \
     lua_pushboolean(L, v); \
     lua_rawset(L, -3); 
 
+#define EVLUA_TABLE_PUSH_ATTRIB_BOOL(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TBOOLEAN; \
+	val.value.bool_value = v; \
+	add_nv_tuple(t, n, val); \
+}
+
 #define LUA_PUSH_ATTRIB_NIL(n) \
     lua_pushstring(L, n); \
     lua_pushnil(L); \
     lua_rawset(L, -3); 
 
+#define EVLUA_TABLE_PUSH_ATTRIB_NIL(t, n) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TNIL; \
+	val.value.nilpointer_value = 0; \
+	add_nv_tuple(t, n, val); \
+}
 
 
 #define LUA_PUSH_ARRAY_INT(n, v) \
@@ -76,10 +117,26 @@ extern "C" {
     lua_rawseti(L, -2, n); \
     n++; 
 
+#define EVLUA_TABLE_PUSH_ARRAY_INT(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TINTEGER; \
+	val.value.int_value = v; \
+	add_iv_tuple(t, n, val);\
+    n++; \
+}
+
 #define LUA_PUSH_ARRAY_FLOAT(n, v) \
     lua_pushnumber(L, v); \
     lua_rawseti(L, -2, n); \
     n++; 
+
+#define EVLUA_TABLE_PUSH_ARRAY_FLOAT(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TNUMBER; \
+	val.value.number_value = (lua_Number)v; \
+	add_iv_tuple(t, n, val);\
+    n++; \
+}
 
 #define LUA_PUSH_ARRAY_STRING(n, v) \
     lua_pushstring(L, v); \
@@ -104,15 +161,39 @@ extern "C" {
     lua_rawseti(L, -2, n); \
     n++;
 
+#define EVLUA_TABLE_PUSH_ARRAY_STRING_BY_LENGTH(t, n, v, len) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TSTRING; \
+	val.value.string_value = strdup(v); \
+	add_iv_tuple(t, n, val);\
+    n++; \
+}
+
 #define LUA_PUSH_ARRAY_BOOL(n, v) \
     lua_pushboolean(L, v); \
     lua_rawseti(L, -2, n); \
     n++;
 
+#define EVLUA_TABLE_PUSH_ARRAY_BOOL(t, n, v) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TBOOLEAN; \
+	val.value.bool_value = v; \
+	add_iv_tuple(t, n, val);\
+    n++; \
+}
+
 #define LUA_PUSH_ARRAY_NIL(n) \
     lua_pushnil(L); \
     lua_rawseti(L, -2, n); \
     n++;
+
+#define EVLUA_TABLE_PUSH_ARRAY_NIL(t, n) { \
+	struct _evnet_lua_table_value_t val; \
+	val.type = EV_LUA_TNIL; \
+	val.value.nilpointer_value = 0; \
+	add_iv_tuple(t, n, val); \
+    n++; \
+}
 
 /*
  *
