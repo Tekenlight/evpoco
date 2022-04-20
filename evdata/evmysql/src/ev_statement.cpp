@@ -444,7 +444,7 @@ static void *vs_statement_execute(void *v)
 	if (statement->conn->mysql == NULL)
 	{
 		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, (char *)EV_SQL_ERR_STATEMENT_BROKEN);
-		//lua_error(L); ----------------------------------------> Here
+		// lua_error(L); ----------------------------------------> Here
 	}
 
 	if (statement->metadata)
@@ -476,7 +476,7 @@ static void *vs_statement_execute(void *v)
 		bind = (MYSQL_BIND *)malloc(sizeof(MYSQL_BIND) * num_bind_params);
 		if (bind == NULL)
 		{
-			char err[] ="Could not alloc bind params\n";
+			char err[] = "Could not alloc bind params\n";
 			set_lua_stack_out_param(oparams, EV_LUA_TSTRING, err);
 		}
 
@@ -620,7 +620,6 @@ static int initiate_statement_execute(lua_State *L)
 	reqHandler->executeGenericTask(NULL, &vs_statement_execute, params);
 	return lua_yieldk(L, 0, (lua_KContext) "statement could not be executed", completion_common_routine);
 }
-
 
 static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
 {
@@ -897,7 +896,6 @@ cleanup:
 
 	return 1;
 }
-
 
 /*
 static void *vs_statement_fetch_impl(void *v)
@@ -1209,7 +1207,7 @@ static int next_iterator(lua_State *L)
 	int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
 	return statement_fetch_impl(L, statement, named_columns);
-	//return initiate_statement_fetch_impl(L, statement, named_columns);
+	// return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -1221,7 +1219,7 @@ static int statement_fetch(lua_State *L)
 	int named_columns = lua_toboolean(L, 2);
 
 	return statement_fetch_impl(L, statement, named_columns);
-	//return initiate_statement_fetch_impl(L, statement, named_columns);
+	// return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -1319,6 +1317,7 @@ static int statement_tostring(lua_State *L)
 	return 1;
 }
 
+/*
 extern "C" int ev_mysql_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
 int ev_mysql_statement_create(lua_State *L, connection_t *conn, const char *sql_query)
 {
@@ -1348,26 +1347,63 @@ int ev_mysql_statement_create(lua_State *L, connection_t *conn, const char *sql_
 	statement->metadata = NULL;
 	statement->lengths = NULL;
 
-	/*
-	mysql_stmt_attr_set(stmt, STMT_ATTR_UPDATE_MAX_LENGTH, (int*)0);
-	*/
 
 	luaL_getmetatable(L, EV_MYSQL_STATEMENT);
 	lua_setmetatable(L, -2);
 
 	return 1;
 }
+*/
+
+extern "C" void ev_mysql_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams, connection_t *conn, const char *sql_query);
+void ev_mysql_statement_create(generic_task_params_ptr_t iparams, generic_task_params_ptr_t oparams, connection_t *conn, const char *sql_query)
+{
+
+	unsigned long sql_len = strlen(sql_query);
+
+	statement_t *statement = NULL;
+
+	MYSQL_STMT *stmt = mysql_stmt_init(conn->mysql);
+
+	if (!stmt)
+	{
+		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
+		char str[1024];
+		sprintf(str, EV_SQL_ERR_ALLOC_STATEMENT, mysql_error(conn->mysql));
+		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+		return;
+	}
+
+	if (mysql_stmt_prepare(stmt, sql_query, sql_len))
+	{
+		set_lua_stack_out_param(oparams, EV_LUA_TNIL, 0);
+		char str[1024];
+		sprintf(str, EV_SQL_ERR_PREP_STATEMENT, mysql_stmt_error(stmt));
+		set_lua_stack_out_param(oparams, EV_LUA_TSTRING, str);
+		return;
+	}
+
+	statement = (statement_t *)malloc(sizeof(statement_t));
+	statement->conn = conn;
+	statement->stmt = stmt;
+	statement->metadata = NULL;
+	statement->lengths = NULL;
+
+	set_lua_stack_out_param(oparams, EV_LUA_TUSERDATA, get_generic_lua_userdata(EV_MYSQL_STATEMENT, statement, sizeof(statement_t)));
+
+	return;
+}
 
 extern "C" int ev_mysql_statement(lua_State *L);
 int ev_mysql_statement(lua_State *L)
 {
 	static const luaL_Reg statement_methods[] = {
-		{"affected", statement_affected},	 // Done
-		{"close", initiate_statement_close}, // Done
-		{"columns", statement_columns},		 // Done
-		{"execute", initiate_statement_execute}, //Done but check
+		{"affected", statement_affected},		 // Done
+		{"close", initiate_statement_close},	 // Done
+		{"columns", statement_columns},			 // Done
+		{"execute", initiate_statement_execute}, // Done but check
 		{"fetch", statement_fetch},
-		{"rowcount", statement_rowcount}, //Done
+		{"rowcount", statement_rowcount}, // Done
 		{"rows", statement_rows},
 		{NULL, NULL}};
 
