@@ -974,6 +974,8 @@ static void *vs_statement_fetch_impl(void *v)
 					set_lua_stack_out_param(oparams, EV_LUA_TSTRING, (char *)EV_SQL_ERR_UNKNOWN_PUSH);
 				}
 			}
+
+			set_lua_stack_out_param(oparams, EV_LUA_TTABLE, table);
 		}
 		else
 		{
