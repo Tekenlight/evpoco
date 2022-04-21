@@ -128,9 +128,7 @@ static void vs_nr_statement_close(void *v)
 static void *vs_statement_close(void *v)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
-	// DEBUGPOINT("vs_statement_close() for %p\n", getL(iparams));
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
-	// DEBUGPOINT("Here udata of statement = %p\n", statement);
 
 	mysql_free_result(statement->metadata);
 	statement->metadata = NULL;
@@ -178,7 +176,6 @@ static int initiate_statement_close(lua_State *L)
 		return 1;
 	}
 
-	// DEBUGPOINT("Here udata of statement = %p\n", statement);
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
 	reqHandler->executeGenericTask(NULL, &vs_statement_close, params);
 	return lua_yieldk(L, 0, (lua_KContext) "statement could not be closed", completion_common_routine);
@@ -425,7 +422,6 @@ cleanup:
 	iparams = destroy_generic_task_in_params(iparams);
 	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &one);
 
-	// DEBUGPOINT("Here\n");
 	return oparams;
 }
 
@@ -435,7 +431,6 @@ cleanup:
 static int initiate_statement_execute(lua_State *L)
 {
 	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
-	// DEBUGPOINT("initiate_statement_execute() for %d\n", reqHandler->getAccSockfd());
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
 
 	if (!statement->stmt)
@@ -445,298 +440,18 @@ static int initiate_statement_execute(lua_State *L)
 		return 2;
 	}
 
-	// DEBUGPOINT("Here\n");
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
 	poco_assert(reqHandler != NULL);
-	// DEBUGPOINT("Here for %d\n", reqHandler->getAccSockfd());
 	reqHandler->executeGenericTask(NULL, &vs_statement_execute, params);
 	return lua_yieldk(L, 0, (lua_KContext) "statement could not be executed", completion_common_routine);
-}
-
-static int statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
-{
-	int column_count, fetch_result_ok;
-	MYSQL_BIND *bind = NULL;
-	const char *error_message = NULL;
-
-	if (!statement->stmt)
-	{
-		luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
-		return 0;
-	}
-
-	if (!statement->metadata)
-	{
-		luaL_error(L, EV_SQL_ERR_FETCH_NO_EXECUTE);
-		return 0;
-	}
-
-	column_count = mysql_num_fields(statement->metadata);
-
-	if (column_count > 0)
-	{
-		int i;
-		MYSQL_FIELD *fields;
-
-		if (statement->lengths)
-		{
-			free(statement->lengths);
-			statement->lengths = NULL;
-		}
-
-		statement->lengths = (unsigned long *)calloc(column_count, sizeof(unsigned long));
-
-		bind = (MYSQL_BIND *)malloc(sizeof(MYSQL_BIND) * column_count);
-		memset(bind, 0, sizeof(MYSQL_BIND) * column_count);
-
-		fields = mysql_fetch_fields(statement->metadata);
-
-		for (i = 0; i < column_count; i++)
-		{
-			unsigned int length = mysql_buffer_size(&fields[i]);
-			if (length > sizeof(MYSQL_TIME))
-			{
-				bind[i].buffer = NULL;
-				bind[i].buffer_length = 0;
-			}
-			else
-			{
-				char *buffer = (char *)malloc(length);
-				memset(buffer, 0, length);
-
-				bind[i].buffer = buffer;
-				bind[i].buffer_length = length;
-			}
-
-			bind[i].buffer_type = fields[i].type;
-			bind[i].length = &(statement->lengths[i]);
-		}
-
-		if (mysql_stmt_bind_result(statement->stmt, bind))
-		{
-			error_message = EV_SQL_ERR_BINDING_RESULTS;
-			goto cleanup;
-		}
-
-		fetch_result_ok = mysql_stmt_fetch(statement->stmt);
-		if (fetch_result_ok == 0 || fetch_result_ok == MYSQL_DATA_TRUNCATED)
-		{
-			int d = 1;
-
-			lua_newtable(L);
-			for (i = 0; i < column_count; i++)
-			{
-				lua_push_type_t lua_push = mysql_to_lua_push(fields[i].type);
-				const char *name = fields[i].name;
-
-				if (bind[i].buffer == NULL)
-				{
-					char *buffer = (char *)calloc(statement->lengths[i] + 1, sizeof(char));
-					bind[i].buffer = buffer;
-					bind[i].buffer_length = statement->lengths[i];
-					mysql_stmt_fetch_column(statement->stmt, &bind[i], i, 0);
-				}
-
-				if (lua_push == LUA_PUSH_NIL)
-				{
-					if (named_columns)
-					{
-						LUA_PUSH_ATTRIB_NIL(name);
-					}
-					else
-					{
-						LUA_PUSH_ARRAY_NIL(d);
-					}
-				}
-				else if (lua_push == LUA_PUSH_INTEGER)
-				{
-					if (fields[i].type == MYSQL_TYPE_YEAR || fields[i].type == MYSQL_TYPE_SHORT)
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_INT(name, *(short *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_INT(d, *(short *)(bind[i].buffer));
-						}
-					}
-					else if (fields[i].type == MYSQL_TYPE_TINY)
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_INT(name, (int)*(char *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_INT(d, (int)*(char *)(bind[i].buffer));
-						}
-					}
-					else
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_INT(name, *(int *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_INT(d, *(int *)(bind[i].buffer));
-						}
-					}
-				}
-				else if (lua_push == LUA_PUSH_NUMBER)
-				{
-					if (fields[i].type == MYSQL_TYPE_FLOAT)
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_FLOAT(name, *(float *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_FLOAT(d, *(float *)(bind[i].buffer));
-						}
-					}
-					else if (fields[i].type == MYSQL_TYPE_DOUBLE)
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_FLOAT(name, *(double *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_FLOAT(d, *(double *)(bind[i].buffer));
-						}
-					}
-					else
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_FLOAT(name, *(long long *)(bind[i].buffer));
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_FLOAT(d, *(long long *)(bind[i].buffer));
-						}
-					}
-				}
-				else if (lua_push == LUA_PUSH_STRING)
-				{
-
-					if (fields[i].type == MYSQL_TYPE_TIMESTAMP || fields[i].type == MYSQL_TYPE_DATETIME)
-					{
-						char str[20];
-						MYSQL_TIME *t = (MYSQL_TIME *)bind[i].buffer;
-
-						snprintf(str, 20, "%d-%02d-%02d %02d:%02d:%02d", t->year, t->month, t->day, t->hour, t->minute, t->second);
-
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_STRING(name, str);
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_STRING(d, str);
-						}
-					}
-					else if (fields[i].type == MYSQL_TYPE_TIME)
-					{
-						char str[9];
-						MYSQL_TIME *t = (MYSQL_TIME *)bind[i].buffer;
-
-						snprintf(str, 9, "%02d:%02d:%02d", t->hour, t->minute, t->second);
-
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_STRING(name, str);
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_STRING(d, str);
-						}
-					}
-					else if (fields[i].type == MYSQL_TYPE_DATE)
-					{
-						char str[20];
-						MYSQL_TIME *t = (MYSQL_TIME *)bind[i].buffer;
-
-						snprintf(str, 11, "%d-%02d-%02d", t->year, t->month, t->day);
-
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_STRING(name, str);
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_STRING(d, str);
-						}
-					}
-					else
-					{
-						if (named_columns)
-						{
-							LUA_PUSH_ATTRIB_STRING_BY_LENGTH(name, (const char *)bind[i].buffer, *bind[i].length);
-						}
-						else
-						{
-							LUA_PUSH_ARRAY_STRING_BY_LENGTH(d, (const char *)bind[i].buffer, *bind[i].length);
-						}
-					}
-				}
-				else if (lua_push == LUA_PUSH_BOOLEAN)
-				{
-					if (named_columns)
-					{
-						LUA_PUSH_ATTRIB_BOOL(name, *(int *)(bind[i].buffer));
-					}
-					else
-					{
-						LUA_PUSH_ARRAY_BOOL(d, *(int *)(bind[i].buffer));
-					}
-				}
-				else
-				{
-					luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
-				}
-			}
-		}
-		else
-		{
-			lua_pushnil(L);
-		}
-	}
-
-cleanup:
-
-	if (bind)
-	{
-		int i;
-
-		for (i = 0; i < column_count; i++)
-		{
-			free(bind[i].buffer);
-		}
-
-		free(bind);
-	}
-
-	if (error_message)
-	{
-		luaL_error(L, error_message, mysql_stmt_error(statement->stmt));
-		return 0;
-	}
-
-	return 1;
 }
 
 static void *vs_statement_fetch_impl(void *v)
 {
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
-	// DEBUGPOINT("vs_statement_close() for %p\n", getL(iparams));
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
-	// DEBUGPOINT("Here udata of statement = %p\n", statement);
 
-	int *named_columns = (int *)get_generic_task_ptr_param(iparams, 2);
+	int named_columns = (int)get_generic_task_bool_param(iparams, 2);
 
 	int column_count, fetch_result_ok;
 	MYSQL_BIND *bind = NULL;
@@ -796,7 +511,6 @@ static void *vs_statement_fetch_impl(void *v)
 		{
 			int d = 1;
 
-			// lua_newtable(L);
 			evnet_lua_table_t *table = new evnet_lua_table_t();
 
 			for (i = 0; i < column_count; i++)
@@ -1010,11 +724,11 @@ cleanup:
 	return oparams;
 }
 
+generic_task_params_ptr_t pack_lua_stack_in_params_with_up_value(lua_State *L);
 static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
 {
 	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
 	poco_assert(reqHandler != NULL);
-	// DEBUGPOINT("initiate_statement_fetch_impl() for %d\n", reqHandler->getAccSockfd());
 
 	if (!statement->stmt)
 	{
@@ -1028,9 +742,8 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
 		return 0;
 	}
 
-	generic_task_params_ptr_t params = pack_lua_stack_in_params(L);
+	generic_task_params_ptr_t params = pack_lua_stack_in_params_with_up_value(L);
 	poco_assert(reqHandler != NULL);
-	// DEBUGPOINT("Here for %d\n", reqHandler->getAccSockfd());
 	reqHandler->executeGenericTask(NULL, &vs_statement_fetch_impl, params);
 	return lua_yieldk(L, 0, (lua_KContext) "statement could not be fetched", completion_common_routine);
 }
@@ -1040,8 +753,7 @@ static int next_iterator(lua_State *L)
 	statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_MYSQL_STATEMENT);
 	int named_columns = lua_toboolean(L, lua_upvalueindex(2));
 
-	return statement_fetch_impl(L, statement, named_columns);
-	// return initiate_statement_fetch_impl(L, statement, named_columns);
+	return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -1052,8 +764,7 @@ static int statement_fetch(lua_State *L)
 	statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
 	int named_columns = lua_toboolean(L, 2);
 
-	return statement_fetch_impl(L, statement, named_columns);
-	// return initiate_statement_fetch_impl(L, statement, named_columns);
+	return initiate_statement_fetch_impl(L, statement, named_columns);
 }
 
 /*
@@ -1189,9 +900,9 @@ int ev_mysql_statement(lua_State *L)
 		{"close", initiate_statement_close},	 // Done
 		{"columns", initiate_statement_columns}, // Done
 		{"execute", initiate_statement_execute}, // Done
-		{"fetch", statement_fetch},
-		{"rowcount", statement_rowcount}, // Done
-		{"rows", statement_rows},
+		{"fetch", statement_fetch},				 // Done
+		{"rowcount", statement_rowcount},		 // Done
+		{"rows", statement_rows},				 // Done
 		{NULL, NULL}};
 
 	static const luaL_Reg statement_class_methods[] = {
