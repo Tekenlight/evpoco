@@ -95,7 +95,7 @@ typedef struct _generic_task_params_t* generic_task_params_ptr_t;
 
 extern "C" {
 Poco::evnet::EVLHTTPRequestHandler* get_req_handler_instance(lua_State* L);
-generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L);
+generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L, bool use_upvalue = false);
 void push_out_params_to_lua_stack(generic_task_params_ptr_t params, lua_State *L);
 int set_lua_stack_out_param(generic_task_params_ptr_t params, ev_lua_type_enum type, void * p);
 generic_task_params_ptr_t destroy_generic_task_out_params(generic_task_params_ptr_t params);

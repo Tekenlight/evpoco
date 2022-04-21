@@ -706,7 +706,7 @@ static evnet_lua_table_t * lua_to_evnet_table(generic_task_params_ptr_t params, 
 	return table;
 }
 
-generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
+generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L, bool use_upvalue)
 {
 	int i = 0;
 	generic_task_params_ptr_t params = new_generic_task_params();
@@ -714,7 +714,8 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 	//DEBUGPOINT("Here n = %d\n", params->n);
 	for (i = 0; i < params->n; i++) {
 		//DEBUGPOINT("Here type = %d\n", lua_type(L, i+1));
-		switch (lua_type(L, i+1)) {
+		int index  = (use_upvalue) ? lua_upvalueindex(i+1) : (i+1);;
+		switch (lua_type(L, index)) {
 			case LUA_TNIL:
 				{
 				void* p = 0;
@@ -724,20 +725,20 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TBOOLEAN:
 				{
-				int p = lua_toboolean(L, i+1);
+				int p = lua_toboolean(L, index);
 				get_param_location(params, i)->v.bool_value = p;
 				set_param_type(params, i, EV_LUA_TBOOLEAN);
 				break;
 				}
 			case LUA_TNUMBER:
 				{
-				if (lua_isinteger(L, i+1)) {
-					int p = lua_tointeger(L, i+1);
+				if (lua_isinteger(L, index)) {
+					int p = lua_tointeger(L, index);
 					get_param_location(params, i)->v.int_value = p;
 					set_param_type(params, i, EV_LUA_TINTEGER);
 				}
 				else {
-					lua_Number p = lua_tonumber(L, i+1);
+					lua_Number p = lua_tonumber(L, index);
 					get_param_location(params, i)->v.number_value = p;
 					set_param_type(params, i, EV_LUA_TNUMBER);
 				}
@@ -746,7 +747,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 			case LUA_TSTRING:
 				{
 				size_t len = 0;
-				void * p = (void*)strdup(lua_tolstring(L, i+1, &len));
+				void * p = (void*)strdup(lua_tolstring(L, index, &len));
 				get_param_location(params, i)->p._p = p;
 				get_param_location(params, i)->p._len = len;
 				set_param_type(params, i, EV_LUA_TSTRING);
@@ -754,7 +755,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TLIGHTUSERDATA:
 				{
-				void *p = (void*)lua_touserdata(L, i+1);
+				void *p = (void*)lua_touserdata(L, index);
 				//DEBUGPOINT("Here light user udata = %p\n", p);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TLIGHTUSERDATA);
@@ -764,7 +765,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				{
 				DEBUGPOINT("DO NOT EXEPECT THIS TO HAPPEN AS YET\n");
 				std::abort();
-				evnet_lua_table_t *p = lua_to_evnet_table(params, L, i+1);
+				evnet_lua_table_t *p = lua_to_evnet_table(params, L, index);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TTABLE);
 				struct ptr_s p_s;
@@ -776,7 +777,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TFUNCTION:
 				{
-				void *p = (void*)lua_topointer(L, i+1);
+				void *p = (void*)lua_topointer(L, index);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TFUNCTION);
 				/* We will not support function as input */
@@ -786,7 +787,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TUSERDATA:
 				{
-				void *p = (void*)lua_touserdata(L, i+1);
+				void *p = (void*)lua_touserdata(L, index);
 				//DEBUGPOINT("Here udata = %p\n", p);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TUSERDATA);
@@ -794,7 +795,7 @@ generic_task_params_ptr_t pack_lua_stack_in_params(lua_State *L)
 				}
 			case LUA_TTHREAD:
 				{
-				void *p = (void*)lua_topointer(L, i+1);
+				void *p = (void*)lua_topointer(L, index);
 				get_param_location(params, i)->p._p = p;
 				set_param_type(params, i, EV_LUA_TTHREAD);
 				/* We will not support thread as input */
