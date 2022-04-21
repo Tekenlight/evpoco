@@ -724,7 +724,6 @@ cleanup:
 	return oparams;
 }
 
-generic_task_params_ptr_t pack_lua_stack_in_params_with_up_value(lua_State *L);
 static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, int named_columns)
 {
 	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
@@ -742,7 +741,7 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
 		return 0;
 	}
 
-	generic_task_params_ptr_t params = pack_lua_stack_in_params_with_up_value(L);
+	generic_task_params_ptr_t params = pack_lua_stack_in_params(L, true);
 	poco_assert(reqHandler != NULL);
 	reqHandler->executeGenericTask(NULL, &vs_statement_fetch_impl, params);
 	return lua_yieldk(L, 0, (lua_KContext) "statement could not be fetched", completion_common_routine);
