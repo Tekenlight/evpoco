@@ -1,9 +1,10 @@
 #include "Poco/evnet/evnet.h"
 #include "Poco/evdata/evmysql/ev_mysql.h"
 
-extern "C" {
-int ev_mysql_connection(lua_State *L);
-int ev_mysql_statement(lua_State *L);
+extern "C"
+{
+    int ev_mysql_connection(lua_State *L);
+    int ev_mysql_statement(lua_State *L);
 }
 
 /*
