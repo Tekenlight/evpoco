@@ -152,11 +152,25 @@ static time_t get_score()
 	return t.tv_sec;
 }
 
+static Poco::Util::AbstractConfiguration& getConfig()
+{
+	return Poco::Util::Application::instance().config();
+}
+
 static void add_ref_range(Poco::Util::AbstractConfiguration& config, modules_list_type * m_list)
 {
 	redisContext *c;
-	std::string config_server_host =  config.getString("evluaserver.configServerAddr");
-	int config_server_port =  config.getInt("evluaserver.configServerPort");
+	std::string config_server_host;
+	int config_server_port =  -1;
+	try {
+		config_server_host =  config.getString("evluaserver.configServerAddr");
+		config_server_port =  config.getInt("evluaserver.configServerPort");
+	}
+	catch (std::exception e) {
+		printf("%s: Redis server configiguration not found\n", e.what());
+		exit(Application::EXIT_CONFIG);
+	}
+
 	struct timeval timeout = { 1, 500000 };
 	c = redisConnectWithTimeout(config_server_host.c_str(), config_server_port, timeout);
 	if ((c == NULL) || (c->err)) {
@@ -203,9 +217,17 @@ static void add_ref_range(Poco::Util::AbstractConfiguration& config, modules_lis
 static void * heart_beat(void * inputs)
 {
 	char * host_ip_address = (char*)inputs;
-	Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
-	std::string config_server_host =  config.getString("evluaserver.configServerAddr");
-	int config_server_port =  config.getInt("evluaserver.configServerPort");
+	Poco::Util::AbstractConfiguration& config = getConfig();
+	std::string config_server_host;
+	int config_server_port =  -1;
+	try {
+		config_server_host =  config.getString("evluaserver.configServerAddr");
+		config_server_port =  config.getInt("evluaserver.configServerPort");
+	}
+	catch (std::exception e) {
+		printf("%s: Redis server configiguration not found\n", e.what());
+		exit(Application::EXIT_CONFIG);
+	}
 	int listen_port =  config.getInt("evluaserver.port");
 	struct timeval timeout = { 1, 500000 };
 
