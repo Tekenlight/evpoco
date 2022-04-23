@@ -140,3 +140,8 @@ cmake-build/
 *.bak
 stage/
 releases/
+gtags
+pending_featues
+plan
+possible_evhttp_cient_flows
+unitt/
