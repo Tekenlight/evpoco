@@ -808,9 +808,6 @@ static int statement_rows(lua_State *L)
  */
 static int new_statement_gc(lua_State *L)
 {
-	Poco::evnet::EVLHTTPRequestHandler *reqHandler = get_req_handler_instance(L);
-	poco_assert(reqHandler != NULL);
-
 	statement_t *l_statement = (statement_t *)luaL_checkudata(L, 1, EV_MYSQL_STATEMENT);
 
 	if (!(l_statement->metadata))
