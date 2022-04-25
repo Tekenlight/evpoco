@@ -525,6 +525,7 @@ static const char * luaL_getcachedpath(lua_State *L, const char *name)
 		ev_rwlock_rdunlock(sg_file_cache.cached_filepaths_lock);
 		lua_pushfstring(L, "\n\tno file '%s'", name);
 	}
+	//DEBUGPOINT("filename = [%s]\n", filename);
 	return filename;
 }
 
@@ -533,6 +534,8 @@ static int luaL_addfilepathtocache(lua_State *L, const char *name, const char * 
 	ev_rwlock_wrlock(sg_file_cache.cached_filepaths_lock);
 	sg_file_cache.cached_filepaths[name] = std::string(path);
 	ev_rwlock_wrunlock(sg_file_cache.cached_filepaths_lock);
+	//DEBUGPOINT("name = [%s]\n", name);
+	//DEBUGPOINT("path = [%s]\n", path);
 
 	return LUA_OK;
 }

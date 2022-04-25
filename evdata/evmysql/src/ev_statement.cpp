@@ -127,6 +127,7 @@ static void vs_nr_statement_close(void *v)
 
 static void *vs_statement_close(void *v)
 {
+	//DEBUGPOINT("ENTER vs_statement_close\n");
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
 
@@ -145,6 +146,7 @@ static void *vs_statement_close(void *v)
 
 	iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_statement_close\n");
 	return oparams;
 }
 
@@ -183,6 +185,7 @@ static int initiate_statement_close(lua_State *L)
 
 static void *vs_statement_columns(void *v)
 {
+	//DEBUGPOINT("ENTER vs_statement_columns\n");
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
 
@@ -208,6 +211,7 @@ static void *vs_statement_columns(void *v)
 
 	iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_statement_columns\n");
 	return oparams;
 }
 
@@ -240,6 +244,7 @@ static int initiate_statement_columns(lua_State *L)
 
 static void *vs_statement_execute(void *v)
 {
+	//DEBUGPOINT("ENTER vs_statement_execute\n");
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
 
@@ -422,6 +427,7 @@ cleanup:
 	iparams = destroy_generic_task_in_params(iparams);
 	set_lua_stack_out_param(oparams, EV_LUA_TBOOLEAN, &one);
 
+	//DEBUGPOINT("EXIT vs_statement_execute\n");
 	return oparams;
 }
 
@@ -448,6 +454,7 @@ static int initiate_statement_execute(lua_State *L)
 
 static void *vs_statement_fetch_impl(void *v)
 {
+	//DEBUGPOINT("ENTER vs_statement_fetch_impl\n");
 	generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
 	statement_t *statement = (statement_t *)get_generic_task_ptr_param(iparams, 1);
 
@@ -721,6 +728,7 @@ cleanup:
 
 	iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_statement_fetch_impl\n");
 	return oparams;
 }
 
@@ -742,9 +750,16 @@ static int initiate_statement_fetch_impl(lua_State *L, statement_t *statement, i
 	}
 
 	generic_task_params_ptr_t params = pack_lua_stack_in_params(L, true);
-	poco_assert(reqHandler != NULL);
-	reqHandler->executeGenericTask(NULL, &vs_statement_fetch_impl, params);
-	return lua_yieldk(L, 0, (lua_KContext) "statement could not be fetched", completion_common_routine);
+	//poco_assert(reqHandler != NULL);
+	//reqHandler->executeGenericTask(NULL, &vs_statement_fetch_impl, params);
+	//return lua_yieldk(L, 0, (lua_KContext) "statement could not be fetched", completion_common_routine);
+	generic_task_params_ptr_t oparams = (generic_task_params_ptr_t)vs_statement_fetch_impl(params);
+
+	push_out_params_to_lua_stack(oparams, L);
+	int n = get_num_generic_params(oparams);
+	oparams = destroy_generic_task_out_params(oparams);
+
+	return n;
 }
 
 static int next_iterator(lua_State *L)

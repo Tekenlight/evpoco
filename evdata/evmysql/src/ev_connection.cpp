@@ -18,6 +18,7 @@ extern "C" lua_State *getL(generic_task_params_ptr_t p);
 
 static void *vs_connection_new(void *v)
 {
+	//DEBUGPOINT("ENTER vs_connection_new\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
     int n = get_num_generic_params(iparams);
 
@@ -109,6 +110,7 @@ static void *vs_connection_new(void *v)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_new\n");
     return (void *)oparams;
 }
 
@@ -173,6 +175,7 @@ static int initiate_connection_new(lua_State *L)
 
 static void *vs_connection_autocommit(void *v)
 {
+	//DEBUGPOINT("ENTER vs_connection_autocommit\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
     int n = get_num_generic_params(iparams);
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams, 1);
@@ -190,6 +193,7 @@ static void *vs_connection_autocommit(void *v)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_autocommit\n");
     return oparams;
 }
 
@@ -230,6 +234,7 @@ static void v_nr_connection_close(void *v)
 
 static void *vs_connection_close(void *v)
 {
+	//DEBUGPOINT("ENTER vs_connection_close\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams, 1);
     int disconnect = 0;
@@ -246,6 +251,7 @@ static void *vs_connection_close(void *v)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_close\n");
     return oparams;
 }
 
@@ -271,6 +277,7 @@ static int initiate_connection_close(lua_State *L)
 
 static void *vs_connection_commit(void *v)
 {
+	//DEBUGPOINT("ENTER vs_connection_commit\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams, 1);
     int err = 0;
@@ -286,6 +293,7 @@ static void *vs_connection_commit(void *v)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_commit\n");
     return oparams;
 }
 
@@ -328,6 +336,7 @@ static int connection_ping(lua_State *L)
 
 static void *vs_connection_prepare(void *v)
 {
+	//DEBUGPOINT("ENTER vs_connection_prepare\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)v;
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams, 1);
     char *sql_statement = (char *)get_generic_task_ptr_param(iparams, 2);
@@ -337,6 +346,7 @@ static void *vs_connection_prepare(void *v)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_prepare\n");
     return oparams;
 }
 
@@ -387,6 +397,7 @@ static int connection_quote(lua_State *L)
 
 static void *vs_connection_rollback(void *inp)
 {
+	//DEBUGPOINT("ENTER vs_connection_rollback\n");
     generic_task_params_ptr_t iparams = (generic_task_params_ptr_t)inp;
     connection_t *conn = (connection_t *)get_generic_task_ptr_param(iparams, 1);
     int err = 0;
@@ -398,6 +409,7 @@ static void *vs_connection_rollback(void *inp)
 
     iparams = destroy_generic_task_in_params(iparams);
 
+	//DEBUGPOINT("EXIT vs_connection_rollback\n");
     return oparams;
 }
 
