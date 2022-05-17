@@ -297,6 +297,7 @@ public:
 
 	void setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
 				std::string numConnections, std::string useIpv6ForConn);
+	void setServerPrefix(std::string serverPrefix);
 	void justEnqueue(EVAcceptedStreamSocket* tn);
 	void srCompleteEnqueue(EVAcceptedStreamSocket* tn);
 	void srComplete(EVAcceptedStreamSocket* );

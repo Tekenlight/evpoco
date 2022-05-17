@@ -58,6 +58,13 @@ void EVHTTPServer::setConfigNames(std::string serverPrefix, std::string numThrea
 	return;
 }
 
+void EVHTTPServer::setServerPrefix(std::string serverPrefix)
+{
+	_pTCPServer->setServerPrefix(serverPrefix);
+	return;
+}
+
+	void setServerPrefix(std::string serverPrefix);
 void EVHTTPServer::stopAll(bool abortCurrent)
 {
 	_pTCPServer->stop();

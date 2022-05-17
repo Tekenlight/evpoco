@@ -127,6 +127,7 @@ public:
 
 	void setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
 				std::string numConnections, std::string useIpv6ForConn);
+	void setServerPrefix(std::string serverPrefix);
 
 private:
 	EVHTTPRequestHandlerFactory::Ptr _pFactory;

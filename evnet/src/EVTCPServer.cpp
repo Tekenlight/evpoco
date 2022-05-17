@@ -383,6 +383,11 @@ void EVTCPServer::init()
 
 }
 
+void EVTCPServer::setServerPrefix(std::string serverPrefix)
+{
+	std::string SERVER_PREFIX_CFG_NAME = serverPrefix;
+}
+
 void EVTCPServer::setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
 			std::string numConnections, std::string useIpv6ForConn)
 {
