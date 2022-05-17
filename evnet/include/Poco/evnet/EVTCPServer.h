@@ -295,6 +295,8 @@ public:
 		/// Returns the TCPServerConnectionFilter set with setConnectionFilter(), 
 		/// or null pointer if no filter has been set.
 
+	void setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
+				std::string numConnections, std::string useIpv6ForConn);
 	void justEnqueue(EVAcceptedStreamSocket* tn);
 	void srCompleteEnqueue(EVAcceptedStreamSocket* tn);
 	void srComplete(EVAcceptedStreamSocket* );
@@ -397,12 +399,6 @@ private:
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
 	typedef std::map<int,file_event_status_s> FileEvtSubscrMap;
 
-	static const std::string NUM_THREADS_CFG_NAME;
-	static const std::string RECV_TIME_OUT_NAME;
-	static const std::string NUM_CONNECTIONS_CFG_NAME;
-	static const std::string USE_IPV6_FOR_CONN;
-	static const std::string SERVER_PREFIX_CFG_NAME;
-
 	static const int TCP_BUFFER_SIZE = 4096;
 
 	EVTCPServer();
@@ -454,6 +450,12 @@ private:
 	{
 		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
 	};
+
+	std::string NUM_THREADS_CFG_NAME;
+	std::string RECV_TIME_OUT_NAME;
+	std::string NUM_CONNECTIONS_CFG_NAME;
+	std::string USE_IPV6_FOR_CONN;
+	std::string SERVER_PREFIX_CFG_NAME;
 
 
 	spin_lock_p_type					_loop_active_spin_lock;

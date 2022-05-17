@@ -38,11 +38,11 @@ void debug_io_watchers(const char * file, const  int lineno, EV_P);
 namespace Poco {
 namespace evnet {
 
-const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
-const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
-const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
-const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
-const std::string EVTCPServer::USE_IPV6_FOR_CONN("useIpv6ForConn");
+//const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
+//const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
+//const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
+//const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
+//const std::string EVTCPServer::USE_IPV6_FOR_CONN("useIpv6ForConn");
 
 // this callback is called when a submitted generic task is complete
 static void file_evt_occured (EV_P_ ev_async *w, int revents)
@@ -374,6 +374,23 @@ void EVTCPServer::init()
 	_loop_active_spin_lock = create_spin_lock();
 	_loop_active = false;
 	atomic_thread_fence(std::memory_order_release);
+
+	std::string NUM_THREADS_CFG_NAME = ("numThreads");
+	std::string RECV_TIME_OUT_NAME = ("receiveTimeOut");
+	std::string NUM_CONNECTIONS_CFG_NAME = ("numConnections");
+	std::string USE_IPV6_FOR_CONN = ("useIpv6ForConn");
+	std::string SERVER_PREFIX_CFG_NAME = ("EVTCPServer.");
+
+}
+
+void EVTCPServer::setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
+			std::string numConnections, std::string useIpv6ForConn)
+{
+	std::string SERVER_PREFIX_CFG_NAME = serverPrefix;
+	std::string NUM_THREADS_CFG_NAME = numThreads;
+	std::string RECV_TIME_OUT_NAME = receiveTimeOut;
+	std::string NUM_CONNECTIONS_CFG_NAME = numConnections;
+	std::string USE_IPV6_FOR_CONN = useIpv6ForConn;
 }
 
 
