@@ -125,6 +125,9 @@ public:
 		/// all client connections are shut down, causing all requests
 		/// to abort.
 
+	void setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
+				std::string numConnections, std::string useIpv6ForConn);
+
 private:
 	EVHTTPRequestHandlerFactory::Ptr _pFactory;
 	EVTCPServer *_pTCPServer;
