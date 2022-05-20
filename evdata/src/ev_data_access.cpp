@@ -6,7 +6,6 @@
 
 #include <ev_queue.h>
 
-#include <Poco/evdata/ev_sql_access.h>
 #include <Poco/evnet/evnet_lua.h>
 
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
@@ -15,6 +14,7 @@
 #include "Poco/evnet/evnet_lua.h"
 
 #define TYPES_MAP "TYPES"
+#define STATEMENTS_MAP "STATEMENTS"
 
 using namespace Poco::evnet;
 
