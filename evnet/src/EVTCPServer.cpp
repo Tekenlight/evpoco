@@ -1066,6 +1066,16 @@ handleAccSocketWritable_finally:
 		tn->setSockInError();
 	}
 
+	if (ret > 0) {
+		/* Put code here to handle the case when
+		 * an existing socket is upgraded to another protocol.
+		 * Switching should take place after the data is
+		 * completely sent to the client.
+		 */
+		if (!tn->resDataAvlbl()) {
+		}
+	}
+
 	return ret;
 }
 
@@ -1934,7 +1944,16 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 
 					/* SHOULD MONITOR FOR MORE DATA ONLY IF SOCKET IS FREE */
 					if (this->_mode == SERVER_MODE) {
-						if (!(tn->sockBusy())) monitorDataOnAccSocket(tn);
+						if (!(tn->sockBusy())) {
+							/* Put code here to handle the case when
+							 * an existing socket is upgraded to another protocol.
+							 * Switching should take place after the data is
+							 * completely sent to the client.
+							 */
+							if (!tn->resDataAvlbl()) {
+							}
+							monitorDataOnAccSocket(tn);
+						}
 					}
 					else {
 						if (!(tn->sockBusy())) monitorDataOnCLFd(tn);
