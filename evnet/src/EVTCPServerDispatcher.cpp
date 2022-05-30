@@ -131,6 +131,17 @@ void EVTCPServerDispatcher::run()
 	{
 		AutoPtr<Notification> pNf = _queue.waitDequeueNotification(idleTime);
 		if (pNf) {
+			/*
+			 * HTTP2 enhancement
+			 * Have 2 notification types
+			 * One for regular socket one where the tn is dispatched further for
+			 * processing
+			 *
+			 * Second a message type, which is also dispatched for further
+			 * processing, however the mechanism of dispatch in case of 
+			 * message will be different. requestprocessor will be created
+			 * using a different method than create connection etc...
+			 */
 			TCPConnectionNotification* pCNf = dynamic_cast<TCPConnectionNotification*>(pNf.get());
 			if (pCNf)
 			{
@@ -196,8 +207,9 @@ namespace
 	static const std::string threadName("EVTCPServerConnection");
 }
 
+// HTTP2 enhancement
+//void EVTCPServerDispatcher::enqueue(XXXX  * type that represents a request msg (specifically HTTP2))
 	
-//void EVTCPServerDispatcher::enqueue(const Net::StreamSocket& socket)
 void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 {
 	FastMutex::ScopedLock lock(_mutex);

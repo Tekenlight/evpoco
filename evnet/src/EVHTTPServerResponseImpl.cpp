@@ -28,6 +28,12 @@ using Poco::DateTimeFormat;
 namespace Poco {
 namespace evnet {
 
+/*
+ * HTTP2 enhancement
+ * This may need changes for server
+ * response handling
+ */
+
 
 EVHTTPServerResponseImpl::EVHTTPServerResponseImpl(EVHTTPServerRequestImpl * request,EVServerSession& session):
 	_session(session),

@@ -51,6 +51,12 @@ public:
 		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
 	} accepted_sock_state;
 
+	typedef enum {
+		NONE = 0,
+		WEBSCOKET,
+		HTTP2
+	} socket_upgrade_to_enum;
+
 	enum SOCK_MODE {
 		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
 	};
@@ -139,6 +145,8 @@ public:
 	int getSockMode();
 	int getCLRdFd();
 	int getCLWrFd();
+	socket_upgrade_to_enum getSockUpgradeTo();
+	void setSockUpgradeTo(socket_upgrade_to_enum to);
 
 private:
 	int							_sock_mode;
@@ -169,7 +177,18 @@ private:
 	std::atomic_int				_new_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
+	socket_upgrade_to_enum		_socket_upgrade_to;
 };
+
+inline EVAcceptedStreamSocket::socket_upgrade_to_enum EVAcceptedStreamSocket::getSockUpgradeTo()
+{
+	return _socket_upgrade_to;
+}
+
+inline void EVAcceptedStreamSocket::setSockUpgradeTo(socket_upgrade_to_enum to)
+{
+	_socket_upgrade_to = to;
+}
 
 inline int EVAcceptedStreamSocket::getSockMode()
 {

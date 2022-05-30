@@ -192,6 +192,20 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 	return sr_num;
 }
 
+
+
+
+
+/*
+ * HTTP2 enhancement
+ * Have to write a new set of methods and classes
+ * to handle the client side of HTTP2 request and 
+ * response handling
+ */
+
+
+
+
 long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 					const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess)
 {

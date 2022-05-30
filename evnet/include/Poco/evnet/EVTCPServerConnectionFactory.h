@@ -54,6 +54,11 @@ public:
 	virtual EVTCPServerConnection* createConnection(StreamSocket& socket) = 0;
 		/// Creates an instance of a subclass of TCPServerConnection,
 		/// using the given StreamSocket.
+		//
+	
+	// HTTP2 enhancement
+	// Add a method to create a message processor based on input message
+	//
 
 	virtual EVProcessingState* createReqProcState(EVServer *) = 0;
 		/// Creates an instance of EVHTTPProcessingState

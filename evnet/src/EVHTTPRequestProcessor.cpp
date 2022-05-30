@@ -38,6 +38,10 @@ namespace Poco {
 namespace evnet {
 
 
+// HTTP2 enhancement
+// Add a constructor to create request processor for a message
+// instead of a socket.
+
 EVHTTPRequestProcessor::EVHTTPRequestProcessor(StreamSocket& socket, HTTPServerParams::Ptr pParams, EVHTTPRequestHandlerFactory::Ptr pFactory):
 	EVTCPServerConnection(socket),
 	_pParams(pParams),
@@ -669,6 +673,10 @@ void EVHTTPRequestProcessor::onServerStopped(const bool& abortCurrent)
 			// Note: On Windows, select() will not return if one of its socket is being
 			// shut down. Therefore we have to call close(), which works better.
 			// On other platforms, we do the more graceful thing.
+			//
+			// HTTP2 enhancement
+			// Need not worry about socket in case of processing messages instead
+			// of sockets
 #if defined(_WIN32)
 			socket().close();
 #else

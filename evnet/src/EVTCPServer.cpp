@@ -1072,7 +1072,17 @@ handleAccSocketWritable_finally:
 		 * Switching should take place after the data is
 		 * completely sent to the client.
 		 */
-		if (!tn->resDataAvlbl()) {
+		if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
+			/*
+			 * HTTP2 enhancement
+			 * Get socket fd out
+			 * Clear tn
+			 * Create a different kind of acc socket
+			 * which continuously reads data and
+			 * handles on data available differently.
+			 */
+		}
+		else {
 		}
 	}
 
@@ -1950,9 +1960,19 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 							 * Switching should take place after the data is
 							 * completely sent to the client.
 							 */
-							if (!tn->resDataAvlbl()) {
+							if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
+								/*
+								 * HTTP2 enhancement
+								 * Get socket fd out
+								 * Clear tn
+								 * Create a different kind of acc socket
+								 * which continuously reads data and
+								 * handles on data available differently.
+								 */
 							}
-							monitorDataOnAccSocket(tn);
+							else {
+								monitorDataOnAccSocket(tn);
+							}
 						}
 					}
 					else {

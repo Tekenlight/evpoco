@@ -48,10 +48,6 @@ public:
 		/// Creates an instance of HTTPServerConnection
 		/// using the given StreamSocket.
 	
-	EVTCPServerConnection* createConnection(StreamSocket& socket, EVProcessingState * reqProcState);
-		/// Creates an instance of HTTPServerConnection
-		/// using the given StreamSocket.
-	
 	EVProcessingState* createReqProcState(EVServer *);
 		/// Creates an instance of EVHTTPProcessingState
 

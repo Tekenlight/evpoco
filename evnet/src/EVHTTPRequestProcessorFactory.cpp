@@ -34,17 +34,23 @@ EVHTTPRequestProcessorFactory::~EVHTTPRequestProcessorFactory()
 {
 }
 
+// HTTP2 enhancement
+// New method for creating a request processor for
+// message based processors
+
 
 EVTCPServerConnection* EVHTTPRequestProcessorFactory::createConnection(StreamSocket& socket)
 {
 	return new EVHTTPRequestProcessor(socket, _pParams, _pFactory);
 }
 
+/*
 EVTCPServerConnection* EVHTTPRequestProcessorFactory::createConnection(StreamSocket& socket,
 																	EVProcessingState * reqProcState)
 {
 	return new EVHTTPRequestProcessor(socket, _pParams, _pFactory, reqProcState);
 }
+*/
 
 EVProcessingState* EVHTTPRequestProcessorFactory::createReqProcState(EVServer * server)
 {

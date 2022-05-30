@@ -24,6 +24,12 @@ using Poco::ErrorHandler;
 namespace Poco {
 namespace evnet {
 
+/*
+ * HTTP2 enhancement 
+ * new constructor may be required to create this object
+ * without a connection
+ */
+
 
 EVTCPServerConnection::EVTCPServerConnection(StreamSocket& socket):
 	_socket(socket)
