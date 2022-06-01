@@ -91,6 +91,11 @@ static int generate_hash(lua_State *L, const char * algo)
 	return 1;
 }
 
+static int generate_hash_from_string_sha1(lua_State *L)
+{
+	return generate_hash(L, "SHA1");
+}
+
 static int generate_hash_from_string_sha256(lua_State *L)
 {
 	return generate_hash(L, "SHA256");
@@ -110,7 +115,8 @@ extern "C" int luaopen_libevlcrypto(lua_State *L);
 int luaopen_libevlcrypto(lua_State *L)
 {
 	static const luaL_Reg lua_crypto_methods[] = {
-		{"s_sha256_hash", generate_hash_from_string_sha256}
+		{"s_sha1_hash", generate_hash_from_string_sha1}
+		,{"s_sha256_hash", generate_hash_from_string_sha256}
 		,{"s_sha384_hash", generate_hash_from_string_sha384}
 		,{"s_sha512_hash", generate_hash_from_string_sha512}
 		,{"hmac_digest", hmac_fdigest}

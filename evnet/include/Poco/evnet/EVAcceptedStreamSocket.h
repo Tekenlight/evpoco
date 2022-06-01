@@ -147,6 +147,8 @@ public:
 	int getCLWrFd();
 	socket_upgrade_to_enum getSockUpgradeTo();
 	void setSockUpgradeTo(socket_upgrade_to_enum to);
+	std::string getWsRecvdMsgHandler();
+	void setWsRecvdMsgHandler(std::string s);
 
 private:
 	int							_sock_mode;
@@ -178,7 +180,19 @@ private:
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
 	socket_upgrade_to_enum		_socket_upgrade_to;
+	std::string					_ws_recvd_msg_handler; /* Name of the request handler in case of received frames
+														  on websockets. */
 };
+
+inline std::string EVAcceptedStreamSocket::getWsRecvdMsgHandler()
+{
+	return _ws_recvd_msg_handler;
+}
+
+inline void EVAcceptedStreamSocket::setWsRecvdMsgHandler(std::string to)
+{
+	_ws_recvd_msg_handler = to;
+}
 
 inline EVAcceptedStreamSocket::socket_upgrade_to_enum EVAcceptedStreamSocket::getSockUpgradeTo()
 {

@@ -148,6 +148,8 @@ static int memory_buffer_name__tostring(lua_State *L)
 namespace evpoco {
 	static int evpoco_load_mail_message_funcs(lua_State* L);
 	static int evpoco_load_properties_funcs(lua_State* L);
+	static int evpoco_set_ws_recvd_msg_handler(lua_State* L);
+	static int evpoco_get_ws_recvd_msg_handler(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
@@ -362,6 +364,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_lua_state", &evpoco::get_lua_state },
 	{ "mail_message_funcs", &evpoco::evpoco_load_mail_message_funcs },
 	{ "properties_funcs", &evpoco::evpoco_load_properties_funcs },
+	{ "set_ws_recvd_msg_handler", &evpoco::evpoco_set_ws_recvd_msg_handler },
+	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
 	{ NULL, NULL }
 };
 
@@ -587,6 +591,34 @@ static int evpoco_load_mail_message_funcs(lua_State* L)
 static int evpoco_load_properties_funcs(lua_State* L)
 {
 	return get_properties_funcs(L);
+}
+
+static int evpoco_get_ws_recvd_msg_handler(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	std::string s = (reqHandler->getAcceptedSocket()->getWsRecvdMsgHandler());
+
+	if (!strcmp(s.c_str(), ""))
+		lua_pushnil(L);
+	else
+		lua_pushstring(L, s.c_str());
+	return 1;
+}
+
+static int evpoco_set_ws_recvd_msg_handler(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_gettop(L) != 1) {
+		luaL_error(L, "evpoco_set_ws_recvd_msg_handler: Number of parameters expected: 1");
+		return 1;
+	}
+	if (!lua_isstring(L, 1)) {
+		luaL_error(L, "evpoco_set_ws_recvd_msg_handler: Invalid datatype of argument (string expected)");
+		return 1;
+	}
+	reqHandler->getAcceptedSocket()->setWsRecvdMsgHandler(std::string(lua_tostring(L, 1)));
+	return 0;
 }
 
 static int evpoco_getmtname(lua_State* L)
@@ -1000,12 +1032,12 @@ static int make_http_connection_initiate(lua_State* L)
 		luaL_error(L, "make_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
 		return 0;
 	}
-	else if (lua_isnil(L, -2) || !lua_isstring(L, -2)) {
+	else if (lua_isnil(L, 1) || !lua_isstring(L, 1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
 		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
 		return 0;
 	}
-	else if (!lua_isnil(L, -1) && !lua_isstring(L, -1)) {
+	else if (!lua_isnil(L, 2) && !lua_isstring(L, 2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
 		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
 		return 0;
@@ -3718,7 +3750,7 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 		response.setStatusAndReason(Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
 		std::ostream& ostr = response.send();
 
-		ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << msg << "\n";
+		ostr << "EVLHTTPRequestHandler.cpp:" << line_no << ": " << ((msg)? msg : "nil") << "\n";
 
 		ostr.flush();
 	}
@@ -3726,7 +3758,7 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 		std::string out_msg;
 		char s_line_no[10] = {0};
 		sprintf(s_line_no, "%d", line_no);
-		out_msg = out_msg + "EVLHTTPRequestHandler.cpp:" + s_line_no + ": " + msg;
+		out_msg = out_msg + "EVLHTTPRequestHandler.cpp:" + s_line_no + ": " + ((msg)? msg : "nil");
 		fprintf(stderr, "%s\n", out_msg.c_str());
 	}
 }
