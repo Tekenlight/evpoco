@@ -478,7 +478,7 @@ private:
 				continue;
 			}
 			if ((ifa->ifa_addr->sa_family == AF_INET) && // check it is IP4
-				(!strcmp(ifa->ifa_name, prop_value.c_str()))) {
+				(strcmp(prop_value.c_str(), ifa->ifa_name))) {
 				// is a valid IP4 Address
 				tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
 				inet_ntop(AF_INET, tmpAddrPtr, hostIPAddress, INET_ADDRSTRLEN);
