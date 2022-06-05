@@ -634,13 +634,25 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 	errno = 0;
 	try {
 		//ret = ss.sendBytes(chptr, size , 0);
+		//DEBUGPOINT("sockfd = [%d]\n", ss.impl()->sockfd());
+		//DEBUGPOINT("&ss = [%p]\n", &ss);
+		//DEBUGPOINT("size = [%zu]\n", size);
+		//DEBUGPOINT("chptr = [%s]\n", (char*)chptr);
 		ret = ss.sendBytes(chptr, size );
 		if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
 		else if (wait_mode_ptr) *wait_mode_ptr = 0;
+		if (wait_mode_ptr) {
+			if ((ret < 0) && !(ss.impl()->secure()))
+				*wait_mode_ptr = -2;
+		}
 	}
 	catch (...) {
 		if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
 		else if (wait_mode_ptr) *wait_mode_ptr = 0;
+		if (wait_mode_ptr) {
+			if ((ret < 0) && !(ss.impl()->secure()))
+				*wait_mode_ptr = -2;
+		}
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
@@ -668,6 +680,10 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size, int * wait_mode
 	ret = send(fd, chptr, size , 0);
 	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
 	else if (wait_mode_ptr) *wait_mode_ptr = 0;
+	if (wait_mode_ptr) {
+		if (ret < 0)
+			*wait_mode_ptr = -2;
+	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
@@ -1127,6 +1143,10 @@ ssize_t EVTCPServer::writeData(int fd, void * chptr, size_t size, int * wait_mod
 	ret = write(fd, chptr, size);
 	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
 	else if (wait_mode_ptr) *wait_mode_ptr = 0;
+	if (wait_mode_ptr) {
+		if (ret < 0)
+			*wait_mode_ptr = -2;
+	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;

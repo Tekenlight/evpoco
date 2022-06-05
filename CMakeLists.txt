@@ -12,7 +12,7 @@ project(Poco)
 
 #IF(APPLE)
 #SET(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures for Mac OS X" FORCE)
-# set the value of CMAKE_OSX_ARCHITECTURES appropriately via -D commandline of cmake generation step
+# set the value of CMAKE_OSX_ARCHITECTURES appropriately  to "arm64;x64_64" via -D commandline of cmake generation step
 #ENDIF(APPLE)
 
 set(CMAKE_C_COMPILER "/usr/bin/clang")

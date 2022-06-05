@@ -179,7 +179,7 @@ private:
 	std::atomic_int				_new_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
-	socket_upgrade_to_enum		_socket_upgrade_to;
+	socket_upgrade_to_enum		_socket_upgraded_to;
 	std::string					_ws_recvd_msg_handler; /* Name of the request handler in case of received frames
 														  on websockets. */
 };
@@ -196,12 +196,12 @@ inline void EVAcceptedStreamSocket::setWsRecvdMsgHandler(std::string to)
 
 inline EVAcceptedStreamSocket::socket_upgrade_to_enum EVAcceptedStreamSocket::getSockUpgradeTo()
 {
-	return _socket_upgrade_to;
+	return _socket_upgraded_to;
 }
 
 inline void EVAcceptedStreamSocket::setSockUpgradeTo(socket_upgrade_to_enum to)
 {
-	_socket_upgrade_to = to;
+	_socket_upgraded_to = to;
 }
 
 inline int EVAcceptedStreamSocket::getSockMode()

@@ -39,7 +39,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
 	_waiting_tobe_enqueued(false),
-	_socket_upgrade_to(EVAcceptedStreamSocket::NONE)
+	_socket_upgraded_to(EVAcceptedStreamSocket::NONE)
 {
 	_sock_mode = EVAcceptedStreamSocket::SERVER_MODE;
 	struct timeval tv;
@@ -67,7 +67,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
 	_waiting_tobe_enqueued(false),
-	_socket_upgrade_to(EVAcceptedStreamSocket::NONE)
+	_socket_upgraded_to(EVAcceptedStreamSocket::NONE)
 {
 	_sock_mode = EVAcceptedStreamSocket::COMMAND_LINE_MODE;
 	_out_streamSocket.setFd(CL_wr_fd);

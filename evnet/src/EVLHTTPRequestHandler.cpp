@@ -150,6 +150,8 @@ namespace evpoco {
 	static int evpoco_load_properties_funcs(lua_State* L);
 	static int evpoco_set_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_ws_recvd_msg_handler(lua_State* L);
+	static int evpoco_get_socket_upgrade_to(lua_State* L);
+	static int evpoco_set_socket_upgrade_to(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
@@ -366,6 +368,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "properties_funcs", &evpoco::evpoco_load_properties_funcs },
 	{ "set_ws_recvd_msg_handler", &evpoco::evpoco_set_ws_recvd_msg_handler },
 	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
+	{ "set_socket_upgrade_to", &evpoco::evpoco_set_socket_upgrade_to },
+	{ "get_socket_upgrade_to", &evpoco::evpoco_get_socket_upgrade_to },
 	{ NULL, NULL }
 };
 
@@ -591,6 +595,37 @@ static int evpoco_load_mail_message_funcs(lua_State* L)
 static int evpoco_load_properties_funcs(lua_State* L)
 {
 	return get_properties_funcs(L);
+}
+
+static int evpoco_get_socket_upgrade_to(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	EVAcceptedStreamSocket::socket_upgrade_to_enum s = (reqHandler->getAcceptedSocket()->getSockUpgradeTo());
+
+	lua_pushinteger(L, s);
+	return 1;
+}
+
+static int evpoco_set_socket_upgrade_to(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_gettop(L) != 1) {
+		luaL_error(L, "evpoco_set_socket_upgrade_to: Number of parameters expected: 1");
+		return 1;
+	}
+	if (!lua_isinteger(L, 1)) {
+		luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid datatype of argument (integer expected)");
+		return 1;
+	}
+	int u = lua_tointeger(L, 1);
+	if (u != EVAcceptedStreamSocket::WEBSCOKET) {
+		luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid argument (only websocket [%d] supported)",
+											EVAcceptedStreamSocket::WEBSCOKET);
+		return 1;
+	}
+	reqHandler->getAcceptedSocket()->setSockUpgradeTo((EVAcceptedStreamSocket::socket_upgrade_to_enum)u);
+	return 0;
 }
 
 static int evpoco_get_ws_recvd_msg_handler(lua_State* L)
@@ -1329,8 +1364,9 @@ static int send_data_on_socket_initiate(lua_State* L)
 	}
 	size_t size = luaL_checkinteger(L, 3);
 	int wait_mode = 0;
+	//DEBUGPOINT("Here ss_ptr = [%p]\n", ss_ptr);
 	long ret = EVTCPServer::sendData(*(ss_ptr), buf, size, &wait_mode);
-	//DEBUGPOINT("Here [%d] %ld {%d:%s}\n", ss_ptr->impl()->sockfd(), ret, errno, strerror(errno));
+	//DEBUGPOINT("ss_ptr = [%p] Here [%d] %ld {%d:%s}\n", ss_ptr, ss_ptr->impl()->sockfd(), ret, errno, strerror(errno));
 	//DEBUGPOINT("HERE wait_mode = %d\n", wait_mode);
 	if (ret < 0) {
 		//DEBUGPOINT("Here %ld {%d:%s}\n", ret, errno, strerror(errno));
@@ -1672,7 +1708,7 @@ static int req__gc(lua_State *L)
 static int ss__gc(lua_State *L)
 {
 	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
-	//DEBUGPOINT("HERE managed = [%d]\n", ss_ptr->impl()->isManaged());
+	//DEBUGPOINT("HERE managed = [%d] fd=[%d]\n", ss_ptr->impl()->isManaged(), ss_ptr->impl()->sockfd());
 	if (!(ss_ptr->impl()->isManaged())) {
 		//DEBUGPOINT("HERE\n");
 		delete ss_ptr;
