@@ -2,7 +2,7 @@
 
 #include "Poco/evnet/evnet_lua.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #include "Poco/evdata/evredis/ev_redis.h"
 
@@ -307,7 +307,7 @@ static int transceive_complete(lua_State *L, int status, lua_KContext ctx)
 	//DEBUGPOINT("Here\n");
 	redis_connection_t *conn = (redis_connection_t *)ctx;
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	//DEBUGPOINT("Here\n");
 	//
 	redisReply * reply = (redisReply*)usN.getTaskReturnValue();

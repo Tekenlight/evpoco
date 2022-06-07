@@ -9,7 +9,7 @@ extern "C" {
 
 #include <map>
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 struct gen_lua_user_data_t {
 	char * meta_table_name;

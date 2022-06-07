@@ -717,7 +717,7 @@ struct task_status_track_s {
 static int wait_complete(lua_State* L, int status, lua_KContext ctx)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 
 	long task_id = -1;
 	struct task_status_track_s* tsp = (struct task_status_track_s*)ctx;
@@ -766,7 +766,7 @@ static int wait_any_initiate(lua_State* L)
 	EVLHTTPRequestHandler::async_tasks_t& tasks = reqHandler->getAsyncTaskList();
 
 	int n = 0;
-	Poco::evnet::EVUpstreamEventNotification* usN = NULL;
+	Poco::evnet::EVEventNotification* usN = NULL;
 	for (auto it = tasks.begin(); it != tasks.end(); ++it) {
 		usN = NULL;
 		if (((usN = reqHandler->get_async_task_notification(it->first)) != NULL) &&
@@ -858,7 +858,7 @@ static int wait_initiate(lua_State* L)
 	}
 	n = count;
 
-	Poco::evnet::EVUpstreamEventNotification* usN = NULL;
+	Poco::evnet::EVEventNotification* usN = NULL;
 	for (int i = 0; i < n ; i++) {
 		long task_id = la[i];
 		if (((usN = reqHandler->get_async_task_notification(task_id)) != NULL) &&
@@ -932,7 +932,7 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	struct addrinfo** addr_info_ptr_ptr = (struct addrinfo**)ctx;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getHRRet() != 0) {
 		if (usN.getAddrInfo()) {
 			//DEBUGPOINT("Here\n");
@@ -1031,7 +1031,7 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		delete session;
 		char msg[1024];
@@ -1109,7 +1109,7 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		char msg[1024];
 		sprintf(msg, "make_tcp_connection: could not establish connection: %s", strerror(usN.getErrNo()));
@@ -1554,7 +1554,7 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	EVHTTPClientSession *session = tp->_session_ptr;
-	Poco::evnet::EVUpstreamEventNotification *usN_ptr = tp->_usN;
+	Poco::evnet::EVEventNotification *usN_ptr = tp->_usN;
 
 	tp->_session_ptr = NULL;
 	tp->_usN = NULL;
@@ -1799,7 +1799,7 @@ static int nb_fetch_arrived_http_response(lua_State* L, long task_id, evl_async_
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	EVHTTPResponse* response = tp->_response_ptr;
-	Poco::evnet::EVUpstreamEventNotification *usN_ptr = tp->_usN;
+	Poco::evnet::EVEventNotification *usN_ptr = tp->_usN;
 
 	tp->_response_ptr = NULL;
 	tp->_usN = NULL;
@@ -1851,7 +1851,7 @@ static int receive_http_response_complete(lua_State* L, int status, lua_KContext
 
 	EVHTTPResponse* response = (EVHTTPResponse*)ctx;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		delete response;
 		char msg[1024];
@@ -1887,7 +1887,7 @@ static int ev_lua_file_open_complete(lua_State* L, int status, lua_KContext ctx)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::evnet::file_handle_p fh = (Poco::evnet::file_handle_p)ctx;
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		DEBUGPOINT("fh = %p, fd = %d\n", fh, fh->get_fd());
 		char str[1024] = {0};
@@ -2014,7 +2014,7 @@ static int ev_lua_file_read_text_complete(lua_State* L, int status, lua_KContext
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	struct _read_s* rp = (struct _read_s*)ctx;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 
 	ssize_t nbyte = usN.getRet();
 	errno = usN.getErrNo();
@@ -2116,7 +2116,7 @@ static int ev_lua_file_read_binary_complete(lua_State* L, int status, lua_KConte
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	struct _read_s* rp = (struct _read_s*)ctx;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 
 	ssize_t nbyte = usN.getRet();
 	errno = usN.getErrNo();
@@ -2211,7 +2211,7 @@ static int ev_lua_file_read_binary_complete_1(lua_State* L, int status, lua_KCon
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	struct _read_s* rp = (struct _read_s*)ctx;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 
 	ssize_t nbyte = usN.getRet();
 	errno = usN.getErrNo();
@@ -3758,7 +3758,7 @@ evl_async_task::async_task_state EVLHTTPRequestHandler::get_async_task_status(lo
 	return it->second->_task_tracking_state;
 }
 
-EVUpstreamEventNotification* EVLHTTPRequestHandler::get_async_task_notification(long sr_num)
+EVEventNotification* EVLHTTPRequestHandler::get_async_task_notification(long sr_num)
 {
 	async_tasks_t::iterator it = _async_tasks.find(sr_num);
 	if (it == _async_tasks.end()) {
@@ -3991,7 +3991,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		}
 	}
 	else {
-		Poco::evnet::EVUpstreamEventNotification &usN = getUNotification();
+		Poco::evnet::EVEventNotification &usN = getUNotification();
 		async_tasks_t::iterator it = _async_tasks.find(usN.getRefSRNum());
 		if (it != _async_tasks.end()) {
 			/* The notification is for a task that was initiated in parallel mode
@@ -3999,7 +3999,7 @@ int EVLHTTPRequestHandler::handleRequest()
 			 * It it is being awaited, it the yielding function will be the one
 			 * waiting for this notification
 			 * */
-			it->second->_usN = new EVUpstreamEventNotification(usN);
+			it->second->_usN = new EVEventNotification(usN);
 			if (!getAsyncTaskAwaited()) {
 				return PROCESSING;
 			}

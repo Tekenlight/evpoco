@@ -88,10 +88,10 @@ static int finalize_statement_processing(lua_State *L, int status, lua_KContext 
 
 	int ret = 0;
 
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	//DEBUGPOINT("SOCKET READY FOR [%d]\n", usN.getConnSockState());
 	switch (usN.getConnSockState()) {
-		case Poco::evnet::EVUpstreamEventNotification::READY_FOR_READ: {
+		case Poco::evnet::EVEventNotification::READY_FOR_READ: {
 			//DEBUGPOINT("READY FOR READ\n");
 			ret = PQconsumeInput(conn->pg_conn);
 			if (ret == 0) {
@@ -116,8 +116,8 @@ static int finalize_statement_processing(lua_State *L, int status, lua_KContext 
 			//DEBUGPOINT("READ COMPLETE ret = [%d]\n", ret);
 			break;
 		}
-		case Poco::evnet::EVUpstreamEventNotification::READY_FOR_WRITE:
-		case Poco::evnet::EVUpstreamEventNotification::READY_FOR_READWRITE: {
+		case Poco::evnet::EVEventNotification::READY_FOR_WRITE:
+		case Poco::evnet::EVEventNotification::READY_FOR_READWRITE: {
 			ret = PQflush(conn->pg_conn);
 			int socket_wait_mode = 0;
 			if (ret == 1) {

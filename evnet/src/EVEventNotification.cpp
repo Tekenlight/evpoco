@@ -1,5 +1,5 @@
 //
-// EVUpstreamEventNotification.cpp
+// EVEventNotification.cpp
 //
 // Library: evnet
 // Package: EVTCPServer
@@ -11,11 +11,11 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 namespace Poco{ namespace evnet {
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, int cb_evid_num):
+EVEventNotification::EVEventNotification(long sr_num, int cb_evid_num):
 	_sr_num(sr_num),
 	_cb_evid_num(cb_evid_num),
 	_sockfd(-1),
@@ -29,11 +29,11 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, int cb_evi
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no):
+EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no):
 	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_cb_evid_num(cb_evid_num),
@@ -47,11 +47,11 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no):
+EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no):
 	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_cb_evid_num(cb_evid_num),
@@ -65,11 +65,11 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification():
+EVEventNotification::EVEventNotification():
 	_sr_num(-1),
 	_sockfd(-1),
 	_cb_evid_num(-1),
@@ -83,11 +83,11 @@ EVUpstreamEventNotification::EVUpstreamEventNotification():
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, int ret, int err_no):
+EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, int ret, int err_no):
 	_sr_num(sr_num),
 	_sockfd(sockfd),
 	_cb_evid_num(cb_evid_num),
@@ -101,11 +101,11 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(long sr_num, poco_socke
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVUpstreamEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY)
 {
 }
 
-EVUpstreamEventNotification::EVUpstreamEventNotification(EVUpstreamEventNotification & from)
+EVEventNotification::EVEventNotification(EVEventNotification & from)
 {
 	this->_sr_num = from._sr_num;
 	this->_sockfd = from._sockfd;
@@ -128,7 +128,7 @@ EVUpstreamEventNotification::EVUpstreamEventNotification(EVUpstreamEventNotifica
 	from._task_return_value = NULL;
 }
 
-EVUpstreamEventNotification::~EVUpstreamEventNotification()
+EVEventNotification::~EVEventNotification()
 {
 	if (_addr_info) {
 		freeaddrinfo(_addr_info);
@@ -140,7 +140,7 @@ EVUpstreamEventNotification::~EVUpstreamEventNotification()
 	}
 }
 
-poco_socket_t EVUpstreamEventNotification::sockfd()
+poco_socket_t EVEventNotification::sockfd()
 {
 	return _sockfd;
 }

@@ -44,7 +44,7 @@
 #include "Poco/evnet/EVStreamSocketLRUList.h"
 #include "Poco/evnet/EVServer.h"
 #include "Poco/evnet/EVTCPServiceRequest.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #define DEFAULT_NUM_AUXJOB_THREADS 4
 
@@ -105,7 +105,7 @@ struct _strms_io_struct_type {
 typedef struct _cb_ref_data {
 	_cb_ref_data() : _instance(0), _usN(0), _acc_fd(-1) {}
 	EVTCPServer* _instance;
-	EVUpstreamEventNotification *_usN;
+	EVEventNotification *_usN;
 	poco_socket_t _acc_fd;
 } cb_ref_data_type, * cb_ref_data_ptr_type;
 
@@ -130,7 +130,7 @@ typedef struct _dns_io_struct* dns_io_ptr_type;
 
 struct _file_event_status {
 	poco_socket_t					_acc_fd;
-	EVUpstreamEventNotification*	_usN;
+	EVEventNotification*	_usN;
 	_file_event_status(): _acc_fd(-1), _usN(0) {}
 };
 
@@ -321,7 +321,7 @@ public:
 	void postHostResolution(dns_io_ptr_type dio_ptr);
 		/// To handle result of host resolution in the context of EVTCPServer
 
-	void postGenericTaskComplete(poco_socket_t acc_fd, EVUpstreamEventNotification *usN);
+	void postGenericTaskComplete(poco_socket_t acc_fd, EVEventNotification *usN);
 		/// To handle post processing of generic task
 
 	void pushFileEvent(int fd, int completed_oper);

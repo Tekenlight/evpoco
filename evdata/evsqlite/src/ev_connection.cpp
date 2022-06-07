@@ -1,6 +1,6 @@
 #include "Poco/evdata/evsqlite/ev_sqlite3.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #include "Poco/evnet/evnet_lua.h"
 

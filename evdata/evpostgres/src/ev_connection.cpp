@@ -1,6 +1,6 @@
 #include "Poco/evdata/evpostgres/ev_postgres.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #include "Poco/evnet/evnet_lua.h"
 
@@ -92,7 +92,7 @@ static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx)
 		}
 		//DEBUGPOINT("open_connection_finalize sock=[%d]\n", PQsocket(p));
 		int pollfor = 0;
-		//Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+		//Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 		switch (ps) {
 			case PGRES_POLLING_WRITING:
 				pollfor = Poco::evnet::EVLHTTPRequestHandler::WRITE;

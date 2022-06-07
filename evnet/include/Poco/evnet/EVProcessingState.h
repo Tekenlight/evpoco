@@ -55,8 +55,8 @@ public:
 	bool needMoreData();
 	EVConnectedStreamSocket * getEVConnSock(int fd);
 	void setEVConnSock(EVConnectedStreamSocket * cs);
-	ev_queue_type getUpstreamEventQ();
-	void setUpstreamEventQ(ev_queue_type);
+	ev_queue_type getEventQ();
+	void setEventQ(ev_queue_type);
 	void eraseEVConnSock(int fd);
 	void setClientAddress(Net::SocketAddress addr);
 	void setServerAddress(Net::SocketAddress addr);
@@ -136,8 +136,8 @@ inline void EVProcessingState::eraseEVConnSock(int fd)
 	}
 	return;
 }
-inline ev_queue_type EVProcessingState::getUpstreamEventQ() { return _upstream_io_event_queue; }
-inline void EVProcessingState::setUpstreamEventQ(ev_queue_type  q) { _upstream_io_event_queue = q; }
+inline ev_queue_type EVProcessingState::getEventQ() { return _upstream_io_event_queue; }
+inline void EVProcessingState::setEventQ(ev_queue_type  q) { _upstream_io_event_queue = q; }
 
 inline void EVProcessingState::setClientAddress(Net::SocketAddress addr)
 {

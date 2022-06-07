@@ -36,7 +36,7 @@
 #include "Poco/evnet/EVCLServerRequestImpl.h"
 #include "Poco/evnet/EVCLServerResponseImpl.h"
 #include "Poco/evnet/evnet.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 #include "Poco/evnet/EVAcceptedStreamSocket.h"
 #include "Poco/evnet/EVServer.h"
 
@@ -164,8 +164,8 @@ public:
 
 	int getState();
 	void setState(int);
-	EVUpstreamEventNotification & getUNotification();
-	void setUNotification(EVUpstreamEventNotification *);
+	EVEventNotification & getUNotification();
+	void setUNotification(EVEventNotification *);
 	int getEvent();
 	EVServer& getServer();
 	EVServer* getServerPtr();
@@ -237,7 +237,7 @@ private:
 	const Net::HTTPClientSession::ProxyConfig& proxyConfig();
 
 	int								_state;
-	EVUpstreamEventNotification*	_usN;
+	EVEventNotification*	_usN;
 	EVServer*						_server;
 	poco_socket_t					_acc_fd;
 	EVAcceptedStreamSocket*			_tn;
@@ -277,12 +277,12 @@ inline file_handle_p EVHTTPRequestHandler::ev_get_file_handle(int fd)
 	return it->second;
 }
 
-inline EVUpstreamEventNotification & EVHTTPRequestHandler::getUNotification()
+inline EVEventNotification & EVHTTPRequestHandler::getUNotification()
 {
 	return *_usN;
 }
 
-inline void EVHTTPRequestHandler::setUNotification(EVUpstreamEventNotification * usN)
+inline void EVHTTPRequestHandler::setUNotification(EVEventNotification * usN)
 {
 	_usN = usN;
 }

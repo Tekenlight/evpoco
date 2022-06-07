@@ -160,7 +160,7 @@ void EVTCPServerDispatcher::run()
 					 * */
 					pCNf->socket()->getProcState()->setReqMemStream(pCNf->socket()->getReqMemStream());
 					pCNf->socket()->getProcState()->setResMemStream(pCNf->socket()->getResMemStream());
-					pCNf->socket()->getProcState()->setUpstreamEventQ(pCNf->socket()->getUpstreamIoEventQueue());
+					pCNf->socket()->getProcState()->setEventQ(pCNf->socket()->getIoEventQueue());
 					pConnection->setAcceptedSocket(pCNf->socket());
 					pConnection->setProcState(pCNf->socket()->getProcState());
 					pConnection->start(true);

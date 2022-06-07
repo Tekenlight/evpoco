@@ -78,7 +78,7 @@ static int int_step_completion(lua_State* L, int status, lua_KContext ctx)
 {
 	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	//DEBUGPOINT("int_step_completion() for %d\n", reqHandler->getAccSockfd());
-	Poco::evnet::EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	statement_t* statement = 0;
 	statement = (statement_t*)ctx;
 

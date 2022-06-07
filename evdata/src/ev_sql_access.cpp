@@ -10,7 +10,7 @@
 #include <Poco/evnet/evnet_lua.h>
 
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #include "Poco/evnet/evnet_lua.h"
 
@@ -151,7 +151,7 @@ void ev_sql_register(lua_State *L, const char *name,
 int completion_common_routine(lua_State* L, int status, lua_KContext ctx)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	EVUpstreamEventNotification &usN = reqHandler->getUNotification();
+	EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() != 0) {
 		char * msg = (char*)ctx;
 		if (!msg) msg = (char*)"Error occured during invocation";

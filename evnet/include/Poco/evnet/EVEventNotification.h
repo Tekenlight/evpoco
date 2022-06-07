@@ -1,5 +1,5 @@
 //
-// EVUpstreamEventNotification.h
+// EVEventNotification.h
 //
 // Library: evnet
 // Package: EVTCPServer
@@ -23,12 +23,12 @@
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/NotificationQueue.h"
 
-#ifndef POCO_EVNET_EVUPSTREAMEVENTNOTIFICATION_INCLUDED
-#define POCO_EVNET_EVUPSTREAMEVENTNOTIFICATION_INCLUDED
+#ifndef POCO_EVNET_EVEVENTNOTIFICATION_INCLUDED
+#define POCO_EVNET_EVEVENTNOTIFICATION_INCLUDED
 
 namespace Poco{ namespace evnet {
 
-class EVUpstreamEventNotification: public Notification
+class EVEventNotification: public Notification
 {
 public:
 	typedef enum {
@@ -37,14 +37,14 @@ public:
 		,READY_FOR_WRITE
 		,READY_FOR_READWRITE
 	} sock_state;
-	EVUpstreamEventNotification(long sr_num, int cb_evid_num);
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no = 0);
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no = 0);
-	EVUpstreamEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, int ret, int err_no = 0);
+	EVEventNotification(long sr_num, int cb_evid_num);
+	EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no = 0);
+	EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, size_t ret, int err_no = 0);
+	EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, int ret, int err_no = 0);
 
-	EVUpstreamEventNotification();
-	EVUpstreamEventNotification(EVUpstreamEventNotification & from);
-	~EVUpstreamEventNotification();
+	EVEventNotification();
+	EVEventNotification(EVEventNotification & from);
+	~EVEventNotification();
 
 	poco_socket_t sockfd();
 
@@ -100,139 +100,139 @@ private:
 	sock_state				_conn_sock_state;
 };
 
-inline EVUpstreamEventNotification::sock_state EVUpstreamEventNotification::getConnSockState()
+inline EVEventNotification::sock_state EVEventNotification::getConnSockState()
 {
 	return _conn_sock_state;
 }
 
-inline void EVUpstreamEventNotification::setConnSockState(int state)
+inline void EVEventNotification::setConnSockState(int state)
 {
-	_conn_sock_state = (EVUpstreamEventNotification::sock_state)state;
+	_conn_sock_state = (EVEventNotification::sock_state)state;
 }
 
 
-inline long EVUpstreamEventNotification::getRefSRNum()
+inline long EVEventNotification::getRefSRNum()
 {
 	return _ref_sr_num;
 }
 
-inline void EVUpstreamEventNotification::setRefSRNum(long ref)
+inline void EVEventNotification::setRefSRNum(long ref)
 {
 	_ref_sr_num = ref;
 	return;
 }
 
-inline int EVUpstreamEventNotification::getFileOper()
+inline int EVEventNotification::getFileOper()
 {
 	return _oper;
 }
 
-inline void EVUpstreamEventNotification::setFileOper(int oper)
+inline void EVEventNotification::setFileOper(int oper)
 {
 	_oper = oper;
 }
 
-inline int EVUpstreamEventNotification::getFileFd()
+inline int EVEventNotification::getFileFd()
 {
 	return _file_fd;
 }
 
-inline void EVUpstreamEventNotification::setFileFd(int fd)
+inline void EVEventNotification::setFileFd(int fd)
 {
 	_file_fd = fd;
 }
 
-inline void EVUpstreamEventNotification::setTaskReturnValue(void* a)
+inline void EVEventNotification::setTaskReturnValue(void* a)
 {
 	_task_return_value = a;
 }
 
-inline void* EVUpstreamEventNotification::getTaskReturnValue()
+inline void* EVEventNotification::getTaskReturnValue()
 {
 	return _task_return_value;
 }
 
-inline void EVUpstreamEventNotification::setAddrInfo(struct addrinfo *a)
+inline void EVEventNotification::setAddrInfo(struct addrinfo *a)
 {
 	_addr_info = a;
 }
 
-inline struct addrinfo* EVUpstreamEventNotification::getAddrInfo()
+inline struct addrinfo* EVEventNotification::getAddrInfo()
 {
 	return _addr_info;
 }
 
-inline void EVUpstreamEventNotification::setRecvStream(chunked_memory_stream *cms)
+inline void EVEventNotification::setRecvStream(chunked_memory_stream *cms)
 {
 	_recv_stream = cms;
 }
 
-inline chunked_memory_stream* EVUpstreamEventNotification::getRecvStream()
+inline chunked_memory_stream* EVEventNotification::getRecvStream()
 {
 	return _recv_stream;
 }
 
-inline void EVUpstreamEventNotification::setSendStream(chunked_memory_stream *cms)
+inline void EVEventNotification::setSendStream(chunked_memory_stream *cms)
 {
 	_send_stream = cms;
 }
 
-inline chunked_memory_stream* EVUpstreamEventNotification::getSendStream()
+inline chunked_memory_stream* EVEventNotification::getSendStream()
 {
 	return _send_stream;
 }
 
-inline void EVUpstreamEventNotification::setSRNum(long sr_num)
+inline void EVEventNotification::setSRNum(long sr_num)
 {
 	_sr_num = sr_num;
 }
 
-inline long EVUpstreamEventNotification::getSRNum()
+inline long EVEventNotification::getSRNum()
 {
 	return _sr_num;
 }
 
-inline void EVUpstreamEventNotification::setErrNo(int err_no)
+inline void EVEventNotification::setErrNo(int err_no)
 {
 	_errno = err_no;
 }
 
-inline int EVUpstreamEventNotification::getErrNo()
+inline int EVEventNotification::getErrNo()
 {
 	return _errno;
 }
 
-inline void EVUpstreamEventNotification::setHRRet(ssize_t ret)
+inline void EVEventNotification::setHRRet(ssize_t ret)
 {
 	_hr_ret = ret;;
 }
 
-inline int EVUpstreamEventNotification::getHRRet()
+inline int EVEventNotification::getHRRet()
 {
 	return _hr_ret;
 }
 
-inline void EVUpstreamEventNotification::setRet(ssize_t ret)
+inline void EVEventNotification::setRet(ssize_t ret)
 {
 	_ret = ret;;
 }
 
-inline ssize_t EVUpstreamEventNotification::getRet()
+inline ssize_t EVEventNotification::getRet()
 {
 	return _ret;
 }
 
-inline void EVUpstreamEventNotification::setCBEVIDNum(int cb_evid_num)
+inline void EVEventNotification::setCBEVIDNum(int cb_evid_num)
 {
 	_cb_evid_num = cb_evid_num;
 }
 
-inline int EVUpstreamEventNotification::getCBEVIDNum()
+inline int EVEventNotification::getCBEVIDNum()
 {
 	return _cb_evid_num;
 }
 
-inline void EVUpstreamEventNotification::debug(const char* file, const int lineno)
+inline void EVEventNotification::debug(const char* file, const int lineno)
 {
 	printf("[%p][%s:%d] _sockfd = %d\n", (void*)pthread_self(), file, lineno, _sockfd);
 	printf("[%p][%s:%d] _ret = %zd\n", (void*)pthread_self(), file, lineno, _ret);

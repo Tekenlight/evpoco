@@ -15,7 +15,7 @@
 #include <sys/time.h>
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVAcceptedStreamSocket.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 using Poco::Net::StreamSocket;
 namespace Poco{ namespace evnet {
@@ -104,11 +104,11 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		this->_res_memory_stream = NULL;
 	}
 	if (this->_upstream_io_event_queue) {
-		EVUpstreamEventNotification * usN = NULL;
-		usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
+		EVEventNotification * usN = NULL;
+		usN = (EVEventNotification*)dequeue(_upstream_io_event_queue);
 		while (usN) {
 			delete usN;
-			usN = (EVUpstreamEventNotification*)dequeue(_upstream_io_event_queue);
+			usN = (EVEventNotification*)dequeue(_upstream_io_event_queue);
 		}
 		destroy_ev_queue(this->_upstream_io_event_queue);
 		this->_upstream_io_event_queue = NULL;
@@ -230,7 +230,7 @@ chunked_memory_stream * EVAcceptedStreamSocket::getReqMemStream()
 	return _req_memory_stream;
 }
 
-ev_queue_type EVAcceptedStreamSocket::getUpstreamIoEventQueue()
+ev_queue_type EVAcceptedStreamSocket::getIoEventQueue()
 {
 	return _upstream_io_event_queue;
 }

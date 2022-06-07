@@ -21,7 +21,7 @@
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
 #include "Poco/evnet/EVHTTPRequestHandlerFactory.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 #include "Poco/Net/NetException.h"
 #include "Poco/NumberFormatter.h"
 #include "Poco/Timestamp.h"
@@ -214,13 +214,13 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 				}
 			}
 			else {
-				if (reqProcState->getUpstreamEventQ() &&
-						!queue_empty(reqProcState->getUpstreamEventQ())) {
-					void * elem = dequeue(reqProcState->getUpstreamEventQ());
+				if (reqProcState->getEventQ() &&
+						!queue_empty(reqProcState->getEventQ())) {
+					void * elem = dequeue(reqProcState->getEventQ());
 					bool processing_complete = false;
 					while (!processing_complete && elem) {
 						/* Process upstream events here. */
-						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
 							pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
@@ -254,7 +254,7 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
 							throw Exception(msg);
 						}
-						elem = dequeue(reqProcState->getUpstreamEventQ());
+						elem = dequeue(reqProcState->getEventQ());
 						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
 				}
@@ -517,13 +517,13 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 				}
 			}
 			else {
-				if (reqProcState->getUpstreamEventQ() &&
-						!queue_empty(reqProcState->getUpstreamEventQ())) {
-					void * elem = dequeue(reqProcState->getUpstreamEventQ());
+				if (reqProcState->getEventQ() &&
+						!queue_empty(reqProcState->getEventQ())) {
+					void * elem = dequeue(reqProcState->getEventQ());
 					bool processing_complete = false;
 					while (!processing_complete && elem) {
 						/* Process upstream events here. */
-						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
 							pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
@@ -555,7 +555,7 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 							throw Exception(msg);
 						}
 						//elem = NULL;
-						elem = dequeue(reqProcState->getUpstreamEventQ());
+						elem = dequeue(reqProcState->getEventQ());
 						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
 				}
@@ -742,13 +742,13 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 				}
 			}
 			else {
-				if (reqProcState->getUpstreamEventQ() &&
-						!queue_empty(reqProcState->getUpstreamEventQ())) {
-					void * elem = dequeue(reqProcState->getUpstreamEventQ());
+				if (reqProcState->getEventQ() &&
+						!queue_empty(reqProcState->getEventQ())) {
+					void * elem = dequeue(reqProcState->getEventQ());
 					bool processing_complete = false;
 					while (!processing_complete && elem) {
 						/* Process upstream events here. */
-						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
 							pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
@@ -780,7 +780,7 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 							throw Exception(msg);
 						}
 						//elem = NULL;
-						elem = dequeue(reqProcState->getUpstreamEventQ());
+						elem = dequeue(reqProcState->getEventQ());
 						//if (elem) DEBUGPOINT("Found additional queued event\n");
 					}
 				}

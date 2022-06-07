@@ -32,7 +32,7 @@ extern "C" {
 
 #include "Poco/Util/AbstractConfiguration.h"
 #include "Poco/evnet/EVHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 #include "Poco/Net/HTMLForm.h"
 #include "Poco/Net/PartHandler.h"
 
@@ -90,7 +90,7 @@ class evl_async_task {
 		long							_task_srl_num;
 		async_task_state				_task_tracking_state;
 		async_action					_task_action;
-		EVUpstreamEventNotification*	_usN;
+		EVEventNotification*	_usN;
 		EVHTTPClientSession*			_session_ptr;
 		EVHTTPResponse*					_response_ptr;
 		evl_async_task(): _task_srl_num(0), _task_tracking_state(NOTSTARTED),
@@ -271,7 +271,7 @@ public:
 	void track_async_task(long, evl_async_task::async_action, EVHTTPResponse*);
 	evl_async_task::async_task_state get_async_task_status(long);
 	void set_async_task_tracking(long sr_num, evl_async_task::async_task_state st);
-	EVUpstreamEventNotification* get_async_task_notification(long);
+	EVEventNotification* get_async_task_notification(long);
 	evl_async_task* get_async_task(long sr_num);
 	EVLHTTPRequestHandler::async_tasks_t& getAsyncTaskList();
 	bool getAsyncTaskAwaited();

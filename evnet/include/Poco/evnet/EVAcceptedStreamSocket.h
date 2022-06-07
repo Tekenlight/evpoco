@@ -130,7 +130,7 @@ public:
 	void setState(accepted_sock_state state);
 	inline void setSockInError();
 	inline bool sockInError();
-	ev_queue_type getUpstreamIoEventQueue();
+	ev_queue_type getIoEventQueue();
 	void decrNumCSEvents();
 	void incrNumCSEvents();
 	bool pendingCSEvents();

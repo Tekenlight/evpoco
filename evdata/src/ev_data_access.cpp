@@ -9,7 +9,7 @@
 #include <Poco/evnet/evnet_lua.h>
 
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
-#include "Poco/evnet/EVUpstreamEventNotification.h"
+#include "Poco/evnet/EVEventNotification.h"
 
 #include "Poco/evnet/evnet_lua.h"
 
