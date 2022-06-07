@@ -167,7 +167,7 @@ private:
 	EVProcessingState*			_reqProcState;
 	chunked_memory_stream*		_req_memory_stream;
 	chunked_memory_stream*		_res_memory_stream;
-	ev_queue_type				_upstream_io_event_queue;
+	ev_queue_type				_event_queue;
 
 	/* Status indicators */
 	accepted_sock_state			_state; /* Tells whether the socket is waiting for OS event or not */

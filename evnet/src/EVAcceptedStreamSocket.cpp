@@ -34,7 +34,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_res_memory_stream(0),
 	_state(NOT_WAITING),
 	_socketInError(0),
-	_upstream_io_event_queue(create_ev_queue()),
+	_event_queue(create_ev_queue()),
 	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
@@ -62,7 +62,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 	_res_memory_stream(0),
 	_state(NOT_WAITING),
 	_socketInError(0),
-	_upstream_io_event_queue(create_ev_queue()),
+	_event_queue(create_ev_queue()),
 	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
@@ -103,15 +103,15 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		delete this->_res_memory_stream;
 		this->_res_memory_stream = NULL;
 	}
-	if (this->_upstream_io_event_queue) {
+	if (this->_event_queue) {
 		EVEventNotification * usN = NULL;
-		usN = (EVEventNotification*)dequeue(_upstream_io_event_queue);
+		usN = (EVEventNotification*)dequeue(_event_queue);
 		while (usN) {
 			delete usN;
-			usN = (EVEventNotification*)dequeue(_upstream_io_event_queue);
+			usN = (EVEventNotification*)dequeue(_event_queue);
 		}
-		destroy_ev_queue(this->_upstream_io_event_queue);
-		this->_upstream_io_event_queue = NULL;
+		destroy_ev_queue(this->_event_queue);
+		this->_event_queue = NULL;
 	}
 }
 
@@ -232,7 +232,7 @@ chunked_memory_stream * EVAcceptedStreamSocket::getReqMemStream()
 
 ev_queue_type EVAcceptedStreamSocket::getIoEventQueue()
 {
-	return _upstream_io_event_queue;
+	return _event_queue;
 }
 
 } } // namespace evnet and Poco end.
