@@ -67,6 +67,9 @@ public:
 	void procHTTPReq(EVHTTPProcessingState*);
 		/// Handles HTTP requests coming, in an event driven way.
 	
+	void procWebSockReq(EVHTTPProcessingState*);
+		/// Handles websocket requests coming, in an event driven way.
+	
 	void procCLReq(EVCommandLineProcessingState*);
 		/// Handles CommandLine requests coming, in an event driven way.
 

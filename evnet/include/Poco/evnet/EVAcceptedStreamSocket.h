@@ -58,7 +58,7 @@ public:
 	} socket_upgrade_to_enum;
 
 	enum SOCK_MODE {
-		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2
 	};
 
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);

@@ -417,6 +417,7 @@ private:
 	ssize_t handleCLFdReadable(StreamSocket & ss, const bool& ev_occured);
 		/// Function to handle the event of CL pipe fd becoming readable
 	ssize_t handleAccSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
+	ssize_t handleAccWebSocketReadable(StreamSocket & streamSocket, const bool& ev_occured);
 		/// Function to handle the event of stream socket receiving data request.
 	virtual void dataReadyForSend(int fd);
 		/// Function to handle the event of data being ready to be sent on a socket.

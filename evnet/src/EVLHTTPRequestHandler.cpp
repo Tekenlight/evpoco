@@ -151,6 +151,7 @@ namespace evpoco {
 	static int evpoco_set_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_socket_upgrade_to(lua_State* L);
+	static int get_accepted_stream_socket(lua_State* L);
 	static int evpoco_set_socket_upgrade_to(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
@@ -370,6 +371,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
 	{ "set_socket_upgrade_to", &evpoco::evpoco_set_socket_upgrade_to },
 	{ "get_socket_upgrade_to", &evpoco::evpoco_get_socket_upgrade_to },
+	{ "get_accepted_stream_socket", &evpoco::get_accepted_stream_socket},
 	{ NULL, NULL }
 };
 
@@ -595,6 +597,18 @@ static int evpoco_load_mail_message_funcs(lua_State* L)
 static int evpoco_load_properties_funcs(lua_State* L)
 {
 	return get_properties_funcs(L);
+}
+
+static int get_accepted_stream_socket(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = reqHandler->getAcceptedSocket()->getStreamSocketPtr();
+
+	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+	luaL_setmetatable(L, _stream_socket_type_name);
+
+	return 1;
 }
 
 static int evpoco_get_socket_upgrade_to(lua_State* L)

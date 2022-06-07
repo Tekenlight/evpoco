@@ -624,11 +624,190 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 	return ;
 }
 
+/* This is the event driven equivalent of run method.
+ * This method is reentrant.
+ * The socket connection is expected to be non-blocking,
+ * such that when there is no data to be read (EWOULDBLOCK/EAGAIN)
+ * this function will return to the caller. whenever data reading is not
+ * complete and the socket fd would block.
+ * The caller is expected to call this function agian, when the 
+ * socket fd becomes readable. */
+void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
+{
+	std::string server = _pParams->getSoftwareVersion();
+	EVServerSession * session = NULL;
+	if (_stopped) return ;
+
+	EVHTTPServerResponseImpl *response = 0;
+	EVHTTPServerRequestImpl *request = 0;
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+		session = reqProcState->getSession();
+		if (!session) {
+			session = new EVServerSession(socket(), _pParams);
+			session->setServer(reqProcState->getServer());
+			reqProcState->setSession(session);
+		}
+		/* To prevent Poco library from closing the socket. */
+		session->setSockFdForReuse(true);
+
+	} catch (std::exception e) {
+		DEBUGPOINT("EXCEPTION: Here %s for %d\n", e.what(), socket().impl()->sockfd());
+		throw;
+	}
+
+	request = reqProcState->getRequest();
+	response = reqProcState->getResponse();
+	try {
+		if (!response) {
+			response = new EVHTTPServerResponseImpl(*session);
+			response->setMemoryStream(reqProcState->getResMemStream());
+			reqProcState->setResponse(response);
+		}
+	} catch (...) {
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getResponse());
+		throw;
+	}
+
+	try {
+		if (!request) {
+			request = new EVHTTPServerRequestImpl(*response, *session, _pParams);
+			request->setClientAddress(reqProcState->clientAddress());
+			request->setServerAddress(reqProcState->serverAddress());
+			reqProcState->setRequest(request);
+		}
+	} catch (...) {
+		DEBUGPOINT("EXCEPTION: Here %p\n", reqProcState->getRequest());
+		throw;
+	}
+
+	try {
+		Poco::FastMutex::ScopedLock lock(_mutex);
+		reqProcState->setState(MESSAGE_COMPLETE);
+
+		try
+		{
+			/* The use case being solved here is:
+			 * The server dectects availability of WEBSOCKET request and then starts
+			 * processing the request * EVHTTPProcessingState is one per request.
+			 * The request is processed once if there are further data requirements from
+			 * upstream sockets those events will trigger handling of requests againa and
+			 * again until complete processing of request.
+			 * */
+			EVHTTPRequestHandler * pHandler = reqProcState->getRequestHandler();
+			if (!pHandler) {
+				try {
+					pHandler = _pFactory->createRequestHandler(*request);
+					reqProcState->setRequestHandler(pHandler);
+					pHandler->setServer(reqProcState->getServer());
+					pHandler->setAccSockfd(socket().impl()->sockfd());
+					pHandler->setAcceptedSocket(getAcceptedSocket());
+					pHandler->setHTTPRequest(request);
+					pHandler->setHTTPResponse(response);
+
+					Poco::Timestamp now;
+					response->setDate(now);
+					response->setVersion(request->getVersion());
+					response->setKeepAlive(_pParams->getKeepAlive() && request->getKeepAlive());
+					if (!server.empty())
+						response->set("Server", server);
+
+					if (pHandler) {
+						int ret = EVHTTPRequestHandler::PROCESSING;
+						ret = pHandler->handleRequestSurrogateInitial();
+						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+						switch (ret) {
+							case EVHTTPRequestHandler::PROCESSING:
+								reqProcState->setState(REQUEST_PROCESSING);
+								break;
+							case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+							case EVHTTPRequestHandler::PROCESSING_ERROR:
+							default:
+								reqProcState->setState(PROCESS_COMPLETE);
+								break;
+						}
+					}
+					else sendErrorResponse(*session, *response, HTTPResponse::HTTP_NOT_IMPLEMENTED);
+				}
+				catch (Exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					throw e;
+				}
+				catch (std::exception e) {
+					DEBUGPOINT("EXCEPTION: Here\n");
+					char msg[100] = {0};
+					sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+					throw Exception(msg);
+				}
+			}
+			else {
+				if (reqProcState->getUpstreamEventQ() &&
+						!queue_empty(reqProcState->getUpstreamEventQ())) {
+					void * elem = dequeue(reqProcState->getUpstreamEventQ());
+					bool processing_complete = false;
+					while (!processing_complete && elem) {
+						/* Process upstream events here. */
+						std::unique_ptr<EVUpstreamEventNotification> usN((EVUpstreamEventNotification*)elem);
+						try {
+							pHandler->setState(usN->getCBEVIDNum());
+							pHandler->setUNotification(usN.get());
+							{
+								int ret = EVHTTPRequestHandler::PROCESSING;
+								ret = pHandler->handleRequestSurrogate();
+								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+								switch (ret) {
+									case EVHTTPRequestHandler::PROCESSING:
+										reqProcState->setState(REQUEST_PROCESSING);
+										break;
+									case EVHTTPRequestHandler::PROCESSING_COMPLETE:
+									case EVHTTPRequestHandler::PROCESSING_ERROR:
+									default:
+										processing_complete = true;
+										reqProcState->setState(PROCESS_COMPLETE);
+										break;
+								}
+							}
+						}
+						catch (Exception e) {
+							DEBUGPOINT("EXCEPTION: Here\n");
+							throw e;
+						}
+						catch (std::exception e) {
+							DEBUGPOINT("EXCEPTION: Here\n");
+							char msg[100] = {0};
+							sprintf(msg, "%s:%d UNKNOWN EXCEPTION",__FILE__, __LINE__);
+							throw Exception(msg);
+						}
+						//elem = NULL;
+						elem = dequeue(reqProcState->getUpstreamEventQ());
+						//if (elem) DEBUGPOINT("Found additional queued event\n");
+					}
+				}
+				session->setKeepAlive(_pParams->getKeepAlive() && response->getKeepAlive());
+			}
+		}
+		catch (...) {
+			DEBUGPOINT("EXCEPTION: Internal Server Error\n");
+			std::abort();
+		}
+	}
+	catch (...) {
+		DEBUGPOINT("EXCEPTION: Internal Server Error\n");
+		std::abort();
+	}
+	return ;
+}
+
 void EVHTTPRequestProcessor::run()
 {
 	if (_reqProcState->getMode() == 1) {
 		EVCommandLineProcessingState *reqProcState = dynamic_cast<EVCommandLineProcessingState*>(_reqProcState);
 		return procCLReq(reqProcState);
+	}
+	else if (_reqProcState->getMode() == 2) {
+		EVHTTPProcessingState *reqProcState = dynamic_cast<EVHTTPProcessingState*>(_reqProcState);
+		return procWebSockReq(reqProcState);
 	}
 	else {
 		EVHTTPProcessingState *reqProcState = dynamic_cast<EVHTTPProcessingState*>(_reqProcState);

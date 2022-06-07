@@ -5,6 +5,16 @@
 #include <ev_rwlock_struct.h>
 #include <ev_rwlock.h>
 
+#include <arpa/inet.h>
+#if defined __linux__
+#undef ntohll
+#undef htonll
+#include <endian.h>
+#define ntohll be64toh
+#define htonll htobe64
+#endif
+
+
 
 static std::map<std::string, void*> sg_dlls;
 static atomic_int sg_lock_init_done = 0;
@@ -58,4 +68,37 @@ void * pin_loaded_so(const char * libname)
 	ev_rwlock_rdunlock(&sg_dlls_lock);
 	return lib;
 }
+
+extern "C" uint16_t host_to_network_byte_order_16(uint16_t h_s, uint16_t *o_n_s);
+uint16_t host_to_network_byte_order_16(uint16_t h_s, uint16_t *o_n_s)
+{
+	uint16_t out = htons(h_s);
+	if (o_n_s) *o_n_s = out;
+	return out;
+}
+
+extern "C" uint16_t network_to_host_byte_order_16(uint16_t n_s, uint16_t *o_h_s);
+uint16_t network_to_host_byte_order_16(uint16_t n_s, uint16_t *o_h_s)
+{
+	uint16_t out = ntohs(n_s);
+	if (o_h_s) *o_h_s = out;
+	return out;
+}
+
+extern "C" uint64_t host_to_network_byte_order_64(uint64_t h_ll, uint64_t *o_n_ll);
+uint64_t host_to_network_byte_order_64(uint64_t h_ll, uint64_t *o_n_ll)
+{
+	uint64_t out = htonll(h_ll);
+	if (o_n_ll) *o_n_ll = out;
+	return out;
+}
+
+extern "C" uint64_t network_to_host_byte_order_64(uint64_t n_ll, uint64_t *o_h_ll);
+uint64_t network_to_host_byte_order_64(uint64_t n_ll, uint64_t *o_h_ll)
+{
+	uint64_t out = ntohll(n_ll);
+	if (o_h_ll) *o_h_ll = out;
+	return out;
+}
+
 

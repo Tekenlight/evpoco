@@ -1097,6 +1097,16 @@ handleAccSocketWritable_finally:
 			 * which continuously reads data and
 			 * handles on data available differently.
 			 */
+			if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+			}
+			else if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::HTTP2) {
+				DEBUGPOINT("HTTP2 not yet implemented\n");
+				std::abort();
+			}
+			else {
+				DEBUGPOINT("Protocol not supported\n");
+				std::abort();
+			}
 		}
 		else {
 		}
@@ -1515,6 +1525,63 @@ handleConnSocketReadable_finally:
 	return ret;
 }
 
+ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& ev_occured)
+{
+	ssize_t ret = 0;
+	size_t received_bytes = 0;
+	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
+
+	char buffer[128];
+
+	try {
+		ret = ss.receiveBytes(buffer, 1, MSG_PEEK);
+		//ret = recv(ss.impl()->sockfd(), buffer, 1, MSG_PEEK);
+		//ret = recv(ss.impl()->sockfd(), buffer, 1, 0);
+		//DEBUGPOINT("Here ret = [%zd] errno = [%d]\n", ret, errno);
+		if (ret > 0) {
+
+			{
+				tn->setProcState(_pConnectionFactory->createReqProcState(this));
+				tn->getProcState()->setMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+				//DEBUGPOINT("Created processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
+				tn->getProcState()->setClientAddress(tn->clientAddress());
+				tn->getProcState()->setServerAddress(tn->serverAddress());
+				/* Session starts when a new processing state is created. */
+				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
+				tn->setBaseSRSrlNum(sr_num);
+			}
+
+			{
+				tn->setSockBusy();
+				_pDispatcher->enqueue(tn);
+			}
+
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketWatcher();
+
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+			}
+		}
+	}
+	catch (std::exception & e) {
+		DEBUGPOINT("Here ret = [%zd]\n", ret);
+		ret = -1;
+	}
+	if ((ret <= 0) || errno) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return 0;
+		}
+		else {
+			errorWhileReceiving(ss.impl()->sockfd(), true);
+		}
+	}
+
+	return ret;
+}
+
 ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_occured)
 {
 	ssize_t ret = 0;
@@ -1522,6 +1589,9 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
+	if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+		return EVTCPServer::handleAccWebSocketReadable(ss, ev_occured);
+	}
 
 	{
 		ssize_t ret1 = 0;
@@ -1532,6 +1602,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 			memset(buffer,0,TCP_BUFFER_SIZE);
 			//ret1 = receiveData(ss.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			ret1 = receiveData(ss, buffer, TCP_BUFFER_SIZE);
+			//DEBUGPOINT("Here ret = [%zd] errno = [%d]\n", ret1, errno);
 			if (ret1 >0) {
 				//printf("%zd\n", ret1);
 				tn->pushReqData(buffer, (size_t)ret1);
@@ -1940,8 +2011,9 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						_file_evt_subscriptions.erase(it->first);
 					}
 					subscriptions.clear();
-					if (this->_mode == SERVER_MODE)
+					if (this->_mode == SERVER_MODE) {
 						DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
+					}
 					tn->deleteState();
 					/* Should reset of number of CS events be done at all
 					 * tn->newresetNumCSEvents();
@@ -1950,10 +2022,23 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn->pendingCSEvents()); 
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
-				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE)
+				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
 					sendDataOnReturnPipe(tn, event);
-				else
+				}
+				else if (tn->getSockMode() == EVAcceptedStreamSocket::SERVER_MODE) {
 					sendDataOnAccSocket(tn, event);
+				}
+				else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+					/* Nothing to do in case of WEBSOCKET MODE
+					 * Since as per the present design, all websocket
+					 * communication will be handled in the worker 
+					 * thread only
+					 */
+				}
+				else {
+					DEBUGPOINT("Invalid Socket Mode\n");
+					std::abort();
+				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
 					//tn->setSockBusy();
@@ -1989,6 +2074,18 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								 * which continuously reads data and
 								 * handles on data available differently.
 								 */
+								if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+									tn->getStreamSocketPtr()->impl()->managed(true);
+									monitorDataOnAccSocket(tn);
+								}
+								else if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::HTTP2) {
+									DEBUGPOINT("HTTP2 not yet implemented\n");
+									std::abort();
+								}
+								else {
+									DEBUGPOINT("Protocol not supported\n");
+									std::abort();
+								}
 							}
 							else {
 								monitorDataOnAccSocket(tn);
@@ -2002,10 +2099,23 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
 				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
-				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE)
+				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
 					sendDataOnReturnPipe(tn, event);
-				else
+				}
+				else if (tn->getSockMode() == EVAcceptedStreamSocket::SERVER_MODE) {
 					sendDataOnAccSocket(tn, event);
+				}
+				else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+					/* Nothing to do in case of WEBSOCKET MODE
+					 * Since as per the present design, all websocket
+					 * communication will be handled in the worker 
+					 * thread only
+					 */
+				}
+				else {
+					DEBUGPOINT("Invalid Socket Mode\n");
+					std::abort();
+				}
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
 				//DEBUGPOINT("ERROR_IN_PROCESSING on socket %d\n", pcNf->sockfd());
@@ -2265,7 +2375,7 @@ handleCLFdReadable_finally:
 			) {
 			if (!(tn->getProcState())) {
 				tn->setProcState(_pConnectionFactory->createCLProcState(this));
-				tn->getProcState()->setMode(EVTCPServer::COMMAND_LINE_MODE);
+				tn->getProcState()->setMode(EVAcceptedStreamSocket::COMMAND_LINE_MODE);
 				//DEBUGPOINT("Created processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 				tn->getProcState()->setClientAddress(tn->clientAddress());
 				tn->getProcState()->setServerAddress(tn->serverAddress());
