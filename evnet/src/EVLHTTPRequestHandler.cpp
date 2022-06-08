@@ -151,8 +151,10 @@ namespace evpoco {
 	static int evpoco_set_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_socket_upgrade_to(lua_State* L);
-	static int get_accepted_stream_socket(lua_State* L);
 	static int evpoco_set_socket_upgrade_to(lua_State* L);
+	static int evpoco_get_acc_sock_state(lua_State* L);
+	static int evpoco_set_acc_sock_state(lua_State* L);
+	static int get_accepted_stream_socket(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
@@ -371,6 +373,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
 	{ "set_socket_upgrade_to", &evpoco::evpoco_set_socket_upgrade_to },
 	{ "get_socket_upgrade_to", &evpoco::evpoco_get_socket_upgrade_to },
+	{ "get_acc_sock_state", &evpoco::evpoco_get_acc_sock_state },
+	{ "set_acc_sock_state", &evpoco::evpoco_set_acc_sock_state },
 	{ "get_accepted_stream_socket", &evpoco::get_accepted_stream_socket},
 	{ NULL, NULL }
 };
@@ -609,6 +613,43 @@ static int get_accepted_stream_socket(lua_State* L)
 	luaL_setmetatable(L, _stream_socket_type_name);
 
 	return 1;
+}
+
+static int evpoco_get_acc_sock_state(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	EVAcceptedStreamSocket::accepted_sock_state s = (reqHandler->getAcceptedSocket()->getState());
+
+	lua_pushinteger(L, s);
+	return 1;
+}
+
+static int evpoco_set_acc_sock_state(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_gettop(L) != 1) {
+		luaL_error(L, "evpoco_set_socket_upgrade_to: Number of parameters expected: 1");
+		return 1;
+	}
+	if (!lua_isinteger(L, 1)) {
+		luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid datatype of argument (integer expected)");
+		return 1;
+	}
+	int u = lua_tointeger(L, 1);
+	switch(u) {
+		case EVAcceptedStreamSocket::TO_BE_CLOSED:
+		case EVAcceptedStreamSocket::NOT_WAITING:
+		case EVAcceptedStreamSocket::WAITING_FOR_READ:
+		case EVAcceptedStreamSocket::WAITING_FOR_WRITE:
+		case EVAcceptedStreamSocket::WAITING_FOR_READWRITE:
+			break;
+		default:
+			luaL_error(L, "evpoco_set_acc_sock_state: Invalid argument [%d]", u);
+			return 1;
+	}
+	reqHandler->getAcceptedSocket()->setState((EVAcceptedStreamSocket::accepted_sock_state)u);
+	return 0;
 }
 
 static int evpoco_get_socket_upgrade_to(lua_State* L)
@@ -1855,9 +1896,7 @@ static int receive_http_response_complete(lua_State* L, int status, lua_KContext
 	if (usN.getRet() < 0) {
 		delete response;
 		char msg[1024];
-		sprintf(msg, "receive_http_response: error: %s", strerror(usN.getErrNo()));
-		lua_pushstring(L, msg);
-
+		luaL_error(L, msg, "receive_http_response: error: %s", strerror(usN.getErrNo()));
 		return 1;
 	}
 
@@ -3946,7 +3985,8 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * constructor of this class.
 	 * */
 	if (INITIAL == getState()) {
-		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
+		int mode = getEVRHMode();
+		if (mode == EVHTTPRequestHandler::SERVER_MODE || mode == EVHTTPRequestHandler::WEBSOCKET_MODE) {
 			_mapping_script = getMappingScript(getHTTPRequestPtr());
 			if (0 != loadReqMapper()) {
 				return PROCESSING_ERROR;
@@ -4018,22 +4058,36 @@ int EVLHTTPRequestHandler::handleRequest()
 		}
 	}
 
-
 	//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
-		if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
-			if (getHTTPResponse().sent()) {
-				std::ostream& ostr = getHTTPResponse().getOStream();
-				ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
-				ostr.flush();
-			}
-			else {
+		//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);
+		switch( getEVRHMode()) {
+			case EVHTTPRequestHandler::SERVER_MODE:
+				//DEBUGPOINT("Here\n");
+				if (getAcceptedSocket()->getSockUpgradeTo() == EVAcceptedStreamSocket::NONE) {
+					DEBUGPOINT("Here\n");
+					if (getHTTPResponse().sent()) {
+						std::ostream& ostr = getHTTPResponse().getOStream();
+						ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
+						ostr.flush();
+					}
+					else {
+						send_string_response(__LINE__, lua_tostring(_L, -1));
+					}
+				}
+				//DEBUGPOINT("Here\n");
+				break;
+			case EVHTTPRequestHandler::COMMAND_LINE_MODE:
+				//DEBUGPOINT("Here\n");
 				send_string_response(__LINE__, lua_tostring(_L, -1));
-			}
-		}
-		else {
-			send_string_response(__LINE__, lua_tostring(_L, -1));
+				break;
+			case EVHTTPRequestHandler::WEBSOCKET_MODE:
+				//DEBUGPOINT("Here\n");
+				send_string_response(__LINE__, lua_tostring(_L, -1));
+			default:
+				break;
+
 		}
 		//DEBUGPOINT("Here status = [%d]\n", status);
 		return PROCESSING_ERROR;
@@ -4043,21 +4097,39 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING;
 	}
 	else {
+		//DEBUGPOINT("Here\n");
 		if (!lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
+			//DEBUGPOINT("Here\n");
 			std::string output = lua_tostring(_L, -1);
 			lua_pop(_L, 1);
-			if (getEVRHMode() == EVHTTPRequestHandler::SERVER_MODE) {
-				if (getHTTPResponse().sent()) {
-					std::ostream& ostr = getHTTPResponse().getOStream();
-					ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
-					ostr.flush();
-				}
-				else {
+			//DEBUGPOINT("Here EVRMode = [%d'\n", getEVRHMode());
+			switch( getEVRHMode()) {
+				case EVHTTPRequestHandler::SERVER_MODE:
+					//DEBUGPOINT("Here\n");
+					if (getAcceptedSocket()->getSockUpgradeTo() == EVAcceptedStreamSocket::NONE) {
+						//DEBUGPOINT("Here\n");
+						if (getHTTPResponse().sent()) {
+							std::ostream& ostr = getHTTPResponse().getOStream();
+							ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << output.c_str() << "\r\n\r\n";
+							ostr.flush();
+						}
+						else {
+							send_string_response(__LINE__, output.c_str());
+						}
+					}
+					//DEBUGPOINT("Here\n");
+					break;
+				case EVHTTPRequestHandler::COMMAND_LINE_MODE:
+					//DEBUGPOINT("Here\n");
 					send_string_response(__LINE__, output.c_str());
-				}
-			}
-			else {
-				send_string_response(__LINE__, output.c_str());
+					break;
+				case EVHTTPRequestHandler::WEBSOCKET_MODE:
+					//DEBUGPOINT("Here\n");
+					send_string_response(__LINE__, output.c_str());
+					break;
+				default:
+					//DEBUGPOINT("Here\n");
+					break;
 			}
 		}
 		//DEBUGPOINT("Here complete for %d\n", getAccSockfd());

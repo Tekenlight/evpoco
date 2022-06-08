@@ -705,6 +705,7 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 					pHandler->setAcceptedSocket(getAcceptedSocket());
 					pHandler->setHTTPRequest(request);
 					pHandler->setHTTPResponse(response);
+					pHandler->setEVRHMode(reqProcState->getMode());
 
 					Poco::Timestamp now;
 					response->setDate(now);

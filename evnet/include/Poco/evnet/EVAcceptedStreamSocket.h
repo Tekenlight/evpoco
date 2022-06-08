@@ -45,7 +45,8 @@ class Net_API EVAcceptedStreamSocket : public EVAcceptedSocket
 {
 public:
 	typedef enum {
-		NOT_WAITING = 0
+		TO_BE_CLOSED = -1
+		,NOT_WAITING = 0
 		,WAITING_FOR_READ = EV_READ
 		,WAITING_FOR_WRITE = EV_WRITE
 		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
@@ -58,7 +59,7 @@ public:
 	} socket_upgrade_to_enum;
 
 	enum SOCK_MODE {
-		SERVER_MODE = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2, HTTP2_MODE = 3
 	};
 
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
@@ -143,6 +144,7 @@ public:
 	void setWaitingTobeEnqueued(bool flg);
 	bool waitingTobeEnqueued();
 	int getSockMode();
+	void setSockMode(int);
 	int getCLRdFd();
 	int getCLWrFd();
 	socket_upgrade_to_enum getSockUpgradeTo();
@@ -207,6 +209,11 @@ inline void EVAcceptedStreamSocket::setSockUpgradeTo(socket_upgrade_to_enum to)
 inline int EVAcceptedStreamSocket::getSockMode()
 {
 	return _sock_mode;
+}
+
+inline void EVAcceptedStreamSocket::setSockMode(int mode)
+{
+	_sock_mode = mode;
 }
 
 inline int EVAcceptedStreamSocket::getCLRdFd()

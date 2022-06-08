@@ -1098,6 +1098,30 @@ handleAccSocketWritable_finally:
 			 * handles on data available differently.
 			 */
 			if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+				switch (tn->getSockMode()) {
+					case EVAcceptedStreamSocket::SERVER_MODE:
+						switch (tn->getSockUpgradeTo()) {
+							case EVAcceptedStreamSocket::WEBSCOKET:
+								tn->getStreamSocketPtr()->impl()->managed(true);
+								tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+								monitorDataOnAccSocket(tn);
+								break;
+							case EVAcceptedStreamSocket::HTTP2:
+								DEBUGPOINT("HTTP2 not implemented\n");
+								std::abort();
+								break;
+							case EVAcceptedStreamSocket::NONE:
+								break;
+							default:
+								DEBUGPOINT("Invalid upgrade to [%d]\n", tn->getSockUpgradeTo());
+								std::abort();
+
+						}
+						break;
+					default:
+						break;
+
+				}
 			}
 			else if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::HTTP2) {
 				DEBUGPOINT("HTTP2 not yet implemented\n");
@@ -1532,12 +1556,14 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
 
 	char buffer[128];
+	memset(buffer,0,128);
 
 	try {
-		ret = ss.receiveBytes(buffer, 1, MSG_PEEK);
+		ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
 		//ret = recv(ss.impl()->sockfd(), buffer, 1, MSG_PEEK);
 		//ret = recv(ss.impl()->sockfd(), buffer, 1, 0);
 		//DEBUGPOINT("Here ret = [%zd] errno = [%d]\n", ret, errno);
+		//DEBUGPOINT("MSG = [%s]\n", buffer+14);
 		if (ret > 0) {
 
 			{
@@ -1844,6 +1870,12 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		DEBUGPOINT("SOCK IN ERROR RETURNING for %d\n", tn->getSockfd());
 		return;
 	}
+	if (EVAcceptedStreamSocket::TO_BE_CLOSED == tn->getState()) {
+		//DEBUGPOINT("CLOSING WEBSOCKET\n");
+		clearAcceptedSocket(tn->getSockfd());
+		return ;
+	}
+
 	socket_watcher_ptr = tn->getSocketWatcher();
 	StreamSocket ss = tn->getStreamSocket();
 
@@ -1969,6 +2001,7 @@ void EVTCPServer::sendDataOnAccSocket(EVAcceptedStreamSocket *tn, int OnEvent)
 
 void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 {
+	//DEBUGPOINT("Here\n");
 	ev_io * socket_watcher_ptr = 0;
 	AutoPtr<Notification> pNf = 0;
 	for  (pNf = _queue.dequeueNotification(); pNf ; pNf = _queue.dequeueNotification()) {
@@ -1988,6 +2021,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			 * */
 			continue;
 		}
+		//DEBUGPOINT("Here\n");
 		socket_watcher_ptr = getTn(pcNf->sockfd())->getSocketWatcher();
 		StreamSocket ss = tn->getStreamSocket();
 
@@ -1999,6 +2033,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
 		}
 
+		//DEBUGPOINT("Here event = %d\n", event);
 		switch (event) {
 			case EVTCPServerNotification::REQDATA_CONSUMED:
 				//DEBUGPOINT("REQDATA_CONSUMED on socket %d\n", ss.impl()->sockfd());
@@ -2022,22 +2057,22 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn->pendingCSEvents()); 
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
-				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
-					sendDataOnReturnPipe(tn, event);
-				}
-				else if (tn->getSockMode() == EVAcceptedStreamSocket::SERVER_MODE) {
-					sendDataOnAccSocket(tn, event);
-				}
-				else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
-					/* Nothing to do in case of WEBSOCKET MODE
-					 * Since as per the present design, all websocket
-					 * communication will be handled in the worker 
-					 * thread only
-					 */
-				}
-				else {
-					DEBUGPOINT("Invalid Socket Mode\n");
-					std::abort();
+				switch (tn->getSockMode()) {
+					case EVAcceptedStreamSocket::SERVER_MODE:
+						sendDataOnAccSocket(tn, event);
+						break;
+					case EVAcceptedStreamSocket::WEBSOCKET_MODE:
+						// The worker thread takes care of 
+						// reading and writing data from and to
+						// socket in case of WEBSOCKET_MODE
+						break;
+					case EVAcceptedStreamSocket::COMMAND_LINE_MODE:
+						sendDataOnReturnPipe(tn, event);
+						break;
+					default:
+						DEBUGPOINT("Invalid socket mode [%d]\n", tn->getSockMode());
+						std::abort();
+
 				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
@@ -2047,25 +2082,49 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					/* SOCK HAS BECOME BUSY HERE */
 					srCompleteEnqueue(tn);
 				}
+				//DEBUGPOINT("Here\n");
 				if (!tn->getProcState() && tn->sockInError()) {
 					/* If processing state is present, another thread can still be processing
 					 * the request, hence cannot complete housekeeping.
 					 * */
-					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
 					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 
 					/* SHOULD MONITOR FOR MORE DATA ONLY IF SOCKET IS FREE */
-					if (this->_mode == SERVER_MODE) {
-						if (!(tn->sockBusy())) {
+					if (!(tn->sockBusy())) {
+						if (this->_mode == SERVER_MODE) {
 							/* Put code here to handle the case when
 							 * an existing socket is upgraded to another protocol.
 							 * Switching should take place after the data is
 							 * completely sent to the client.
 							 */
 							if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
+								switch (tn->getSockMode()) {
+									case EVAcceptedStreamSocket::SERVER_MODE:
+										switch (tn->getSockUpgradeTo()) {
+											case EVAcceptedStreamSocket::WEBSCOKET:
+												tn->getStreamSocketPtr()->impl()->managed(true);
+												tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+												break;
+											case EVAcceptedStreamSocket::HTTP2:
+												DEBUGPOINT("HTTP2 not implemented\n");
+												std::abort();
+												break;
+											case EVAcceptedStreamSocket::NONE:
+												break;
+											default:
+												DEBUGPOINT("Invalid upgrade to [%d]\n", tn->getSockUpgradeTo());
+												std::abort();
+
+										}
+										break;
+									default:
+										break;
+
+								}
 								/*
 								 * HTTP2 enhancement
 								 * Get socket fd out
@@ -2074,11 +2133,10 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								 * which continuously reads data and
 								 * handles on data available differently.
 								 */
-								if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
-									tn->getStreamSocketPtr()->impl()->managed(true);
+								if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
 									monitorDataOnAccSocket(tn);
 								}
-								else if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::HTTP2) {
+								else if (tn->getSockMode() == EVAcceptedStreamSocket::HTTP2_MODE) {
 									DEBUGPOINT("HTTP2 not yet implemented\n");
 									std::abort();
 								}
@@ -2091,27 +2149,28 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								monitorDataOnAccSocket(tn);
 							}
 						}
-					}
-					else {
-						if (!(tn->sockBusy())) monitorDataOnCLFd(tn);
+						else {
+							monitorDataOnCLFd(tn);
+						}
 					}
 				}
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
-				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d\n", ss.impl()->sockfd());
+				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d sockMode = [%d]\n", ss.impl()->sockfd(), tn->getSockMode());
 				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
 					sendDataOnReturnPipe(tn, event);
 				}
 				else if (tn->getSockMode() == EVAcceptedStreamSocket::SERVER_MODE) {
 					sendDataOnAccSocket(tn, event);
 				}
-				else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+				//else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
 					/* Nothing to do in case of WEBSOCKET MODE
 					 * Since as per the present design, all websocket
 					 * communication will be handled in the worker 
 					 * thread only
 					 */
-				}
+					//DEBUGPOINT("Here\n");
+				//}
 				else {
 					DEBUGPOINT("Invalid Socket Mode\n");
 					std::abort();

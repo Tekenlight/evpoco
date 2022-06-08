@@ -89,7 +89,7 @@ public:
 	} poll_for;
 
 	enum EVHTTP_RH_MODE {
-		SERVER_MODE = 0, COMMAND_LINE_MODE = 1
+		SERVER_MODE = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2
 	};
 
 	typedef std::function<int ()> TCallback;
