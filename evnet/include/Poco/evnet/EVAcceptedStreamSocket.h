@@ -54,7 +54,7 @@ public:
 
 	typedef enum {
 		NONE = 0,
-		WEBSCOKET,
+		WEBSOCKET,
 		HTTP2
 	} socket_upgrade_to_enum;
 

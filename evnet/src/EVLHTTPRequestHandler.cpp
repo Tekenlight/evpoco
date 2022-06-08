@@ -674,9 +674,9 @@ static int evpoco_set_socket_upgrade_to(lua_State* L)
 		return 1;
 	}
 	int u = lua_tointeger(L, 1);
-	if (u != EVAcceptedStreamSocket::WEBSCOKET) {
+	if (u != EVAcceptedStreamSocket::WEBSOCKET) {
 		luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid argument (only websocket [%d] supported)",
-											EVAcceptedStreamSocket::WEBSCOKET);
+											EVAcceptedStreamSocket::WEBSOCKET);
 		return 1;
 	}
 	reqHandler->getAcceptedSocket()->setSockUpgradeTo((EVAcceptedStreamSocket::socket_upgrade_to_enum)u);

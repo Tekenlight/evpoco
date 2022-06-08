@@ -1083,9 +1083,7 @@ handleAccSocketWritable_finally:
 	}
 
 	if (ret > 0) {
-		/* Put code here to handle the case when
-		 * an existing socket is upgraded to another protocol.
-		 * Switching should take place after the data is
+		/* Switching should take place after the data is
 		 * completely sent to the client.
 		 */
 		if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
@@ -1097,11 +1095,11 @@ handleAccSocketWritable_finally:
 			 * which continuously reads data and
 			 * handles on data available differently.
 			 */
-			if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+			if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSOCKET) {
 				switch (tn->getSockMode()) {
 					case EVAcceptedStreamSocket::SERVER_MODE:
 						switch (tn->getSockUpgradeTo()) {
-							case EVAcceptedStreamSocket::WEBSCOKET:
+							case EVAcceptedStreamSocket::WEBSOCKET:
 								tn->getStreamSocketPtr()->impl()->managed(true);
 								tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 								monitorDataOnAccSocket(tn);
@@ -1615,7 +1613,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 	EVAcceptedStreamSocket *tn = getTn(ss.impl()->sockfd());
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
-	if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSCOKET) {
+	if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
 		return EVTCPServer::handleAccWebSocketReadable(ss, ev_occured);
 	}
 
@@ -1871,7 +1869,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		return;
 	}
 	if (EVAcceptedStreamSocket::TO_BE_CLOSED == tn->getState()) {
-		//DEBUGPOINT("CLOSING WEBSOCKET\n");
+		//DEBUGPOINT("CLOSING SOCKET\n");
 		clearAcceptedSocket(tn->getSockfd());
 		return ;
 	}
@@ -2105,7 +2103,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								switch (tn->getSockMode()) {
 									case EVAcceptedStreamSocket::SERVER_MODE:
 										switch (tn->getSockUpgradeTo()) {
-											case EVAcceptedStreamSocket::WEBSCOKET:
+											case EVAcceptedStreamSocket::WEBSOCKET:
 												tn->getStreamSocketPtr()->impl()->managed(true);
 												tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 												break;
