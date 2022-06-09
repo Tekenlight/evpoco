@@ -75,6 +75,20 @@ public:
 			return s;
 		}
 	}
+	virtual std::string getWSMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	{
+		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
+
+		char * path_env = getenv(EVLUA_PATH);
+		if (!path_env) {
+			return config.getString("evlua.requestMappingScript", "mapper.lua");
+		}
+		else {
+			std::string s;
+			s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "mapper.lua");
+			return s;
+		}
+	}
 };
 
 

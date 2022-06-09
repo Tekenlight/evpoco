@@ -174,6 +174,8 @@ namespace evpoco {
 	static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_socket_initiate(lua_State* L);
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
+	static int send_data_on_acc_socket(lua_State* L);
+	static int track_ss_as_websocket(lua_State* L);
 	static int send_cms_on_socket_initiate(lua_State* L);
 	static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int close_tcp_connection(lua_State* L);
@@ -356,6 +358,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
 	{ "recv_data_from_socket", &evpoco::recv_data_from_socket_initiate },
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
+	{ "send_data_on_acc_socket", &evpoco::send_data_on_acc_socket},
+	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
 	{ "send_cms_on_socket", &evpoco::send_cms_on_socket_initiate },
 	{ "nb_make_http_connection", &evpoco::nb_make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
@@ -1406,6 +1410,41 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 			return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 		}
 	}
+}
+
+static int track_ss_as_websocket(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	const char * msg_handler = NULL;
+	if (!lua_isnil(L, 2)) {
+		if (!lua_isstring(L, 2)) {
+			luaL_error(L, "track_ss_as_websocket: 2nd arument should be nil or string");
+			return 0;
+		}
+		msg_handler = (const char *)lua_tostring(L, 2);
+	}
+
+	reqHandler->trackAsWebSocket(*ss_ptr, msg_handler);
+
+	return 0;
+}
+
+static int send_data_on_acc_socket(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	void * buf = lua_touserdata(L, 2);
+	if (!buf) {
+		return luaL_error(L, "send_data_on_socket: invalid second argumet");
+	}
+	size_t size = luaL_checkinteger(L, 3);
+	//DEBUGPOINT("buf = [%p] size = [%zu]\n", buf, size);
+	reqHandler->sendRawDataOnAccSocket(*ss_ptr, buf, size);
+
+	lua_pushinteger(L, size);
+
+	return 1;
 }
 
 static int send_data_on_socket_initiate(lua_State* L)
@@ -3843,13 +3882,11 @@ void EVLHTTPRequestHandler::send_string_response(int line_no, const char* msg)
 
 		ostr.flush();
 	}
-	else {
-		std::string out_msg;
-		char s_line_no[10] = {0};
-		sprintf(s_line_no, "%d", line_no);
-		out_msg = out_msg + "EVLHTTPRequestHandler.cpp:" + s_line_no + ": " + ((msg)? msg : "nil");
-		fprintf(stderr, "%s\n", out_msg.c_str());
-	}
+	std::string out_msg;
+	char s_line_no[10] = {0};
+	sprintf(s_line_no, "%d", line_no);
+	out_msg = out_msg + "EVLHTTPRequestHandler.cpp:" + s_line_no + ": " + ((msg)? msg : "nil");
+	fprintf(stderr, "%s\n", out_msg.c_str());
 }
 
 int EVLHTTPRequestHandler::deduceFileToCall()
@@ -3987,7 +4024,10 @@ int EVLHTTPRequestHandler::handleRequest()
 	if (INITIAL == getState()) {
 		int mode = getEVRHMode();
 		if (mode == EVHTTPRequestHandler::SERVER_MODE || mode == EVHTTPRequestHandler::WEBSOCKET_MODE) {
-			_mapping_script = getMappingScript(getHTTPRequestPtr());
+			if (mode == EVHTTPRequestHandler::SERVER_MODE)
+				_mapping_script = getMappingScript(getHTTPRequestPtr());
+			else
+				_mapping_script = getWSMappingScript(getHTTPRequestPtr());
 			if (0 != loadReqMapper()) {
 				return PROCESSING_ERROR;
 			}
@@ -4066,7 +4106,6 @@ int EVLHTTPRequestHandler::handleRequest()
 			case EVHTTPRequestHandler::SERVER_MODE:
 				//DEBUGPOINT("Here\n");
 				if (getAcceptedSocket()->getSockUpgradeTo() == EVAcceptedStreamSocket::NONE) {
-					DEBUGPOINT("Here\n");
 					if (getHTTPResponse().sent()) {
 						std::ostream& ostr = getHTTPResponse().getOStream();
 						ostr << "EVLHTTPRequestHandler.cpp:" << __LINE__ << ": " << lua_tostring(_L, -1) << "\n";
@@ -4076,7 +4115,7 @@ int EVLHTTPRequestHandler::handleRequest()
 						send_string_response(__LINE__, lua_tostring(_L, -1));
 					}
 				}
-				//DEBUGPOINT("Here\n");
+				DEBUGPOINT("Here\n");
 				break;
 			case EVHTTPRequestHandler::COMMAND_LINE_MODE:
 				//DEBUGPOINT("Here\n");

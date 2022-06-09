@@ -316,6 +316,12 @@ public:
 
 		return config.getString("evluaserver.requestMappingScript", "mapper.lua");
 	}
+	virtual std::string getWSMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	{
+		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
+
+		return config.getString("evluaserver.requestMappingScript", "mapper.lua");
+	}
 };
 
 

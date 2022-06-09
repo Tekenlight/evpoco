@@ -346,6 +346,15 @@ public:
 	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac);
 		/// Disconnect the redis connection and cleanup
 
+	virtual long reserveAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss);
+	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len);
+	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler);
+		/// Request submited by a worker thread to reserve
+		/// the acccepted socket for a push based task
+	int reserveAccSocketProcess(EVTCPServiceRequest * sr);
+	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
+	int trackAsWebSocketProcess(EVTCPServiceRequest * sr);
+
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t readData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
@@ -394,6 +403,7 @@ private:
 	int recvDataOnConnSocket(EVTCPServiceRequest *);
 	int closeTCPConnection(EVTCPServiceRequest * sr);
 	int pollSocketForReadOrWrite(EVTCPServiceRequest * sr);
+	EVAcceptedStreamSocket*  createEVAccSocket(StreamSocket& ss);
 
 	void handle_redis_transceive_complete(struct redis_call_related_data * redis_data_ptr);
 
@@ -508,8 +518,12 @@ private:
 inline EVAcceptedStreamSocket* EVTCPServer::getTn(poco_socket_t fd)
 {
 	auto it = _accssColl.find(fd);
-	if (_accssColl.end() != it) return it->second;
-	else return NULL;
+	if (_accssColl.end() != it) {
+		return it->second;
+	}
+	else {
+		return NULL;
+	}
 }
 
 inline unsigned long EVTCPServer::getNextSRSrlNum()

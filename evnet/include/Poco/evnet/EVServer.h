@@ -38,6 +38,9 @@ public:
 	virtual void redisLibevAttach(redisAsyncContext *ac) = 0;
 	virtual long redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac, const char * messge) = 0;
 	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac) = 0;
+	virtual long reserveAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss) = 0;
+	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len) = 0;
+	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler) = 0;
 };
 
 }

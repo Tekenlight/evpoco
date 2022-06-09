@@ -132,6 +132,7 @@ public:
 	inline void setSockInError();
 	inline bool sockInError();
 	ev_queue_type getIoEventQueue();
+	ev_queue_type getReservationQueue();
 	void decrNumCSEvents();
 	void incrNumCSEvents();
 	bool pendingCSEvents();
@@ -184,7 +185,13 @@ private:
 	socket_upgrade_to_enum		_socket_upgraded_to;
 	std::string					_ws_recvd_msg_handler; /* Name of the request handler in case of received frames
 														  on websockets. */
+	ev_queue_type				_reservation_queue;
 };
+
+inline ev_queue_type EVAcceptedStreamSocket::getReservationQueue()
+{
+	return _reservation_queue;
+}
 
 inline std::string EVAcceptedStreamSocket::getWsRecvdMsgHandler()
 {

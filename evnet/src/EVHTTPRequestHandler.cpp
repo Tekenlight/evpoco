@@ -286,6 +286,18 @@ long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession &sess, EVHTTP
 	return 0;
 }
 
+long EVHTTPRequestHandler::trackAsWebSocket(Net::StreamSocket& connss, const char * msg_handler)
+{
+	getServer().trackAsWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss, msg_handler);
+	return 0;
+}
+
+long EVHTTPRequestHandler::sendRawDataOnAccSocket(Net::StreamSocket& accss, void* data, size_t len)
+{
+	getServer().sendRawDataOnAccSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), accss, data, len);
+	return 0;
+}
+
 long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res)
 {
 	Poco::evnet::EVServer & server = getServer();

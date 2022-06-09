@@ -16,6 +16,7 @@
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVAcceptedStreamSocket.h"
 #include "Poco/evnet/EVEventNotification.h"
+#include "Poco/evnet/EVTCPServiceRequest.h"
 
 using Poco::Net::StreamSocket;
 namespace Poco{ namespace evnet {
@@ -35,6 +36,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_state(NOT_WAITING),
 	_socketInError(0),
 	_event_queue(create_ev_queue()),
+	_reservation_queue(create_ev_queue()),
 	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
@@ -63,6 +65,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 	_state(NOT_WAITING),
 	_socketInError(0),
 	_event_queue(create_ev_queue()),
+	_reservation_queue(create_ev_queue()),
 	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
@@ -111,6 +114,16 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 			usN = (EVEventNotification*)dequeue(_event_queue);
 		}
 		destroy_ev_queue(this->_event_queue);
+		this->_event_queue = NULL;
+	}
+	if (this->_reservation_queue) {
+		EVTCPServiceRequest * sr = NULL;
+		sr = (EVTCPServiceRequest*)dequeue(_reservation_queue);
+		while (sr) {
+			delete sr;
+			sr = (EVTCPServiceRequest*)dequeue(_event_queue);
+		}
+		destroy_ev_queue(this->_reservation_queue);
 		this->_event_queue = NULL;
 	}
 }

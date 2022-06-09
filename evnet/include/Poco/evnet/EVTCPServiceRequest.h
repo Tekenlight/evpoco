@@ -44,6 +44,9 @@ public:
 		,INITIATE_REDIS_CONNECTION
 		,TRANSCEIVE_REDIS_COMMAND
 		,CLOSE_REDIS_CONNECTION
+		,RESERVE_ACC_SOCKET
+		,SEND_DATA_ON_ACC_SOCK
+		,TRACK_AS_WEBSOCKET
 	} what;
 	typedef enum {
 		NONE = 0
@@ -51,6 +54,8 @@ public:
 		,WRITE = 0x02
 		,READWRITE = 0x01 | 0x02
 	} poll_for;
+	EVTCPServiceRequest(const EVTCPServiceRequest&);
+	EVTCPServiceRequest& operator = (const EVTCPServiceRequest&);
 	EVTCPServiceRequest(long sr_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, int file_fd);
 	EVTCPServiceRequest(long sr_num, int cb_evid_num, what event, poco_socket_t acc_fd, Net::StreamSocket& ss);
@@ -109,6 +114,11 @@ private:
 	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ss
 	int							_conn_socket_managed;
 };
+
+inline int EVTCPServiceRequest::getCBEVIDNum()
+{
+	return _cb_evid_num;
+}
 
 inline int EVTCPServiceRequest::getConnSocketManaged()
 {

@@ -38,6 +38,28 @@ void debug_io_watchers(const char * file, const  int lineno, EV_P);
 namespace Poco {
 namespace evnet {
 
+typedef struct _raw_data_s {
+	_raw_data_s() {
+		this->data = NULL;
+		this->size = 0;
+	}
+	~_raw_data_s() {
+		if (this->data) free(this->data);
+	}
+	void * data;
+	size_t size;
+} raw_data_s_type, *raw_data_p_type;
+#define RAW_DATA_S_SIZE sizeof(raw_data_s_type)
+
+typedef struct _sock_and_data_s {
+	_sock_and_data_s() {}
+	~_sock_and_data_s() {
+	}
+	raw_data_s_type raw_data;
+	StreamSocket ss;
+} sock_and_data_s_type, *sock_and_data_p_type;
+#define SOCK_AND_DATA_S_SIZE sizeof(sock_and_data_s_type)
+
 //const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
 //const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
 //const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
@@ -734,8 +756,6 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
 		if (!(tn->sockBusy())) {
-			//tn->setSockBusy();
-			//_pDispatcher->enqueue(tn);
 			srCompleteEnqueue(tn);
 		}
 		else {
@@ -1504,8 +1524,6 @@ handleConnSocketReadable_finally:
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -1528,8 +1546,6 @@ handleConnSocketReadable_finally:
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
 				cn->setSockInError();
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -1576,8 +1592,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 			}
 
 			{
-				tn->setSockBusy();
-				_pDispatcher->enqueue(tn);
+				justEnqueue(tn);
 			}
 
 			{
@@ -1591,7 +1606,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 		}
 	}
 	catch (std::exception & e) {
-		DEBUGPOINT("Here ret = [%zd]\n", ret);
+		//DEBUGPOINT("Here ret = [%zd]\n", ret);
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
@@ -1660,8 +1675,7 @@ handleAccSocketReadable_finally:
 				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
 				tn->setBaseSRSrlNum(sr_num);
 			}
-			tn->setSockBusy();
-			_pDispatcher->enqueue(tn);
+			justEnqueue(tn);
 
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -2074,8 +2088,6 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
-					//tn->setSockBusy();
-					//_pDispatcher->enqueue(tn);
 
 					/* SOCK HAS BECOME BUSY HERE */
 					srCompleteEnqueue(tn);
@@ -2258,6 +2270,64 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 	return;
 }
 
+EVAcceptedStreamSocket*  EVTCPServer::createEVAccSocket(StreamSocket& ss)
+{
+	int fd = 0;
+#if defined(POCO_OS_FAMILY_UNIX)
+	if (ss.address().family() != AddressFamily::UNIX_LOCAL)
+#endif
+	{
+		ss.setNoDelay(true);
+	}
+
+	EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
+	acceptedSock->setClientAddress(ss.peerAddress());
+	acceptedSock->setServerAddress(ss.address());
+	acceptedSock->setEventLoop(this->_loop);
+
+	{
+		ev_io * socket_watcher_ptr = 0;
+		strms_io_cb_ptr_type cb_ptr = 0;
+
+		socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
+		memset(socket_watcher_ptr,0,sizeof(ev_io));
+
+		cb_ptr = (strms_io_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
+		memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
+
+		acceptedSock->setSocketWatcher(socket_watcher_ptr);
+		fd = ss.impl()->sockfd();
+		_accssColl[ss.impl()->sockfd()] = acceptedSock;
+		acceptedSock->setTimeOfLastUse();
+		_ssLRUList.add(acceptedSock);
+
+		cb_ptr->objPtr = this;
+		cb_ptr->dataAvailable = &EVTCPServer::handleAccSocketReadable;
+		cb_ptr->ssPtr =acceptedSock->getStreamSocketPtr();
+		socket_watcher_ptr->data = (void*)cb_ptr;
+
+		acceptedSock->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
+
+		// Make the socket non blocking.
+		if (!_blocking) {
+			ss.impl()->setBlocking(_blocking);
+			fcntl(fd, F_SETFL, O_NONBLOCK);
+		}
+		/*
+		{
+			struct timeval tv;
+			tv.tv_sec = 5;
+			tv.tv_usec = 0;
+			setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+		}
+		*/
+		ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), EV_READ);
+		ev_io_start (this->_loop, socket_watcher_ptr);
+	}
+
+	return acceptedSock;
+}
+
 void EVTCPServer::handleConnReq(const bool& ev_occured)
 {
 	EVAcceptedStreamSocket * ptr = _ssLRUList.getLast();
@@ -2286,57 +2356,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 
 		if (!_pConnectionFilter || _pConnectionFilter->accept(ss)) {
 			// enable nodelay per default: OSX really needs that
-#if defined(POCO_OS_FAMILY_UNIX)
-			if (ss.address().family() != AddressFamily::UNIX_LOCAL)
-#endif
-			{
-				ss.setNoDelay(true);
-			}
-
-			EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
-			acceptedSock->setClientAddress(ss.peerAddress());
-			acceptedSock->setServerAddress(ss.address());
-			acceptedSock->setEventLoop(this->_loop);
-
-			{
-				ev_io * socket_watcher_ptr = 0;
-				strms_io_cb_ptr_type cb_ptr = 0;
-
-				socket_watcher_ptr = (ev_io*)malloc(sizeof(ev_io));
-				memset(socket_watcher_ptr,0,sizeof(ev_io));
-
-				cb_ptr = (strms_io_cb_ptr_type) malloc(sizeof(strms_io_cb_struct_type));
-				memset(cb_ptr,0,sizeof(strms_io_cb_struct_type));
-
-				acceptedSock->setSocketWatcher(socket_watcher_ptr);
-				fd = ss.impl()->sockfd();
-				_accssColl[ss.impl()->sockfd()] = acceptedSock;
-				acceptedSock->setTimeOfLastUse();
-				_ssLRUList.add(acceptedSock);
-
-				cb_ptr->objPtr = this;
-				cb_ptr->dataAvailable = &EVTCPServer::handleAccSocketReadable;
-				cb_ptr->ssPtr =acceptedSock->getStreamSocketPtr();
-				socket_watcher_ptr->data = (void*)cb_ptr;
-
-				acceptedSock->setState(EVAcceptedStreamSocket::WAITING_FOR_READ);
-
-				// Make the socket non blocking.
-				if (!_blocking) {
-					ss.impl()->setBlocking(_blocking);
-					fcntl(fd, F_SETFL, O_NONBLOCK);
-				}
-				/*
-				{
-					struct timeval tv;
-					tv.tv_sec = 5;
-					tv.tv_usec = 0;
-					setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
-				}
-				*/
-				ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, ss.impl()->sockfd(), EV_READ);
-				ev_io_start (this->_loop, socket_watcher_ptr);
-			}
+			createEVAccSocket(ss);
 		}
 		else {
 			DEBUGPOINT("CONN REQUEST REJECTED\n");
@@ -2440,8 +2460,7 @@ handleCLFdReadable_finally:
 				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
 				tn->setBaseSRSrlNum(sr_num);
 			}
-			tn->setSockBusy();
-			_pDispatcher->enqueue(tn);
+			justEnqueue(tn);
 
 			/* If data is available, and a task has been enqueued.
 			 * It is not OK to cleanup the socket.
@@ -2872,8 +2891,6 @@ int EVTCPServer::recvDataOnConnSocket(EVTCPServiceRequest * sr)
 				enqueue(tn->getIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
 				if (!(tn->sockBusy())) {
-					//tn->setSockBusy();
-					//_pDispatcher->enqueue(tn);
 					srCompleteEnqueue(tn);
 				}
 				else {
@@ -3089,8 +3106,6 @@ void EVTCPServer::handleHostResolved(const bool& ev_occured)
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -3221,8 +3236,6 @@ void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 				enqueue(tn->getIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
 				if (!(tn->sockBusy())) {
-					//tn->setSockBusy();
-					//_pDispatcher->enqueue(tn);
 					srCompleteEnqueue(tn);
 				}
 				else {
@@ -3295,8 +3308,6 @@ void EVTCPServer::handleGenericTaskComplete(const bool& ev_occured)
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -3441,8 +3452,6 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -3542,8 +3551,6 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -3572,8 +3579,6 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 					enqueue(tn->getIoEventQueue(), (void*)usN);
 					tn->newdecrNumCSEvents();
 					if (!(tn->sockBusy())) {
-						//tn->setSockBusy();
-						//_pDispatcher->enqueue(tn);
 						srCompleteEnqueue(tn);
 					}
 					else {
@@ -3590,8 +3595,6 @@ int EVTCPServer::pollFileOpenEvent(EVTCPServiceRequest * sr)
 				enqueue(tn->getIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
 				if (!(tn->sockBusy())) {
-					//tn->setSockBusy();
-					//_pDispatcher->enqueue(tn);
 					srCompleteEnqueue(tn);
 				}
 				else {
@@ -3625,8 +3628,6 @@ int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
-				//tn->setSockBusy();
-				//_pDispatcher->enqueue(tn);
 				srCompleteEnqueue(tn);
 			}
 			else {
@@ -3656,8 +3657,6 @@ int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 					enqueue(tn->getIoEventQueue(), (void*)usN);
 					tn->newdecrNumCSEvents();
 					if (!(tn->sockBusy())) {
-						//tn->setSockBusy();
-						//_pDispatcher->enqueue(tn);
 						srCompleteEnqueue(tn);
 					}
 					else {
@@ -3673,8 +3672,6 @@ int EVTCPServer::pollFileReadEvent(EVTCPServiceRequest * sr)
 				enqueue(tn->getIoEventQueue(), (void*)usN);
 				tn->newdecrNumCSEvents();
 				if (!(tn->sockBusy())) {
-					//tn->setSockBusy();
-					//_pDispatcher->enqueue(tn);
 					srCompleteEnqueue(tn);
 				}
 				else {
@@ -3767,6 +3764,18 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("CLOSE_REDIS_CONNECTION from %d\n", tn->getSockfd());
 				closeRedisConnection(srNF);
 				break;
+			case EVTCPServiceRequest::RESERVE_ACC_SOCKET:
+				//DEBUGPOINT("RESERVE_ACC_SOCKET from %d\n", tn->getSockfd());
+				reserveAccSocketProcess(srNF);
+				break;
+			case EVTCPServiceRequest::SEND_DATA_ON_ACC_SOCK:
+				//DEBUGPOINT("SEND_DATA_ON_ACC_SOCK from %d\n", tn->getSockfd());
+				sendRawDataOnAccSocketProcess(srNF);
+				break;
+			case EVTCPServiceRequest::TRACK_AS_WEBSOCKET:
+				//DEBUGPOINT("TRACK_AS_WEBSOCKET from %d\n", tn->getSockfd());
+				trackAsWebSocketProcess(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -3816,7 +3825,7 @@ long EVTCPServer::submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *en
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 										EVTCPServiceRequest::RECVDATA_REQUEST, en->getSockfd(), css));
 
@@ -3830,7 +3839,7 @@ long EVTCPServer::submitRequestForSendData(EVAcceptedSocket *en, Net::StreamSock
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::SENDDATA_REQUEST, en->getSockfd(), css));
 
 	/* And then wake up the loop calls process_service_request */
@@ -3855,7 +3864,7 @@ long EVTCPServer::submitRequestForHostResolution(int cb_evid_num, EVAcceptedSock
 //{
 	//long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	//enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 										//EVTCPServiceRequest::HOST_RESOLUTION, en->getSockfd(), domain_name, serv_name));
 
@@ -3869,7 +3878,7 @@ long EVTCPServer::submitRequestForConnection(int cb_evid_num, EVAcceptedSocket *
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 										EVTCPServiceRequest::CONNECTION_REQUEST, en->getSockfd(), css, addr));
 
@@ -3883,7 +3892,7 @@ long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en, Ne
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	//DEBUGPOINT("sr_num = [%d]:[%ld][%d][%d]\n", css.impl()->sockfd(), sr_num, poll_for, managed);
 	EVTCPServiceRequest *sr = new EVTCPServiceRequest(sr_num, cb_evid_num,
                                         EVTCPServiceRequest::POLL_REQUEST, en->getSockfd(), css);
@@ -3901,7 +3910,7 @@ long EVTCPServer::submitRequestForClose(EVAcceptedSocket *en, Net::StreamSocket&
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::CLEANUP_REQUEST, en->getSockfd(), css));
 
 	/* And then wake up the loop calls process_service_request */
@@ -3935,7 +3944,7 @@ long EVTCPServer::submitRequestForTaskExecution(int cb_evid_num,
 //{
 	//long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	//DEBUGPOINT("Here loop = %p, sw = %p on socket %d\n", this->_loop, this->_stop_watcher_ptr2, en->getSockfd());
 	//enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 							//EVTCPServiceRequest::GENERIC_TASK, en->getSockfd(), tf, input_data));
@@ -3959,7 +3968,7 @@ long EVTCPServer::notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *en, int fd
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 									EVTCPServiceRequest::FILEOPEN_NOTIFICATION, en->getSockfd(), fd));
 
@@ -3974,7 +3983,7 @@ long EVTCPServer::notifyOnFileRead(int cb_evid_num, EVAcceptedSocket *en, int fd
 {
 	long sr_num = getNextSRSrlNum();
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 									EVTCPServiceRequest::FILEREAD_NOTIFICATION, en->getSockfd(), fd));
 
@@ -4019,8 +4028,6 @@ void EVTCPServer::handle_redis_transceive_complete(struct redis_call_related_dat
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
 		if (!(tn->sockBusy())) {
-			//tn->setSockBusy();
-			//_pDispatcher->enqueue(tn);
 			srCompleteEnqueue(tn);
 		}
 		else {
@@ -4078,7 +4085,7 @@ long EVTCPServer::redistransceive(int cb_evid_num, EVAcceptedSocket *en, redisAs
 	redis_data_ptr->message = message;
 	redis_data_ptr->server_ptr = NULL;
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 									EVTCPServiceRequest::TRANSCEIVE_REDIS_COMMAND, en->getSockfd(), (void*)redis_data_ptr));
 
@@ -4113,7 +4120,7 @@ long EVTCPServer::redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAs
 	redis_data_ptr->message = NULL;
 	redis_data_ptr->server_ptr = NULL;
 
-	/* Enque the socket */
+	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
 									EVTCPServiceRequest::CLOSE_REDIS_CONNECTION, en->getSockfd(), (void*)redis_data_ptr));
 
@@ -4133,6 +4140,160 @@ void EVTCPServer::redisLibevAttach(redisAsyncContext *ac)
 	::redisLibevAttach(this->_loop, ac);
 
 	return;
+}
+
+/*
+ * FUNCTIONS RELATED TO RESERVATION OF THE PRIMARY
+ * ACCEPTED SOCKET
+ */
+
+int EVTCPServer::reserveAccSocketProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+
+	{
+		StreamSocket & accss = sr->getStreamSocket();
+		EVAcceptedStreamSocket *acc_tn = getTn(accss.impl()->sockfd());
+
+		if (!(acc_tn->sockBusy())) {
+			EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+			usN->setRet(0);
+			//acc_tn->setSockBusy();
+		}
+
+		EVTCPServiceRequest * new_sr = NULL;
+		*new_sr = *sr;
+	}
+
+	tn->newdecrNumCSEvents();
+	return 0;
+}
+
+long EVTCPServer::reserveAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::RESERVE_ACC_SOCKET, en->getSockfd(), accss));
+
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and reserveAccSocketProcess */
+
+	return 0;
+}
+
+/*
+ * FUNCTIONS RELATED TO SENDIND RAW DATA ON
+ * ACCEPTED SOCKET
+ */
+
+int EVTCPServer::sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+	{
+		sock_and_data_p_type p = (sock_and_data_p_type)sr->getTaskInputData();
+		EVAcceptedStreamSocket *acc_tn = getTn(p->ss.impl()->sockfd());
+		if (!acc_tn) {
+			DEBUGPOINT("[%d] not an accepted Socket\n", p->ss.impl()->sockfd());
+			std::abort();
+		}
+		if (acc_tn->getSockMode() != EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+			DEBUGPOINT("[%d] not Upgraded as a web socket\n", p->ss.impl()->sockfd());
+			std::abort();
+		}
+		acc_tn->pushResData(p->raw_data.data, p->raw_data.size);
+		sendDataOnAccSocket(acc_tn, 0);
+		p->raw_data.data = NULL;
+		p->raw_data.size = 0;
+
+		delete p;
+	}
+
+	tn->newdecrNumCSEvents();
+	return 0;
+}
+
+long EVTCPServer::sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len)
+{
+	long sr_num = getNextSRSrlNum();
+
+	sock_and_data_p_type p = new sock_and_data_s_type();
+	p->raw_data.data = malloc(len);
+	memcpy(p->raw_data.data, data, len);
+	p->raw_data.size = len;
+	p->ss = accss;
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::SEND_DATA_ON_ACC_SOCK, en->getSockfd(), p));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and sendRawDataOnAccSocketProcess */
+
+	return 0;
+}
+
+int EVTCPServer::trackAsWebSocketProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+	{
+		sock_and_data_p_type p = (sock_and_data_p_type)sr->getTaskInputData();
+		EVAcceptedStreamSocket *conn_tn = createEVAccSocket(p->ss);
+		conn_tn->setSockUpgradeTo(EVAcceptedStreamSocket::WEBSOCKET);
+		conn_tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+		if (p->raw_data.data) {
+			conn_tn->setWsRecvdMsgHandler(std::string((char*)(p->raw_data.data)));
+		}
+		else {
+			ev_io * socket_watcher_ptr = 0;
+			socket_watcher_ptr = conn_tn->getSocketWatcher();
+
+			ev_io_stop(this->_loop, socket_watcher_ptr);
+			ev_clear_pending(this->_loop, socket_watcher_ptr);
+			conn_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+		}
+		conn_tn->getStreamSocketPtr()->impl()->managed(true);
+
+		delete p;
+	}
+
+	tn->newdecrNumCSEvents();
+	return 0;
+}
+
+long EVTCPServer::trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler)
+{
+	long sr_num = getNextSRSrlNum();
+	sock_and_data_p_type p = new sock_and_data_s_type();
+	if (msg_handler) {
+		p->raw_data.data = strdup(msg_handler);
+		p->raw_data.size = strlen(msg_handler);;
+	}
+	p->ss = connss;
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::TRACK_AS_WEBSOCKET, en->getSockfd(), p));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and trackAsWebSocketProcess */
+
+	return 0;
 }
 
 } } // namespace Poco::evnet
