@@ -390,13 +390,6 @@ static void process_service_request (struct ev_loop *loop, ev_async *w, int reve
 void EVTCPServer::init()
 {
 	Poco::Util::AbstractConfiguration& config = appConfig();
-	_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
-	_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
-	_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
-	_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN, false);
-	_loop_active_spin_lock = create_spin_lock();
-	_loop_active = false;
-	atomic_thread_fence(std::memory_order_release);
 
 	NUM_THREADS_CFG_NAME = ("numThreads");
 	RECV_TIME_OUT_NAME = ("receiveTimeOut");
@@ -405,9 +398,12 @@ void EVTCPServer::init()
 	SERVER_PREFIX_CFG_NAME = ("EVTCPServer.");
 
 	this->_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
+	this->_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME+RECV_TIME_OUT_NAME, 5);
 	this->_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
-	this->_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME + RECV_TIME_OUT_NAME , 5);
-	this->_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN , false);
+	this->_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN, false);
+	this->_loop_active_spin_lock = create_spin_lock();
+	this->_loop_active = false;
+	atomic_thread_fence(std::memory_order_release);
 
 }
 
