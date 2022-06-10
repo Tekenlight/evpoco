@@ -398,11 +398,16 @@ void EVTCPServer::init()
 	_loop_active = false;
 	atomic_thread_fence(std::memory_order_release);
 
-	std::string NUM_THREADS_CFG_NAME = ("numThreads");
-	std::string RECV_TIME_OUT_NAME = ("receiveTimeOut");
-	std::string NUM_CONNECTIONS_CFG_NAME = ("numConnections");
-	std::string USE_IPV6_FOR_CONN = ("useIpv6ForConn");
-	std::string SERVER_PREFIX_CFG_NAME = ("EVTCPServer.");
+	NUM_THREADS_CFG_NAME = ("numThreads");
+	RECV_TIME_OUT_NAME = ("receiveTimeOut");
+	NUM_CONNECTIONS_CFG_NAME = ("numConnections");
+	USE_IPV6_FOR_CONN = ("useIpv6ForConn");
+	SERVER_PREFIX_CFG_NAME = ("EVTCPServer.");
+
+	this->_numThreads = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_THREADS_CFG_NAME , 2);
+	this->_numConnections = config.getInt(SERVER_PREFIX_CFG_NAME + NUM_CONNECTIONS_CFG_NAME , 500);
+	this->_receiveTimeOut = config.getInt(SERVER_PREFIX_CFG_NAME + RECV_TIME_OUT_NAME , 5);
+	this->_use_ipv6_for_conn = config.getBool(SERVER_PREFIX_CFG_NAME + USE_IPV6_FOR_CONN , false);
 
 }
 
@@ -414,11 +419,11 @@ void EVTCPServer::setServerPrefix(std::string serverPrefix)
 void EVTCPServer::setConfigNames(std::string serverPrefix, std::string numThreads, std::string receiveTimeOut,
 			std::string numConnections, std::string useIpv6ForConn)
 {
-	std::string SERVER_PREFIX_CFG_NAME = serverPrefix;
-	std::string NUM_THREADS_CFG_NAME = numThreads;
-	std::string RECV_TIME_OUT_NAME = receiveTimeOut;
-	std::string NUM_CONNECTIONS_CFG_NAME = numConnections;
-	std::string USE_IPV6_FOR_CONN = useIpv6ForConn;
+	SERVER_PREFIX_CFG_NAME = serverPrefix;
+	NUM_THREADS_CFG_NAME = numThreads;
+	RECV_TIME_OUT_NAME = receiveTimeOut;
+	NUM_CONNECTIONS_CFG_NAME = numConnections;
+	USE_IPV6_FOR_CONN = useIpv6ForConn;
 }
 
 
