@@ -4283,12 +4283,13 @@ struct timer_s {
 
 static void handle_evtimer_event(EV_P_ ev_timer *w, int revents)
 {
+	//DEBUGPOINT("Here\n");
 	bool ev_occurred = true;
 	cb_ref_data_ptr_type cb_ptr = (cb_ref_data_ptr_type)0;
 
-	if (!ev_is_active(w)) {
-		return ;
-	}
+	//if (!ev_is_active(w)) {
+		//return ;
+	//}
 
 	cb_ptr = (cb_ref_data_ptr_type)w->data;
 	/* The below line of code essentially calls
@@ -4304,6 +4305,7 @@ static void handle_evtimer_event(EV_P_ ev_timer *w, int revents)
 
 ssize_t EVTCPServer::handleEVTimerEvent(cb_ref_data_ptr_type ref_data)
 {
+	//DEBUGPOINT("Here\n");
 	EVAcceptedStreamSocket *tn = getTn(ref_data->_acc_fd);
 	if ((tn->getProcState()) && tn->srInSession(ref_data->_usN->getSRNum())) {
 		enqueue(tn->getIoEventQueue(), (void*)ref_data->_usN);
@@ -4330,6 +4332,7 @@ ssize_t EVTCPServer::handleEVTimerEvent(cb_ref_data_ptr_type ref_data)
 
 int EVTCPServer::evTimerProcess(EVTCPServiceRequest * sr)
 {
+	//DEBUGPOINT("Here\n");
 	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	if (!tn) {
 		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
@@ -4348,9 +4351,10 @@ int EVTCPServer::evTimerProcess(EVTCPServiceRequest * sr)
 		ref_data->_acc_fd = sr->accSockfd();
 		ref_data->_method = &EVTCPServer::handleEVTimerEvent;
 
-		int timeout = (p->time_in_s)/1000;
+		int timeout = (p->time_in_s);
+		//DEBUGPOINT("Here timeout = [%d]\n", timeout);
 		timer->data = (void*)ref_data;
-		ev_timer_init(timer, handle_evtimer_event, timeout, timeout);
+		ev_timer_init(timer, handle_evtimer_event, timeout, 0);
 		ev_timer_start(this->_loop, timer);
 
 		free(p);
