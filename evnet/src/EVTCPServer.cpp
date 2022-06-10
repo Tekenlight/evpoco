@@ -4370,6 +4370,10 @@ int EVTCPServer::evTimerProcess(EVTCPServiceRequest * sr)
 
 		int timeout = (p->time_in_s);
 		//DEBUGPOINT("Here timeout = [%d]\n", timeout);
+		if (timeout < 1) {
+			DEBUGPOINT("Minimum timer period is 1s\n");
+			std::abort();
+		}
 		timer->data = (void*)ref_data;
 		ev_timer_init(timer, handle_evtimer_event, timeout, 0);
 		ev_timer_start(this->_loop, timer);
