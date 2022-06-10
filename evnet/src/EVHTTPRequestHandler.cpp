@@ -286,15 +286,37 @@ long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession &sess, EVHTTP
 	return 0;
 }
 
+long EVHTTPRequestHandler::evTimer(int time_in_s)
+{
+	long sr_num = 0;
+	sr_num = getServer().evTimer(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), time_in_s);
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return 0;
+}
+
 long EVHTTPRequestHandler::trackAsWebSocket(Net::StreamSocket& connss, const char * msg_handler)
 {
-	getServer().trackAsWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss, msg_handler);
-	return 0;
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+
+	sr_num = getServer().trackAsWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss, msg_handler);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
 }
 
 long EVHTTPRequestHandler::sendRawDataOnAccSocket(Net::StreamSocket& accss, void* data, size_t len)
 {
 	getServer().sendRawDataOnAccSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), accss, data, len);
+
 	return 0;
 }
 
@@ -429,6 +451,8 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	//DEBUGPOINT("Here event = %d, SRP = %p\n", getEvent(), _srColl[sr_num]);
 	//if (!_srColl[sr_num]) return PROCESSING; Linux porting change
 	auto it = _srColl.find(sr_num);
+	//DEBUGPOINT("sr_num = [%ld]\n", sr_num);
+	//DEBUGPOINT("_srColl.end() == it = [%d]\n", _srColl.end() == it);
 	if (_srColl.end() == it) return PROCESSING;
 	//DEBUGPOINT("Here event = %d, \n", getEvent());
 
@@ -594,6 +618,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			break;
 	}
 
+	//DEBUGPOINT("Here\n")
 	if (continue_event_loop) {
 		ret = PROCESSING;
 	}
@@ -602,16 +627,20 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 		_usN->setRefSRNum(old->ref_sr_num);
 		try {
 			if ((it->second)->cb_handler) {
+				//DEBUGPOINT("Here\n")
 				ret = (*((it->second)->cb_handler))();
 			}
 			else if (0 != (it->second)->cb) {
+				//DEBUGPOINT("Here\n")
 				ret = (it->second)->cb();
 			}
 			else {
+				//DEBUGPOINT("Here\n")
 				ret = handleRequest();
 			}
 		}
 		catch (...) {
+			//DEBUGPOINT("Here\n")
 			ret = PROCESSING_ERROR;
 		}
 		_srColl.erase(sr_num);

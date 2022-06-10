@@ -176,6 +176,8 @@ namespace evpoco {
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_acc_socket(lua_State* L);
 	static int track_ss_as_websocket(lua_State* L);
+	static int ev_timer_initiate(lua_State* L);
+	static int ev_timer_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_cms_on_socket_initiate(lua_State* L);
 	static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int close_tcp_connection(lua_State* L);
@@ -360,6 +362,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
 	{ "send_data_on_acc_socket", &evpoco::send_data_on_acc_socket},
 	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
+	{ "ev_timer", &evpoco::ev_timer_initiate},
 	{ "send_cms_on_socket", &evpoco::send_cms_on_socket_initiate },
 	{ "nb_make_http_connection", &evpoco::nb_make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
@@ -1410,6 +1413,24 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 			return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 		}
 	}
+}
+
+static int ev_timer_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+
+	return 0;
+}
+
+static int ev_timer_initiate(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	int time_in_s = (int)luaL_checkinteger(L, 1);
+
+	reqHandler->evTimer(time_in_s);
+
+	return lua_yieldk(L, 0, (lua_KContext)0, ev_timer_complete);
 }
 
 static int track_ss_as_websocket(lua_State* L)

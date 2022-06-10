@@ -167,7 +167,6 @@ void EVTCPServerDispatcher::run()
 					//pConnection->start();
 					endConnection();
 					_server->receivedDataConsumed(pCNf->sockfd());
-					//DEBUGPOINT("Here %d\n", pCNf->sockfd());
 				}
 				catch (NoMessageException&) {
 					DEBUGPOINT("Here %d\n", pCNf->sockfd());

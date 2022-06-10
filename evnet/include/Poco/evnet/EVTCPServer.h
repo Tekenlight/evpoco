@@ -102,11 +102,14 @@ struct _strms_io_struct_type {
 	int connSocketManaged;
 };
 
+struct _cb_ref_data ;
+typedef ssize_t (EVTCPServer::*timerEventMethod)(struct _cb_ref_data *);
 typedef struct _cb_ref_data {
 	_cb_ref_data() : _instance(0), _usN(0), _acc_fd(-1) {}
 	EVTCPServer* _instance;
 	EVEventNotification *_usN;
 	poco_socket_t _acc_fd;
+	timerEventMethod _method;
 } cb_ref_data_type, * cb_ref_data_ptr_type;
 
 struct _dns_io_struct {
@@ -346,14 +349,14 @@ public:
 	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac);
 		/// Disconnect the redis connection and cleanup
 
-	virtual long reserveAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss);
 	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len);
 	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler);
+	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
-	int reserveAccSocketProcess(EVTCPServiceRequest * sr);
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
 	int trackAsWebSocketProcess(EVTCPServiceRequest * sr);
+	int evTimerProcess(EVTCPServiceRequest * sr);
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t readData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
@@ -455,6 +458,7 @@ private:
 		/// Function to cleanup the memory allocated for socket management.
 	AbstractConfiguration& appConfig();
 	void handlePeriodicWakeup(const bool& ev_occured);
+	ssize_t handleEVTimerEvent(cb_ref_data_ptr_type ptr);
 	unsigned long getNextSRSrlNum();
 	EVAcceptedStreamSocket* getTn(poco_socket_t fd);
 
