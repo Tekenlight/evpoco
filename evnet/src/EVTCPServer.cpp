@@ -4247,7 +4247,23 @@ int EVTCPServer::trackAsWebSocketProcess(EVTCPServiceRequest * sr)
 		delete p;
 	}
 
-	tn->newdecrNumCSEvents();
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
 
 	return 0;
 }

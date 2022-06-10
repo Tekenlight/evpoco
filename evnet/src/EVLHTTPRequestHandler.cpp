@@ -176,6 +176,7 @@ namespace evpoco {
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_acc_socket(lua_State* L);
 	static int track_ss_as_websocket(lua_State* L);
+	static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int ev_hibernation_initiate(lua_State* L);
 	static int ev_hibernation_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_cms_on_socket_initiate(lua_State* L);
@@ -1433,6 +1434,14 @@ static int ev_hibernation_initiate(lua_State* L)
 	return lua_yieldk(L, 0, (lua_KContext)0, ev_hibernation_complete);
 }
 
+static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+
+	return 0;
+}
+
 static int track_ss_as_websocket(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -1448,7 +1457,7 @@ static int track_ss_as_websocket(lua_State* L)
 
 	reqHandler->trackAsWebSocket(*ss_ptr, msg_handler);
 
-	return 0;
+	return lua_yieldk(L, 0, (lua_KContext)0, track_ss_as_websocket_complete);
 }
 
 static int send_data_on_acc_socket(lua_State* L)
