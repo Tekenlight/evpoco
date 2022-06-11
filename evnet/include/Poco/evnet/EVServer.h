@@ -41,6 +41,7 @@ public:
 	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len) = 0;
 	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler) = 0;
 	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms) = 0;
+	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket ss) = 0;
 };
 
 }

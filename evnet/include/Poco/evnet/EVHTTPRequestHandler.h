@@ -222,6 +222,7 @@ public:
 	long sendRawDataOnAccSocket(Net::StreamSocket& accss, void* data, size_t len);
 	long trackAsWebSocket(Net::StreamSocket& connss, const char * msg_handler);
 	long evTimer(int time_in_ms);
+	long shutdownWebSocket(Net::StreamSocket &ss);
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 

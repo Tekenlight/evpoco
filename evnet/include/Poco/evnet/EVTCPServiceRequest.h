@@ -48,6 +48,7 @@ public:
 		,SEND_DATA_ON_ACC_SOCK
 		,TRACK_AS_WEBSOCKET
 		,SET_EV_TIMER
+		,SHUTDOWN_WEBSOCKET
 	} what;
 	typedef enum {
 		NONE = 0

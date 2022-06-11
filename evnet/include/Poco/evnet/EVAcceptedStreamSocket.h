@@ -152,6 +152,8 @@ public:
 	void setSockUpgradeTo(socket_upgrade_to_enum to);
 	std::string getWsRecvdMsgHandler();
 	void setWsRecvdMsgHandler(std::string s);
+	bool shutdownInitiated();
+	void setShutdownInitiaded();
 
 private:
 	int							_sock_mode;
@@ -186,7 +188,18 @@ private:
 	std::string					_ws_recvd_msg_handler; /* Name of the request handler in case of received frames
 														  on websockets. */
 	ev_queue_type				_reservation_queue;
+	bool						_shutdown_initiated;
 };
+
+inline bool EVAcceptedStreamSocket::shutdownInitiated()
+{
+	return _shutdown_initiated;
+}
+
+inline void EVAcceptedStreamSocket::setShutdownInitiaded()
+{
+	_shutdown_initiated = true;
+}
 
 inline ev_queue_type EVAcceptedStreamSocket::getReservationQueue()
 {

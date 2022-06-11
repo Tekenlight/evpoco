@@ -1090,22 +1090,6 @@ handleAccSocketWritable_finally:
 			/* It should not come here otherwise. */
 			std::abort();
 		}
-	}
-	else if (ret <0) {
-		/* At this point we know that the socket has become unusable,
-		 * it is possible to dispose it off and complete housekeeping.
-		 * However there is a likelihood that another thread is still
-		 * processing this socket, hence the disposing off must not be
-		 * done over here.
-		 *
-		 * When the processing gets complete, and the socket is returned,
-		 * At that time the socket will get disposed.
-		 * */
-		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
-		tn->setSockInError();
-	}
-
-	if (ret > 0) {
 		/* Switching should take place after the data is
 		 * completely sent to the client.
 		 */
@@ -1154,6 +1138,32 @@ handleAccSocketWritable_finally:
 			}
 		}
 		else {
+		}
+		if (tn->shutdownInitiated()) {
+			//DEBUGPOINT("SHUTTING DOWN HERE\n");
+			if (!tn->sockBusy() && !tn->newpendingCSEvents()) {
+				clearAcceptedSocket(tn->getSockfd());
+			}
+			else {
+				tn->setSockInError();
+			}
+		}
+	}
+	else if (ret <0) {
+		/* At this point we know that the socket has become unusable,
+		 * it is possible to dispose it off and complete housekeeping.
+		 * However there is a likelihood that another thread is still
+		 * processing this socket, hence the disposing off must not be
+		 * done over here.
+		 *
+		 * When the processing gets complete, and the socket is returned,
+		 * At that time the socket will get disposed.
+		 * */
+		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+		tn->setSockInError();
+		if (tn->shutdownInitiated() && !tn->sockBusy() && !tn->newpendingCSEvents()) {
+			//DEBUGPOINT("SHUTTING DOWN HERE\n");
+			clearAcceptedSocket(tn->getSockfd());
 		}
 	}
 
@@ -1617,7 +1627,33 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 			return 0;
 		}
 		else {
-			errorWhileReceiving(ss.impl()->sockfd(), true);
+			//errorWhileReceiving(ss.impl()->sockfd(), true);
+			if (!tn->shutdownInitiated() || !tn->resDataAvlbl()) {
+				/* i, a
+				 * 0, 0 => ENTER
+				 * 0, 1 => ENTER
+				 * 1, 0 => ENTER
+				 * 1, 1 => DONT ENTER
+				 */
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = tn->getSocketWatcher();
+				if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
+					ev_io_stop(this->_loop, socket_watcher_ptr);
+					ev_clear_pending(this->_loop, socket_watcher_ptr);
+				}
+				//DEBUGPOINT("SHUTTING DOWN HERE\n");
+				errorWhileReceiving(ss.impl()->sockfd(), true);
+			}
+			else {
+				if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
+					tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+				}
+				else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
+					tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
+				}
+				//DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
+				sendDataOnAccSocket(tn, false);
+			}
 		}
 	}
 
@@ -1698,6 +1734,7 @@ handleAccSocketReadable_finally:
 	/* ret will be 0 after recv even on a tickled socket
 	 * in case of SSL handshake.
 	 * */
+	//DEBUGPOINT("Here\n");
 	if (ret > 0) {
 		ev_io * socket_watcher_ptr = 0;
 		socket_watcher_ptr = tn->getSocketWatcher();
@@ -1727,15 +1764,32 @@ handleAccSocketReadable_finally:
 		// Cleaning up of socket will lead to context being lost completely.
 		// It sould be marked as being in error and the housekeeping to be done at
 		// an approporiate time.
-		{
+		if (!tn->shutdownInitiated() || !tn->resDataAvlbl()) {
+			/* i, a
+			 * 0, 0 => ENTER
+			 * 0, 1 => ENTER
+			 * 1, 0 => ENTER
+			 * 1, 1 => DONT ENTER
+			 */
 			ev_io * socket_watcher_ptr = 0;
 			socket_watcher_ptr = tn->getSocketWatcher();
 			if (socket_watcher_ptr && ev_is_active(socket_watcher_ptr)) {
 				ev_io_stop(this->_loop, socket_watcher_ptr);
 				ev_clear_pending(this->_loop, socket_watcher_ptr);
 			}
+			//DEBUGPOINT("SHUTTING DOWN HERE\n");
+			errorWhileReceiving(ss.impl()->sockfd(), true);
 		}
-		errorWhileReceiving(ss.impl()->sockfd(), true);
+		else {
+			if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READ) {
+				tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+			}
+			else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
+				tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
+			}
+			//DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
+			sendDataOnAccSocket(tn, false);
+		}
 	}
 
 	return ret;
@@ -1886,7 +1940,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		return;
 	}
 	if (EVAcceptedStreamSocket::TO_BE_CLOSED == tn->getState()) {
-		//DEBUGPOINT("CLOSING SOCKET\n");
+		DEBUGPOINT("CLOSING SOCKET\n");
 		clearAcceptedSocket(tn->getSockfd());
 		return ;
 	}
@@ -3793,6 +3847,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("SET_EV_TIMER from %d\n", tn->getSockfd());
 				evTimerProcess(srNF);
 				break;
+			case EVTCPServiceRequest::SHUTDOWN_WEBSOCKET:
+				//DEBUGPOINT("SHUTDOWN_WEBSOCKET from %d\n", tn->getSockfd());
+				shutdownWebSocketProcess(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -4404,6 +4462,44 @@ long EVTCPServer::evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_s)
 	/* This will result in invocation of handleServiceRequest
 	 * and evTimerProcess */
 
+
+	return sr_num;
+}
+
+int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+	{
+		StreamSocket &ss = sr->getStreamSocket();
+		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
+		ss.impl()->shutdownReceive();
+
+		conn_tn->setShutdownInitiaded();
+
+		monitorDataOnAccSocket(conn_tn);
+	}
+
+	tn->newdecrNumCSEvents();
+
+	return 0;
+}
+
+long EVTCPServer::shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket ss)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::SHUTDOWN_WEBSOCKET, en->getSockfd(), ss));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and shutdownWebSocketProcess */
 
 	return sr_num;
 }

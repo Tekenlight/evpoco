@@ -320,6 +320,13 @@ long EVHTTPRequestHandler::sendRawDataOnAccSocket(Net::StreamSocket& accss, void
 	return 0;
 }
 
+long EVHTTPRequestHandler::shutdownWebSocket(Net::StreamSocket& connss)
+{
+	getServer().shutdownWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss);
+
+	return 0;
+}
+
 long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res)
 {
 	Poco::evnet::EVServer & server = getServer();
