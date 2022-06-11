@@ -85,7 +85,8 @@ EVTCPServerDispatcher::EVTCPServerDispatcher(EVTCPServerConnectionFactory::Ptr p
 	_stopped(false),
 	_pConnectionFactory(pFactory),
 	_threadPool(threadPool),
-	_server(server)
+	_server(server),
+	_stop_taking_requests(false)
 {
 	poco_check_ptr (pFactory);
 
@@ -207,11 +208,18 @@ namespace
 	static const std::string threadName("EVTCPServerConnection");
 }
 
+void EVTCPServerDispatcher::stopTakingRequests()
+{
+	FastMutex::ScopedLock lock(_mutex);
+	_stop_taking_requests = true;
+}
+
 // HTTP2 enhancement
 //void EVTCPServerDispatcher::enqueue(XXXX  * type that represents a request msg (specifically HTTP2))
 	
 void EVTCPServerDispatcher::enqueue(EVAcceptedStreamSocket  * evAccSocket)
 {
+	if (_stop_taking_requests) return;
 	FastMutex::ScopedLock lock(_mutex);
 
 	/* default maxQueued is 64. */
@@ -251,6 +259,12 @@ void EVTCPServerDispatcher::stop()
 	_stopped = true;
 	_queue.clear();
 	_queue.wakeUpAll();
+}
+
+void EVTCPServerDispatcher::stopall()
+{
+	stop();
+	_threadPool.stopAll();
 }
 
 

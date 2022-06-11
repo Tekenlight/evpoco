@@ -155,6 +155,7 @@ namespace evpoco {
 	static int evpoco_get_acc_sock_state(lua_State* L);
 	static int evpoco_set_acc_sock_state(lua_State* L);
 	static int get_accepted_stream_socket(lua_State* L);
+	static int stop_taking_requests(lua_State* L);
 	static int wait_all(lua_State* L);
 	static int wait_initiate(lua_State* L);
 	static int task_return_value(lua_State* L);
@@ -383,9 +384,10 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
 	{ "set_socket_upgrade_to", &evpoco::evpoco_set_socket_upgrade_to },
 	{ "get_socket_upgrade_to", &evpoco::evpoco_get_socket_upgrade_to },
-	{ "get_acc_sock_state", &evpoco::evpoco_get_acc_sock_state },
-	{ "set_acc_sock_state", &evpoco::evpoco_set_acc_sock_state },
+	//{ "get_acc_sock_state", &evpoco::evpoco_get_acc_sock_state },
+	//{ "set_acc_sock_state", &evpoco::evpoco_set_acc_sock_state },
 	{ "get_accepted_stream_socket", &evpoco::get_accepted_stream_socket},
+	{ "stop_taking_requests", &evpoco::stop_taking_requests},
 	{ NULL, NULL }
 };
 
@@ -611,6 +613,14 @@ static int evpoco_load_mail_message_funcs(lua_State* L)
 static int evpoco_load_properties_funcs(lua_State* L)
 {
 	return get_properties_funcs(L);
+}
+
+static int stop_taking_requests(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	reqHandler->stopTakingRequests();
+
+	return 0;
 }
 
 static int get_accepted_stream_socket(lua_State* L)
@@ -1466,8 +1476,15 @@ static int shutdown_websocket(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	int type = 3;
 
-	reqHandler->shutdownWebSocket(*ss_ptr);
+	DEBUGPOINT("HERE TOP = [%d]\n", lua_gettop(L));
+	DEBUGPOINT("value at 2 = [%d]\n", lua_type(L, 2));
+	if (lua_gettop(L) > 1) {
+		type = luaL_checkinteger(L, 2);
+	}
+
+	reqHandler->shutdownWebSocket(*ss_ptr, type);
 
 	return 0;
 }
@@ -3793,6 +3810,7 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 		}
 	}
 	else {
+		//if (!getServer().aborting()) lua_close(_L);
 		lua_close(_L);
 	}
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {

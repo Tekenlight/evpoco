@@ -320,9 +320,16 @@ long EVHTTPRequestHandler::sendRawDataOnAccSocket(Net::StreamSocket& accss, void
 	return 0;
 }
 
-long EVHTTPRequestHandler::shutdownWebSocket(Net::StreamSocket& connss)
+long EVHTTPRequestHandler::stopTakingRequests()
 {
-	getServer().shutdownWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss);
+	getServer().stopTakingRequests(HTTPRH_CALL_CB_HANDLER);
+
+	return 0;
+}
+
+long EVHTTPRequestHandler::shutdownWebSocket(Net::StreamSocket& connss, int type)
+{
+	getServer().shutdownWebSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), connss, type);
 
 	return 0;
 }

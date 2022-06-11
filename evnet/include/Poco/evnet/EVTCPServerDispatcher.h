@@ -89,6 +89,12 @@ public:
 	Poco::NotificationQueue& queue();
 		/// Returns a reference to the Poco::NotificationQueue object.
 
+	void stopall();
+		/// Tries to stop all threads in the pool.
+
+	void stopTakingRequests();
+		/// Stops enqueueing fresh requests
+
 protected:
 	~EVTCPServerDispatcher();
 		/// Destroys the EVTCPServerDispatcher.
@@ -117,6 +123,7 @@ private:
 	Poco::ThreadPool&               _threadPool;
 	mutable Poco::FastMutex         _mutex;
 	EVServer*				_server;
+	bool					_stop_taking_requests;
 };
 
 

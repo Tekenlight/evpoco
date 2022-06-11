@@ -352,7 +352,8 @@ public:
 	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len);
 	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler);
 	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms);
-	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket ss);
+	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type);
+	virtual long stopTakingRequests(int cb_evid_num);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
@@ -490,6 +491,7 @@ private:
 
 	srvrs_io_cb_struct_type				_cbStruct;
 	struct ev_loop*						_loop;
+	ev_io*								_socket_watcher_ptr;
 	ev_async*							_stop_watcher_ptr1;
 	ev_async*							_stop_watcher_ptr2;;
 	ev_async*							_stop_watcher_ptr3;;

@@ -10,6 +10,8 @@
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/evnet/EVAcceptedSocket.h"
 
+#include <ev_spin_lock.h>
+
 namespace Poco {
 namespace evnet {
 
@@ -41,8 +43,28 @@ public:
 	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len) = 0;
 	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler) = 0;
 	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms) = 0;
-	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket ss) = 0;
+	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type) = 0;
+	virtual long stopTakingRequests(int cb_evid_num) = 0;
+	bool aborting();
+	void setAborting();
+
+private:
+	bool				_aborting;
+	spin_lock_p_type	_lock;
 };
+
+inline bool EVServer::aborting()
+{
+	return _aborting;
+}
+
+inline void EVServer::setAborting()
+{
+	if (_aborting) return;
+	ev_spin_lock(_lock);
+	_aborting = true;
+	ev_spin_unlock(_lock);
+}
 
 }
 }
