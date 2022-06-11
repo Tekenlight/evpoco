@@ -3941,9 +3941,11 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 void EVTCPServer::justEnqueue(EVAcceptedStreamSocket* tn)
 {
-	//DEBUGPOINT("ENQUEUEING [%d]\n", tn->getSockfd());
-	if (!this->aborting()) tn->setSockBusy();
-	_pDispatcher->enqueue(tn);
+	//DEBUGPOINT("ENQUEUEING [%d] aborting = [%d]\n", tn->getSockfd(), this->aborting());
+	if (!this->aborting()) {
+		tn->setSockBusy();
+		_pDispatcher->enqueue(tn);
+	}
 }
 
 void EVTCPServer::srCompleteEnqueue(EVAcceptedStreamSocket* tn)
