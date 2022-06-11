@@ -1181,7 +1181,7 @@ handleAccSocketWritable_finally:
 		else {
 		}
 		if (tn->shutdownInitiated()) {
-			DEBUGPOINT("SHUTTING DOWN HERE\n");
+			//DEBUGPOINT("SHUTTING DOWN HERE\n");
 			if (!tn->sockBusy() && !tn->newpendingCSEvents()) {
 				clearAcceptedSocket(tn->getSockfd());
 			}
@@ -1203,7 +1203,7 @@ handleAccSocketWritable_finally:
 		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 		tn->setSockInError();
 		if (tn->shutdownInitiated() && !tn->sockBusy() && !tn->newpendingCSEvents()) {
-			DEBUGPOINT("SHUTTING DOWN HERE\n");
+			//DEBUGPOINT("SHUTTING DOWN HERE\n");
 			clearAcceptedSocket(tn->getSockfd());
 		}
 	}
@@ -1686,7 +1686,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 					ev_io_stop(this->_loop, socket_watcher_ptr);
 					ev_clear_pending(this->_loop, socket_watcher_ptr);
 				}
-				DEBUGPOINT("SHUTTING DOWN HERE\n");
+				//DEBUGPOINT("SHUTTING DOWN HERE\n");
 				errorWhileReceiving(ss.impl()->sockfd(), true);
 			}
 			else {
@@ -1696,7 +1696,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 				else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
 					tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 				}
-				DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
+				//DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
 				sendDataOnAccSocket(tn, false);
 			}
 		}
@@ -2213,7 +2213,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
-					DEBUGPOINT("Here\n");
+					//DEBUGPOINT("Here\n");
 
 					/* SOCK HAS BECOME BUSY HERE */
 					srCompleteEnqueue(tn);
@@ -2338,7 +2338,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -2360,7 +2360,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -2386,7 +2386,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
