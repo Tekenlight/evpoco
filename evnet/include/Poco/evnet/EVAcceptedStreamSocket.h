@@ -45,8 +45,7 @@ class Net_API EVAcceptedStreamSocket : public EVAcceptedSocket
 {
 public:
 	typedef enum {
-		TO_BE_CLOSED = -1
-		,NOT_WAITING = 0
+		NOT_WAITING = 0
 		,WAITING_FOR_READ = EV_READ
 		,WAITING_FOR_WRITE = EV_WRITE
 		,WAITING_FOR_READWRITE = EV_READ|EV_WRITE
@@ -127,6 +126,8 @@ public:
 	struct ev_loop* getEventLoop();
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
 
+	bool getCLState();
+	void setCLState(bool state);
 	accepted_sock_state getState();
 	void setState(accepted_sock_state state);
 	inline void setSockInError();
@@ -176,6 +177,7 @@ private:
 
 	/* Status indicators */
 	accepted_sock_state			_state; /* Tells whether the socket is waiting for OS event or not */
+	bool						_cl_state; /* Tells whether the socket is to be closed or not */
 	int							_socketInError; /* Tells if an error is observed while processing request
 												   on this socket. */
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
@@ -270,6 +272,16 @@ inline bool EVAcceptedStreamSocket::srInSession(unsigned long sr_srl_num)
 inline void EVAcceptedStreamSocket::setBaseSRSrlNum(unsigned long sr_srl_num)
 {
 	_base_sr_srl_num = sr_srl_num;
+}
+
+inline bool EVAcceptedStreamSocket::getCLState()
+{
+	return _cl_state;
+}
+
+inline void EVAcceptedStreamSocket::setCLState(bool state)
+{
+	_cl_state = state;
 }
 
 inline EVAcceptedStreamSocket::accepted_sock_state EVAcceptedStreamSocket::getState()

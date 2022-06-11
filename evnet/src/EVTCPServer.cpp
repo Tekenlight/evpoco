@@ -373,7 +373,9 @@ static void event_notification_on_downstream_socket(struct ev_loop *loop, ev_asy
 	bool ev_occurred = true;
 	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
 
+	//DEBUGPOINT("ev_is_active = [%d]\n", ev_is_active(w));
 	if (!ev_is_active(w)) {
+		//DEBUGPOINT("ev_is_active = [%d]\n", ev_is_active(w));
 		return ;
 	}
 
@@ -1147,7 +1149,7 @@ handleAccSocketWritable_finally:
 							case EVAcceptedStreamSocket::WEBSOCKET:
 								tn->getStreamSocketPtr()->impl()->managed(true);
 								tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
-								DEBUGPOINT("here\n");
+								//DEBUGPOINT("here\n");
 								monitorDataOnAccSocket(tn);
 								break;
 							case EVAcceptedStreamSocket::HTTP2:
@@ -1662,7 +1664,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 		}
 	}
 	catch (std::exception & e) {
-		//DEBUGPOINT("Here ret = [%zd]\n", ret);
+		DEBUGPOINT("Here ret = [%zd]\n", ret);
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
@@ -1684,7 +1686,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 					ev_io_stop(this->_loop, socket_watcher_ptr);
 					ev_clear_pending(this->_loop, socket_watcher_ptr);
 				}
-				//DEBUGPOINT("SHUTTING DOWN HERE\n");
+				DEBUGPOINT("SHUTTING DOWN HERE\n");
 				errorWhileReceiving(ss.impl()->sockfd(), true);
 			}
 			else {
@@ -1694,7 +1696,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 				else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
 					tn->setState(EVAcceptedStreamSocket::WAITING_FOR_WRITE);
 				}
-				//DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
+				DEBUGPOINT("NOT SHUTTING DOWN HERE\n");
 				sendDataOnAccSocket(tn, false);
 			}
 		}
@@ -1854,13 +1856,14 @@ void EVTCPServer::dataReadyForSend(int fd)
 void EVTCPServer::receivedDataConsumed(int fd)
 {
 	/* Enque the socket */
-	//DEBUGPOINT("here\n");
+	//DEBUGPOINT("here fd = [%d]\n", fd);
 	//STACK_TRACE();
 	_queue.enqueueNotification(new EVTCPServerNotification(fd,
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
 	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("Here active = [%d]\n", ev_is_active(this->_stop_watcher_ptr3));
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1988,7 +1991,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		DEBUGPOINT("SOCK IN ERROR RETURNING for %d\n", tn->getSockfd());
 		return;
 	}
-	if (EVAcceptedStreamSocket::TO_BE_CLOSED == tn->getState()) {
+	if (tn->getCLState()) {
 		DEBUGPOINT("CLOSING SOCKET\n");
 		clearAcceptedSocket(tn->getSockfd());
 		return ;
@@ -2161,7 +2164,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		 * over here
 		 * */
 		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError())) {
-			//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+			DEBUGPOINT("Here for %d\n", tn->getSockfd());
 			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
 		}
 
@@ -2271,7 +2274,11 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 									/* We do not want fresh data to be read from WEBSOCKET until
 									 * the current session of frame data processing is complete
 									 */
-									if (!tn->newpendingCSEvents()) monitorDataOnAccSocket(tn);
+									//DEBUGPOINT("tn->newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
+									if (!tn->newpendingCSEvents()) {
+										//DEBUGPOINT("Here\n");
+										monitorDataOnAccSocket(tn);
+									}
 								}
 								else if (tn->getSockMode() == EVAcceptedStreamSocket::HTTP2_MODE) {
 									DEBUGPOINT("HTTP2 not yet implemented\n");
@@ -4563,13 +4570,24 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	if (!tn) {
 		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		struct shutdown_s * p = (shutdown_s*)sr->getTaskInputData();
+		free(p);
 		std::abort();
 	}
+
+	//DEBUGPOINT("tn->getSockfd() = [%d]\n", tn->getSockfd());
 
 	{
 		struct shutdown_s * p = (shutdown_s*)sr->getTaskInputData();
 		StreamSocket &ss = p->ss;
 		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
+
+		if(ss.impl()->sockfd() == tn->getSockfd()) {
+			DEBUGPOINT("MUST NOT INITIATE SHUTDOWN ON PRIMARY ACCEPTED SOCKET[%d]\n", tn->getSockfd());
+			std::abort();
+		}
+
+		//DEBUGPOINT("Here type for [%d] = [%d]\n", ss.impl()->sockfd(),  p->type);
 		switch (p->type) {
 			case 1:
 				ss.impl()->shutdownReceive();
@@ -4589,10 +4607,17 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 
 		conn_tn->setShutdownInitiaded();
 
-		//monitorDataOnAccSocket(conn_tn);
+		/* Try to monitor the data on socket if msg handler is not set
+		 * this will lead to clearing of acc socket
+		 */
+		if (!(conn_tn->getWsRecvdMsgHandler().c_str()) || !strcmp(conn_tn->getWsRecvdMsgHandler().c_str(), "")) {
+			//DEBUGPOINT("Here\n")
+			monitorDataOnAccSocket(conn_tn);
+		}
 
 		free(p);
 	}
+	//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
 
 	tn->newdecrNumCSEvents();
 

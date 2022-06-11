@@ -152,8 +152,8 @@ namespace evpoco {
 	static int evpoco_get_ws_recvd_msg_handler(lua_State* L);
 	static int evpoco_get_socket_upgrade_to(lua_State* L);
 	static int evpoco_set_socket_upgrade_to(lua_State* L);
-	static int evpoco_get_acc_sock_state(lua_State* L);
-	static int evpoco_set_acc_sock_state(lua_State* L);
+	static int evpoco_get_acc_sock_to_be_closed(lua_State* L);
+	static int evpoco_set_acc_sock_to_be_closed(lua_State* L);
 	static int get_accepted_stream_socket(lua_State* L);
 	static int stop_taking_requests(lua_State* L);
 	static int wait_all(lua_State* L);
@@ -384,8 +384,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_ws_recvd_msg_handler", &evpoco::evpoco_get_ws_recvd_msg_handler },
 	{ "set_socket_upgrade_to", &evpoco::evpoco_set_socket_upgrade_to },
 	{ "get_socket_upgrade_to", &evpoco::evpoco_get_socket_upgrade_to },
-	//{ "get_acc_sock_state", &evpoco::evpoco_get_acc_sock_state },
-	//{ "set_acc_sock_state", &evpoco::evpoco_set_acc_sock_state },
+	{ "get_acc_sock_to_be_closed", &evpoco::evpoco_get_acc_sock_to_be_closed },
+	{ "set_acc_sock_to_be_closed", &evpoco::evpoco_set_acc_sock_to_be_closed },
 	{ "get_accepted_stream_socket", &evpoco::get_accepted_stream_socket},
 	{ "stop_taking_requests", &evpoco::stop_taking_requests},
 	{ NULL, NULL }
@@ -635,40 +635,20 @@ static int get_accepted_stream_socket(lua_State* L)
 	return 1;
 }
 
-static int evpoco_get_acc_sock_state(lua_State* L)
+static int evpoco_get_acc_sock_to_be_closed(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 
-	EVAcceptedStreamSocket::accepted_sock_state s = (reqHandler->getAcceptedSocket()->getState());
+	bool s = (reqHandler->getAcceptedSocket()->getCLState());
 
-	lua_pushinteger(L, s);
+	lua_pushboolean(L, s);
 	return 1;
 }
 
-static int evpoco_set_acc_sock_state(lua_State* L)
+static int evpoco_set_acc_sock_to_be_closed(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_gettop(L) != 1) {
-		luaL_error(L, "evpoco_set_socket_upgrade_to: Number of parameters expected: 1");
-		return 1;
-	}
-	if (!lua_isinteger(L, 1)) {
-		luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid datatype of argument (integer expected)");
-		return 1;
-	}
-	int u = lua_tointeger(L, 1);
-	switch(u) {
-		case EVAcceptedStreamSocket::TO_BE_CLOSED:
-		case EVAcceptedStreamSocket::NOT_WAITING:
-		case EVAcceptedStreamSocket::WAITING_FOR_READ:
-		case EVAcceptedStreamSocket::WAITING_FOR_WRITE:
-		case EVAcceptedStreamSocket::WAITING_FOR_READWRITE:
-			break;
-		default:
-			luaL_error(L, "evpoco_set_acc_sock_state: Invalid argument [%d]", u);
-			return 1;
-	}
-	reqHandler->getAcceptedSocket()->setState((EVAcceptedStreamSocket::accepted_sock_state)u);
+	reqHandler->getAcceptedSocket()->setCLState(true);
 	return 0;
 }
 
@@ -709,7 +689,7 @@ static int evpoco_get_ws_recvd_msg_handler(lua_State* L)
 
 	std::string s = (reqHandler->getAcceptedSocket()->getWsRecvdMsgHandler());
 
-	if (!strcmp(s.c_str(), ""))
+	if (!s.c_str() || !strcmp(s.c_str(), ""))
 		lua_pushnil(L);
 	else
 		lua_pushstring(L, s.c_str());
@@ -1478,8 +1458,6 @@ static int shutdown_websocket(lua_State* L)
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
 	int type = 3;
 
-	DEBUGPOINT("HERE TOP = [%d]\n", lua_gettop(L));
-	DEBUGPOINT("value at 2 = [%d]\n", lua_type(L, 2));
 	if (lua_gettop(L) > 1) {
 		type = luaL_checkinteger(L, 2);
 	}
