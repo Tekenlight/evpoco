@@ -445,6 +445,7 @@ private:
 	void monitorDataOnCLFd(EVAcceptedStreamSocket *tn);
 	void monitorDataOnAccSocket(EVAcceptedStreamSocket *tn);
 		/// Function to add the StreamSocket back to listening mode
+	void stopEvents(const bool& flag);
 	void somethingHappenedInAnotherThread(const bool& flag);
 		/// Function to add the StreamSocket back to listening mode
 	void handleServiceRequest(const bool& ev_occured);
@@ -495,6 +496,7 @@ private:
 	ev_async*							_dns_watcher_ptr;
 	ev_async*							_gen_task_compl_watcher_ptr;
 	ev_async*							_file_evt_watcher_ptr;
+	ev_timer*							_timeout_watcher_ptr;
 
 	ASColMapType						_accssColl;
 	FileEvtSubscrMap					_file_evt_subscriptions;

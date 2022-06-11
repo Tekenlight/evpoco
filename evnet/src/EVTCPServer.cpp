@@ -338,8 +338,26 @@ static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
 {
 	//DEBUGPOINT("Here\n");
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::stopEvents(const bool)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+	//DEBUGPOINT("Here\n");
 	ev_break (loop, EVBREAK_ALL);
 	return;
+}
+
+void EVTCPServer::stopEvents(const bool& ev_occured)
+{
+	ev_async_stop(this->_loop, (this->_stop_watcher_ptr2));
+	ev_async_stop(this->_loop, (this->_stop_watcher_ptr3));
+	ev_async_stop(this->_loop, (this->_dns_watcher_ptr));
+	ev_async_stop(this->_loop, this->_gen_task_compl_watcher_ptr);
+	ev_async_stop(this->_loop, this->_file_evt_watcher_ptr);
+	ev_timer_stop(this->_loop, this->_timeout_watcher_ptr);
 }
 
 /* This callback is for completion of processing of one socket. */
@@ -444,6 +462,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::UInt1
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
 	_file_evt_watcher_ptr(0),
+	_timeout_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
 	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
@@ -484,6 +503,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, const Serve
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
 	_file_evt_watcher_ptr(0),
+	_timeout_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
 	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
@@ -523,6 +543,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, Poco::Threa
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
 	_file_evt_watcher_ptr(0),
+	_timeout_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
 	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
@@ -555,6 +576,7 @@ EVTCPServer::EVTCPServer(EVTCPServerConnectionFactory::Ptr pFactory, int pipe_rd
 	_dns_watcher_ptr(0),
 	_gen_task_compl_watcher_ptr(0),
 	_file_evt_watcher_ptr(0),
+	_timeout_watcher_ptr(0),
 	_aux_tc_queue(create_ev_queue()),
 	_file_evt_queue(create_ev_queue()),
 	_host_resolve_queue(create_ev_queue()),
@@ -2695,6 +2717,7 @@ void EVTCPServer::run()
 	this->_dns_watcher_ptr = &(dns_watcher);
 	this->_gen_task_compl_watcher_ptr = &(gen_task_compl_watcher);
 	this->_file_evt_watcher_ptr = &(file_evt_watcher);
+	this->_timeout_watcher_ptr = &(timeout_watcher);
 
 
 	if (this->_mode == SERVER_MODE) {
@@ -2717,6 +2740,12 @@ void EVTCPServer::run()
 	}
 
 	{
+		strms_pc_cb_ptr_type pc_cb_ptr = (strms_pc_cb_ptr_type)0;;
+		pc_cb_ptr = (strms_pc_cb_ptr_type)malloc(sizeof(strms_pc_cb_struct_type));
+		pc_cb_ptr->objPtr = this;
+		pc_cb_ptr->method = &EVTCPServer::stopEvents;
+		stop_watcher_1.data = pc_cb_ptr;
+
 		ev_async_init (&(stop_watcher_1), stop_the_loop);
 		ev_async_start (this->_loop, &(stop_watcher_1));
 	}
@@ -2823,6 +2852,7 @@ void EVTCPServer::run()
 	atomic_thread_fence(std::memory_order_release);
 	ev_run (this->_loop, 0);
 
+	free(stop_watcher_1.data);
 	free(stop_watcher_2.data);
 	free(stop_watcher_3.data);
 	free(dns_watcher.data);
