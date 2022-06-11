@@ -10,7 +10,7 @@
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/evnet/EVAcceptedSocket.h"
 
-#include <ev_spin_lock.h>
+#include <ev_rwlock.h>
 
 namespace Poco {
 namespace evnet {
@@ -49,21 +49,25 @@ public:
 	void setAborting();
 
 private:
-	bool				_aborting;
-	spin_lock_p_type	_lock;
+	bool			_aborting;
+	ev_rwlock_type	_lock;
 };
 
 inline bool EVServer::aborting()
 {
-	return _aborting;
+	bool value = false;
+	ev_rwlock_rdlock(this->_lock);
+	value = _aborting;
+	ev_rwlock_rdunlock(this->_lock);
+	return value;
 }
 
 inline void EVServer::setAborting()
 {
 	if (_aborting) return;
-	ev_spin_lock(_lock);
+	ev_rwlock_wrlock(this->_lock);
 	_aborting = true;
-	ev_spin_unlock(_lock);
+	ev_rwlock_wrunlock(this->_lock);
 }
 
 }

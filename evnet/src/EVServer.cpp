@@ -3,13 +3,13 @@
 namespace Poco {
 namespace evnet {
 
-EVServer::EVServer():_aborting(false), _lock(create_spin_lock())
+EVServer::EVServer():_aborting(false),_lock(ev_rwlock_init())
 {
 }
 
 EVServer::~EVServer()
 {
-	destroy_spin_lock(this->_lock);
+	ev_rwlock_destroy(this->_lock);
 }
 
 

@@ -3941,6 +3941,11 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 
 void EVTCPServer::justEnqueue(EVAcceptedStreamSocket* tn)
 {
+	/*
+	 * If the server is in aborting status
+	 * processing of fresh requests needs to
+	 * be stopped
+	 */
 	//DEBUGPOINT("ENQUEUEING [%d] aborting = [%d]\n", tn->getSockfd(), this->aborting());
 	if (!this->aborting()) {
 		tn->setSockBusy();
