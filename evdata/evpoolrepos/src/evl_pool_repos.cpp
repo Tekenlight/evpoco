@@ -34,16 +34,16 @@ class sock_queue_holder : public Poco::evnet::evl_pool::queue_holder {
 
 static int add_to_pool(lua_State* L)
 {
-	const char *poolname = (const char*)luaL_checkudata(L, 1, SOCKET_POOL);
+	const char *poolname = *(const char**)luaL_checkudata(L, 1, SOCKET_POOL);
 	const char *name = luaL_checkstring(L, 2);
-	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 4, _stream_socket_type_name);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 3, _stream_socket_type_name);
 	add_conn_to_pool(poolname, name, ss_ptr);
 	return 0;
 }
 
 static int get_from_pool(lua_State* L)
 {
-	const char *poolname = (const char*)luaL_checkudata(L, 1, SOCKET_POOL);
+	const char *poolname = *(const char**)luaL_checkudata(L, 1, SOCKET_POOL);
 	const char *name = luaL_checkstring(L, 2);
 	Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
 
@@ -64,8 +64,9 @@ static int create_pool(lua_State* L)
 		sock_queue_holder qhf;
 		init_pool_type(poolname, &qhf);
 
-		char * pool_name = (char *)lua_newuserdata(L, sizeof(char *));
-		pool_name = strdup(poolname);
+		char ** pool_name_ptr = (char **)lua_newuserdata(L, sizeof(char *));
+		char * pool_name = strdup(poolname);
+		*pool_name_ptr = pool_name;
 		sg_initialized_pools[std::string(poolname)] = pool_name;
 	}
 	else {
@@ -78,11 +79,11 @@ static int create_pool(lua_State* L)
 	return 1;
 }
 
-static int wspool_gc(lua_State *L)
+static int pool_gc(lua_State *L)
 {
 	/* always free the handle */
-    char *str = (char *)luaL_checkudata(L, 1, SOCKET_POOL);
-	free(str);
+    char *str = *(char **)luaL_checkudata(L, 1, SOCKET_POOL);
+	//free(str);
 
 	return 0;
 }
@@ -90,9 +91,9 @@ static int wspool_gc(lua_State *L)
 /*
  * __tostring
  */
-static int wspool_tostring(lua_State *L)
+static int pool_tostring(lua_State *L)
 {
-    char *str = (char *)luaL_checkudata(L, 1, SOCKET_POOL);
+    char *str = *(char **)luaL_checkudata(L, 1, SOCKET_POOL);
     lua_pushfstring(L, "%s", str);
     return 1;
 }
@@ -101,8 +102,8 @@ extern "C" int luaopen_libevpoolrepos(lua_State *L);
 int luaopen_libevpoolrepos(lua_State *L)
 {
 	static const luaL_Reg lua_pool_methods[] = {
-		{"__gc", wspool_gc},
-		{"__tostring", wspool_tostring},
+		{"__gc", pool_gc},
+		{"__tostring", pool_tostring},
 		{ "add_to_pool", add_to_pool},
 		{ "get_from_pool", get_from_pool},
 		{NULL, NULL}
