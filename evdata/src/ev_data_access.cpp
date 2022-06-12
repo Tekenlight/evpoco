@@ -189,6 +189,18 @@ void add_conn_to_pool(const char * type, const char * host, const char * name, v
 	return ;
 }
 
+void add_conn_to_pool(const char * type, const char * name, void * conn)
+{
+	return add_conn_to_pool(type, "", name, conn);
+
+	return ;
+}
+
+void * get_conn_from_pool(const char * type, const char * name)
+{
+	return get_conn_from_pool(type, "", name);
+}
+
 static statements_map_type * get_statements_map()
 {
 	map_of_maps_type* m_o_m = get_map_of_maps();
