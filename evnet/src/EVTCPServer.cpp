@@ -635,6 +635,7 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 {
 	//DEBUGPOINT("CLEARING FOR [%d]\n", fd);
 	EVAcceptedStreamSocket *tn = getTn(fd);
+	//DEBUGPOINT("CLEARING FOR [%d] [%p]\n", fd, &(tn->getStreamSocket()));
 	_accssColl.erase(fd);
 	_ssLRUList.remove(tn);
 	{
@@ -645,6 +646,7 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 			ev_clear_pending(this->_loop, socket_watcher_ptr);
 		}
 	}
+	tn->getStreamSocket().close();
 	delete tn;
 }
 
@@ -1992,7 +1994,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		return;
 	}
 	if (tn->getCLState()) {
-		DEBUGPOINT("CLOSING SOCKET\n");
+		DEBUGPOINT("CLOSING SOCKET [%d]\n", tn->getSockfd());
 		clearAcceptedSocket(tn->getSockfd());
 		return ;
 	}
@@ -3934,6 +3936,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("SHUTDOWN_WEBSOCKET from %d\n", tn->getSockfd());
 				shutdownWebSocketProcess(srNF);
 				break;
+			case EVTCPServiceRequest::WEBSOCKET_ACTIVE:
+				//DEBUGPOINT("WEBSOCKET_ACTIVE from %d\n", tn->getSockfd());
+				webSocketActiveProcess(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -4657,5 +4663,59 @@ long EVTCPServer::stopTakingRequests(int cb_evid_num)
 	return sr_num;
 }
 
+int EVTCPServer::webSocketActiveProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+	bool active = false;
+	{
+		StreamSocket &ss = sr->getStreamSocket();
+		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
+		if (conn_tn && !(conn_tn->getCLState()) && !(conn_tn->shutdownInitiated())) {
+			active = true;
+		}
+	}
+
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum(), (ssize_t)active, 0);
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
+	tn->newdecrNumCSEvents();
+
+	return 0;
+
+}
+
+long EVTCPServer::webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::WEBSOCKET_ACTIVE, en->getSockfd(), ss));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and shutdownWebSocketProcess */
+
+	return sr_num;
+}
 
 } } // namespace Poco::evnet

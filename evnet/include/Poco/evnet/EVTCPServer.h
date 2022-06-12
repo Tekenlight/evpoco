@@ -354,12 +354,14 @@ public:
 	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms);
 	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type);
 	virtual long stopTakingRequests(int cb_evid_num);
+	virtual long webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
 	int trackAsWebSocketProcess(EVTCPServiceRequest * sr);
 	int evTimerProcess(EVTCPServiceRequest * sr);
 	int shutdownWebSocketProcess(EVTCPServiceRequest * sr);
+	int webSocketActiveProcess(EVTCPServiceRequest * sr);
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t readData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);

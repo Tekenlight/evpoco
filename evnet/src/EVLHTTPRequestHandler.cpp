@@ -177,6 +177,8 @@ namespace evpoco {
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_acc_socket(lua_State* L);
 	static int shutdown_websocket(lua_State* L);
+	static int websocket_active(lua_State* L);
+	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
 	static int track_ss_as_websocket(lua_State* L);
 	static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int ev_hibernation_initiate(lua_State* L);
@@ -365,6 +367,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
 	{ "send_data_on_acc_socket", &evpoco::send_data_on_acc_socket},
 	{ "shutdown_websocket", &evpoco::shutdown_websocket},
+	{ "websocket_active", &evpoco::websocket_active},
 	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
 	{ "ev_hibernate", &evpoco::ev_hibernation_initiate},
 	{ "send_cms_on_socket", &evpoco::send_cms_on_socket_initiate },
@@ -628,6 +631,7 @@ static int get_accepted_stream_socket(lua_State* L)
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::Net::StreamSocket * ss_ptr = reqHandler->getAcceptedSocket()->getStreamSocketPtr();
 
+	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
 	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
 	luaL_setmetatable(L, _stream_socket_type_name);
@@ -1468,6 +1472,59 @@ static int shutdown_websocket(lua_State* L)
 	return 0;
 }
 
+static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+	bool active = (bool)usN.getRet();
+	lua_pushboolean(L, active);
+	return 1;
+}
+
+static int websocket_active(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+
+	reqHandler->webSocketActive(*ss_ptr);
+	return lua_yieldk(L, 0, (lua_KContext)0, websocket_active_complete);
+}
+
+#include <sys/select.h>
+static int old_websocket_active(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	fd_set fdRead;
+	fd_set fdWrite;
+	fd_set fdExcept;
+	FD_ZERO(&fdRead);
+	FD_ZERO(&fdWrite);
+	FD_ZERO(&fdExcept);
+	FD_SET(ss_ptr->impl()->sockfd(), &fdRead);
+	FD_SET(ss_ptr->impl()->sockfd(), &fdWrite);
+	struct timeval tv;
+	tv.tv_sec  = (long) 0;
+	tv.tv_usec = (long) 0;
+	int rc = 0;
+	//rc = select(int(ss_ptr->impl()->sockfd()) + 1, &fdRead, &fdWrite, &fdExcept, &tv);
+START_LABEL:
+	rc = select(int(ss_ptr->impl()->sockfd()) + 1, &fdRead, &fdWrite, &fdExcept, &tv);
+	if (rc == -1) {
+		lua_pushboolean(L, false);
+	}
+	else if (rc == 0) {
+		tv.tv_sec  = (long) 0;
+		tv.tv_usec = (long) 100;
+		DEBUGPOINT("Here\n");
+		goto START_LABEL;
+	}
+	else {
+		lua_pushboolean(L, true);
+	}
+	return 1;
+
+}
 static int send_data_on_acc_socket(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);

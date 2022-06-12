@@ -299,6 +299,20 @@ long EVHTTPRequestHandler::evTimer(int time_in_s)
 	return 0;
 }
 
+long EVHTTPRequestHandler::webSocketActive(Net::StreamSocket &ss)
+{
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+
+	sr_num = getServer().webSocketActive(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), ss);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
 long EVHTTPRequestHandler::trackAsWebSocket(Net::StreamSocket& connss, const char * msg_handler)
 {
 	long sr_num = 0;

@@ -224,6 +224,7 @@ public:
 	long evTimer(int time_in_ms);
 	long shutdownWebSocket(Net::StreamSocket &ss, int type = 3);
 	long stopTakingRequests();
+	long webSocketActive(Net::StreamSocket &ss);
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 

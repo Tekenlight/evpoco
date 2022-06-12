@@ -129,7 +129,9 @@ void init_pool_type(const char * type, evl_pool::queue_holder *qhf)
 		std::string name(type);
 		auto it = tm->find(name);
 
+		//DEBUGPOINT("Here\n");
 		if (it == tm->end()) {
+			//DEBUGPOINT("Here\n");
 
 			sg_tmm_lock_rd_lock(0);
 			sg_tmm_lock_wr_lock(1);
@@ -141,6 +143,7 @@ void init_pool_type(const char * type, evl_pool::queue_holder *qhf)
 			sg_tmm_lock_rd_lock(1);
 
 		}
+		//DEBUGPOINT("Here\n");
 	}
 	sg_tmm_lock_rd_lock(0);
 	//DEBUGPOINT("Initialized type [%s]\n", type);

@@ -37,7 +37,10 @@ static int add_to_pool(lua_State* L)
 	const char *poolname = *(const char**)luaL_checkudata(L, 1, SOCKET_POOL);
 	const char *name = luaL_checkstring(L, 2);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 3, _stream_socket_type_name);
-	add_conn_to_pool(poolname, name, ss_ptr);
+	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
+	Poco::Net::StreamSocket * n_ss_ptr = new Poco::Net::StreamSocket();
+	*n_ss_ptr = *ss_ptr;
+	add_conn_to_pool(poolname, name, n_ss_ptr);
 	return 0;
 }
 
@@ -47,10 +50,15 @@ static int get_from_pool(lua_State* L)
 	const char *name = luaL_checkstring(L, 2);
 	Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
 
-	if (NULL != ss_ptr)
-		lua_pushlightuserdata(L, ss_ptr);
-	else
+	if (NULL != ss_ptr) {
+		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+		//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
+		luaL_setmetatable(L, _stream_socket_type_name);
+	}
+	else {
 		lua_pushnil(L);
+	}
 
 	return 1;
 }
@@ -60,19 +68,17 @@ static int create_pool(lua_State* L)
 {
 	const char *poolname = luaL_checkstring(L, 1);
 	auto it = sg_initialized_pools.find(poolname);
-	if (sg_initialized_pools.end() == it) {
-		sock_queue_holder qhf;
-		init_pool_type(poolname, &qhf);
+	sock_queue_holder qhf;
+	init_pool_type(poolname, &qhf);
 
-		char ** pool_name_ptr = (char **)lua_newuserdata(L, sizeof(char *));
-		char * pool_name = strdup(poolname);
-		*pool_name_ptr = pool_name;
-		sg_initialized_pools[std::string(poolname)] = pool_name;
-	}
-	else {
-		char * pool_name = it->second;
-		lua_pushlightuserdata(L, pool_name);
-	}
+	char ** pool_name_ptr = (char **)lua_newuserdata(L, sizeof(char *));
+	char * pool_name = strdup(poolname);
+	*pool_name_ptr = pool_name;
+	//if (sg_initialized_pools.end() == it) {
+		//sg_initialized_pools[std::string(poolname)] = pool_name;
+	//}
+	//else {
+	//}
 	luaL_getmetatable(L, SOCKET_POOL);
 	lua_setmetatable(L, -2);
 
@@ -94,6 +100,7 @@ static int pool_gc(lua_State *L)
 static int pool_tostring(lua_State *L)
 {
     char *str = *(char **)luaL_checkudata(L, 1, SOCKET_POOL);
+	//DEBUGPOINT("Here str = [%p]\n", str);
     lua_pushfstring(L, "%s", str);
     return 1;
 }
