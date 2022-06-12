@@ -4713,7 +4713,7 @@ long EVTCPServer::webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::St
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest
-	 * and shutdownWebSocketProcess */
+	 * and webSocketActiveProcess */
 
 	return sr_num;
 }
