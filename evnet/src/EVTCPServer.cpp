@@ -4561,8 +4561,9 @@ long EVTCPServer::evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_s)
 }
 
 struct shutdown_s {
+	public:
 	int type;
-	Net::StreamSocket ss;
+	Net::StreamSocket *ss;
 };
 
 int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
@@ -4579,26 +4580,26 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 
 	{
 		struct shutdown_s * p = (shutdown_s*)sr->getTaskInputData();
-		StreamSocket &ss = p->ss;
-		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
+		//StreamSocket &ss = p->ss;
+		EVAcceptedStreamSocket *conn_tn = getTn(p->ss->impl()->sockfd());
 
-		if(ss.impl()->sockfd() == tn->getSockfd()) {
+		if(p->ss->impl()->sockfd() == tn->getSockfd()) {
 			DEBUGPOINT("MUST NOT INITIATE SHUTDOWN ON PRIMARY ACCEPTED SOCKET[%d]\n", tn->getSockfd());
 			std::abort();
 		}
 
-		//DEBUGPOINT("Here type for [%d] = [%d]\n", ss.impl()->sockfd(),  p->type);
+		//DEBUGPOINT("Here type for [%d] = [%d]\n", p->ss->impl()->sockfd(),  p->type);
 		switch (p->type) {
 			case 1:
-				ss.impl()->shutdownReceive();
+				p->ss->impl()->shutdownReceive();
 				break;
 			case 2:
 				DEBUGPOINT("THIS FACILITY MAY NOT BE NECESSARY\n");
 				std::abort();
-				ss.impl()->shutdownSend();
+				p->ss->impl()->shutdownSend();
 				break;
 			case 3:
-				ss.impl()->shutdown();
+				p->ss->impl()->shutdown();
 				break;
 			default:
 				DEBUGPOINT("Invalid shutdown mode [%d]\n", p->type);
@@ -4616,6 +4617,7 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 		}
 
 		free(p);
+		//delete p;
 	}
 	//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
 
@@ -4628,9 +4630,12 @@ long EVTCPServer::shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::
 {
 	long sr_num = getNextSRSrlNum();
 
+	//DEBUGPOINT("ptr = [%p]\n", &ss);
 	struct shutdown_s * p = (shutdown_s*)malloc(sizeof(struct shutdown_s));
+	//shutdown_s * p = new shutdown_s();
 	p->type = type;
-	p->ss = ss;
+	//DEBUGPOINT("ptr = [%p]\n", (p->ss));
+	p->ss = &ss;
 
 	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,

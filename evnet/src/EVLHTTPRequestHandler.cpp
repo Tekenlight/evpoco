@@ -1462,6 +1462,7 @@ static int shutdown_websocket(lua_State* L)
 		type = luaL_checkinteger(L, 2);
 	}
 
+	//DEBUGPOINT("ptr = [%p] sock = [%d]\n", ss_ptr, ss_ptr->impl()->sockfd());
 	reqHandler->shutdownWebSocket(*ss_ptr, type);
 
 	return 0;
