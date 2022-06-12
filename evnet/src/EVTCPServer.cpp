@@ -4589,37 +4589,42 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 		//StreamSocket &ss = p->ss;
 		EVAcceptedStreamSocket *conn_tn = getTn(p->ss->impl()->sockfd());
 
-		if(p->ss->impl()->sockfd() == tn->getSockfd()) {
-			DEBUGPOINT("MUST NOT INITIATE SHUTDOWN ON PRIMARY ACCEPTED SOCKET[%d]\n", tn->getSockfd());
-			std::abort();
-		}
-
-		//DEBUGPOINT("Here type for [%d] = [%d]\n", p->ss->impl()->sockfd(),  p->type);
-		switch (p->type) {
-			case 1:
-				p->ss->impl()->shutdownReceive();
-				break;
-			case 2:
-				DEBUGPOINT("THIS FACILITY MAY NOT BE NECESSARY\n");
+		if (conn_tn) {
+			if(p->ss->impl()->sockfd() == tn->getSockfd()) {
+				DEBUGPOINT("MUST NOT INITIATE SHUTDOWN ON PRIMARY ACCEPTED SOCKET[%d]\n", tn->getSockfd());
 				std::abort();
-				p->ss->impl()->shutdownSend();
-				break;
-			case 3:
-				p->ss->impl()->shutdown();
-				break;
-			default:
-				DEBUGPOINT("Invalid shutdown mode [%d]\n", p->type);
-				std::abort();
+			}
+
+			//DEBUGPOINT("Here type for [%d] = [%d]\n", p->ss->impl()->sockfd(),  p->type);
+			switch (p->type) {
+				case 1:
+					p->ss->impl()->shutdownReceive();
+					break;
+				case 2:
+					DEBUGPOINT("THIS FACILITY MAY NOT BE NECESSARY\n");
+					std::abort();
+					p->ss->impl()->shutdownSend();
+					break;
+				case 3:
+					p->ss->impl()->shutdown();
+					break;
+				default:
+					DEBUGPOINT("Invalid shutdown mode [%d]\n", p->type);
+					std::abort();
+			}
+
+			conn_tn->setShutdownInitiaded();
+
+			/* Try to monitor the data on socket if msg handler is not set
+			 * this will lead to clearing of acc socket
+			 */
+			if (!(conn_tn->getWsRecvdMsgHandler().c_str()) || !strcmp(conn_tn->getWsRecvdMsgHandler().c_str(), "")) {
+				//DEBUGPOINT("Here\n")
+				monitorDataOnAccSocket(conn_tn);
+			}
 		}
-
-		conn_tn->setShutdownInitiaded();
-
-		/* Try to monitor the data on socket if msg handler is not set
-		 * this will lead to clearing of acc socket
-		 */
-		if (!(conn_tn->getWsRecvdMsgHandler().c_str()) || !strcmp(conn_tn->getWsRecvdMsgHandler().c_str(), "")) {
-			//DEBUGPOINT("Here\n")
-			monitorDataOnAccSocket(conn_tn);
+		else {
+			p->ss->impl()->managed(false);
 		}
 
 		free(p);
@@ -4677,6 +4682,10 @@ int EVTCPServer::webSocketActiveProcess(EVTCPServiceRequest * sr)
 		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
 		if (conn_tn && !(conn_tn->getCLState()) && !(conn_tn->shutdownInitiated())) {
 			active = true;
+		}
+		else {
+			ss.impl()->managed(false);
+			active = false;
 		}
 	}
 
