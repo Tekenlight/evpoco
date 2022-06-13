@@ -37,9 +37,10 @@ static int add_to_pool(lua_State* L)
 	const char *poolname = *(const char**)luaL_checkudata(L, 1, SOCKET_POOL);
 	const char *name = luaL_checkstring(L, 2);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 3, _stream_socket_type_name);
-	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
 	Poco::Net::StreamSocket * n_ss_ptr = new Poco::Net::StreamSocket();
+	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
 	*n_ss_ptr = *ss_ptr;
+	//DEBUGPOINT("[%p]manaded = [%d]\n", n_ss_ptr, n_ss_ptr->impl()->isManaged());
 	add_conn_to_pool(poolname, name, n_ss_ptr);
 	return 0;
 }

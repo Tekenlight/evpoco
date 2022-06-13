@@ -1149,7 +1149,7 @@ handleAccSocketWritable_finally:
 					case EVAcceptedStreamSocket::SERVER_MODE:
 						switch (tn->getSockUpgradeTo()) {
 							case EVAcceptedStreamSocket::WEBSOCKET:
-								tn->getStreamSocketPtr()->impl()->managed(true);
+								//tn->getStreamSocketPtr()->impl()->managed(true);
 								tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 								//DEBUGPOINT("here\n");
 								monitorDataOnAccSocket(tn);
@@ -2245,7 +2245,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 										switch (tn->getSockUpgradeTo()) {
 											case EVAcceptedStreamSocket::WEBSOCKET:
 												DEBUGPOINT("Here\n");
-												tn->getStreamSocketPtr()->impl()->managed(true);
+												//tn->getStreamSocketPtr()->impl()->managed(true);
 												tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 												break;
 											case EVAcceptedStreamSocket::HTTP2:
@@ -4329,26 +4329,55 @@ int EVTCPServer::sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr)
 		std::abort();
 	}
 
+	bool status = true;
+
 	{
 		sock_and_data_p_type p = (sock_and_data_p_type)sr->getTaskInputData();
 		EVAcceptedStreamSocket *acc_tn = getTn(p->ss.impl()->sockfd());
 		if (!acc_tn) {
-			DEBUGPOINT("[%d] not an accepted Socket\n", p->ss.impl()->sockfd());
-			std::abort();
+			status = false;
 		}
-		if (acc_tn->getSockMode() != EVAcceptedStreamSocket::WEBSOCKET_MODE) {
-			DEBUGPOINT("[%d] not Upgraded as a web socket\n", p->ss.impl()->sockfd());
-			std::abort();
+		else {
+			if (!(acc_tn->getCLState()) && !(acc_tn->shutdownInitiated())) {
+				if (acc_tn->getSockMode() != EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+					DEBUGPOINT("[%d] not Upgraded as a web socket\n", p->ss.impl()->sockfd());
+					std::abort();
+				}
+				acc_tn->pushResData(p->raw_data.data, p->raw_data.size);
+				sendDataOnAccSocket(acc_tn, 0);
+				p->raw_data.data = NULL;
+				p->raw_data.size = 0;
+			}
+			else {
+				status = false;
+			}
 		}
-		acc_tn->pushResData(p->raw_data.data, p->raw_data.size);
-		sendDataOnAccSocket(acc_tn, 0);
-		p->raw_data.data = NULL;
-		p->raw_data.size = 0;
 
 		delete p;
 	}
 
-	tn->newdecrNumCSEvents();
+
+	//DEBUGPOINT("Here status = [%d]\n", status);
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet((int)status);
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		//DEBUGPOINT("Here status = [%zd]\n", usN->getRet());
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+		//DEBUGPOINT("Here status = [%zd]\n", usN->getRet());
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
 
 	return 0;
 }
@@ -4382,30 +4411,43 @@ int EVTCPServer::trackAsWebSocketProcess(EVTCPServiceRequest * sr)
 		std::abort();
 	}
 
+	bool status = true;
 	{
 		sock_and_data_p_type p = (sock_and_data_p_type)sr->getTaskInputData();
-		EVAcceptedStreamSocket *conn_tn = createEVAccSocket(p->ss);
-		conn_tn->setSockUpgradeTo(EVAcceptedStreamSocket::WEBSOCKET);
-		conn_tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
-		if (p->raw_data.data) {
-			conn_tn->setWsRecvdMsgHandler(std::string((char*)(p->raw_data.data)));
+		EVAcceptedStreamSocket *ss_tn = getTn(p->ss.impl()->sockfd());
+		//DEBUGPOINT("Here ss_tn = [%p]\n", ss_tn);
+
+		if (!ss_tn) {
+			EVAcceptedStreamSocket *conn_tn = createEVAccSocket(p->ss);
+			conn_tn->setSockUpgradeTo(EVAcceptedStreamSocket::WEBSOCKET);
+			conn_tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+			if (p->raw_data.data) {
+				conn_tn->setWsRecvdMsgHandler(std::string((char*)(p->raw_data.data)));
+			}
+			else {
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = conn_tn->getSocketWatcher();
+
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
+				conn_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+				//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
+			}
+			//conn_tn->getStreamSocketPtr()->impl()->managed(true);
+
 		}
 		else {
-			ev_io * socket_watcher_ptr = 0;
-			socket_watcher_ptr = conn_tn->getSocketWatcher();
-
-			ev_io_stop(this->_loop, socket_watcher_ptr);
-			ev_clear_pending(this->_loop, socket_watcher_ptr);
-			//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
-			conn_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
-			//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
+			DEBUGPOINT("Here ss_tn = [%p]\n", ss_tn);
+			status = false;
 		}
-		conn_tn->getStreamSocketPtr()->impl()->managed(true);
-
 		delete p;
 	}
 
+	//DEBUGPOINT("Here status = [%d]\n", status);
 	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet((int)status);
+	//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
 	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
@@ -4624,7 +4666,7 @@ int EVTCPServer::shutdownWebSocketProcess(EVTCPServiceRequest * sr)
 			}
 		}
 		else {
-			p->ss->impl()->managed(false);
+			//p->ss->impl()->managed(false);
 		}
 
 		free(p);
@@ -4684,12 +4726,14 @@ int EVTCPServer::webSocketActiveProcess(EVTCPServiceRequest * sr)
 			active = true;
 		}
 		else {
-			ss.impl()->managed(false);
+			//ss.impl()->managed(false);
 			active = false;
 		}
 	}
 
-	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum(), (ssize_t)active, 0);
+	//DEBUGPOINT("Here status = [%d]\n", active);
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet((int)active);
 	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
@@ -4706,7 +4750,6 @@ int EVTCPServer::webSocketActiveProcess(EVTCPServiceRequest * sr)
 		std::abort();
 		return -1;
 	}
-	tn->newdecrNumCSEvents();
 
 	return 0;
 

@@ -329,9 +329,16 @@ long EVHTTPRequestHandler::trackAsWebSocket(Net::StreamSocket& connss, const cha
 
 long EVHTTPRequestHandler::sendRawDataOnAccSocket(Net::StreamSocket& accss, void* data, size_t len)
 {
-	getServer().sendRawDataOnAccSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), accss, data, len);
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 
-	return 0;
+	sr_num = getServer().sendRawDataOnAccSocket(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), accss, data, len);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
 }
 
 long EVHTTPRequestHandler::stopTakingRequests()

@@ -176,6 +176,7 @@ namespace evpoco {
 	static int send_data_on_socket_initiate(lua_State* L);
 	static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext ctx);
 	static int send_data_on_acc_socket(lua_State* L);
+	static int send_data_on_acc_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int shutdown_websocket(lua_State* L);
 	static int websocket_active(lua_State* L);
 	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
@@ -359,7 +360,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
-	{ "use_pooled_connection", &evpoco::use_pooled_connection },
+	//{ "use_pooled_connection", &evpoco::use_pooled_connection },
 	{ "set_socket_managed", &evpoco::set_socket_managed },
 	{ "cleanup_stream_socket", &evpoco::cleanup_stream_socket },
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
@@ -631,9 +632,10 @@ static int get_accepted_stream_socket(lua_State* L)
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::Net::StreamSocket * ss_ptr = reqHandler->getAcceptedSocket()->getStreamSocketPtr();
 
-	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
+	DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
 	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
-	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+	*(Poco::Net::StreamSocket**)ptr = new StreamSocket();
+	*(*(Poco::Net::StreamSocket**)ptr) = *ss_ptr;
 	luaL_setmetatable(L, _stream_socket_type_name);
 
 	return 1;
@@ -1525,6 +1527,24 @@ START_LABEL:
 	return 1;
 
 }
+
+static int send_data_on_acc_socket_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	size_t size = (size_t) ctx;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	StreamSocket * ss_ptr = *(StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+	bool ret = (bool)usN.getRet();
+
+	if (!ret) {
+		luaL_error(L, "Send data on [%d] failed\n", ss_ptr->impl()->sockfd());
+	}
+
+	lua_pushinteger(L, size);
+
+	return 1;
+}
+
 static int send_data_on_acc_socket(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -1537,9 +1557,8 @@ static int send_data_on_acc_socket(lua_State* L)
 	//DEBUGPOINT("buf = [%p] size = [%zu]\n", buf, size);
 	reqHandler->sendRawDataOnAccSocket(*ss_ptr, buf, size);
 
-	lua_pushinteger(L, size);
-
-	return 1;
+	//DEBUGPOINT("Here size = [%zd]\n", size);
+	return lua_yieldk(L, 0, (lua_KContext)size, send_data_on_acc_socket_complete);
 }
 
 static int send_data_on_socket_initiate(lua_State* L)

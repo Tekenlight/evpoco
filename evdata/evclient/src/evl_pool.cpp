@@ -46,10 +46,14 @@ static int get_from_pool(lua_State* L)
 	const char *name = luaL_checkstring(L, 3);
 	Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(type, host, name);
 
-	if (NULL != ss_ptr)
-		lua_pushlightuserdata(L, ss_ptr);
-	else
+	if (NULL != ss_ptr) {
+		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+		luaL_setmetatable(L, _stream_socket_type_name);
+	}
+	else {
 		lua_pushnil(L);
+	}
 
 	return 1;
 }
