@@ -1629,7 +1629,16 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 	memset(buffer,0,128);
 
 	try {
-		ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
+		if (!(tn->shutdownInitiated())) {
+			ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
+		}
+		else {
+			do {
+				ret = ss.receiveBytes(buffer, 127);
+				//DEBUGPOINT("Here ret = [%zd]\n", ret);
+			} while (ret >0);
+			ret = -1;
+		}
 		//ret = recv(ss.impl()->sockfd(), buffer, 1, MSG_PEEK);
 		//ret = recv(ss.impl()->sockfd(), buffer, 1, 0);
 		//DEBUGPOINT("Here ret = [%zd] errno = [%d]\n", ret, errno);
@@ -1718,7 +1727,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 		return EVTCPServer::handleAccWebSocketReadable(ss, ev_occured);
 	}
 
-	{
+	if (!(tn->shutdownInitiated())) {
 		ssize_t ret1 = 0;
 		int count = 0;
 		do {
@@ -1741,6 +1750,15 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 				}
 			}
 		} while(!_blocking && ret1>0);
+	}
+	else {
+		do {
+			void * buffer = malloc(TCP_BUFFER_SIZE);
+			memset(buffer,0,TCP_BUFFER_SIZE);
+			ret = receiveData(ss, buffer, TCP_BUFFER_SIZE);
+			free(buffer);
+		} while (!_blocking && ret > 0);
+		ret = -1;
 	}
 
 handleAccSocketReadable_finally:
