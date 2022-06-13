@@ -35,7 +35,10 @@ static int add_to_pool(lua_State* L)
 	const char *host = luaL_checkstring(L, 2);
 	const char *name = luaL_checkstring(L, 3);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 4, _stream_socket_type_name);
-	add_conn_to_pool(type, host, name, ss_ptr);
+	Poco::Net::StreamSocket * n_ss_ptr = new Poco::Net::StreamSocket();
+	*n_ss_ptr = *ss_ptr;
+	//DEBUGPOINT("ADDING [%p] to pool\n", n_ss_ptr);
+	add_conn_to_pool(type, host, name, n_ss_ptr);
 	return 0;
 }
 
@@ -49,6 +52,7 @@ static int get_from_pool(lua_State* L)
 	if (NULL != ss_ptr) {
 		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+		//DEBUGPOINT("GOT [%p] from pool\n", ss_ptr);
 		luaL_setmetatable(L, _stream_socket_type_name);
 	}
 	else {

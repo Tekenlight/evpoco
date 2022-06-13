@@ -397,8 +397,8 @@ public:
 	bool initialized() const;
 		/// Returns true iff the underlying socket is initialized.
 		//
-	bool isManaged();
-	void managed(bool managed);
+	//bool isManaged();
+	//void managed(bool managed);
 
 protected:
 	SocketImpl();
@@ -462,7 +462,7 @@ private:
 	Poco::Timespan _sndTimeout;
 	bool          _blocking;
 	bool          _isBrokenTimeout;
-	bool		_isManaged;
+	//bool		_isManaged;
 
 	friend class Socket;
 	friend class SecureSocketImpl;
@@ -473,6 +473,7 @@ private:
 //
 // inlines
 //
+/*
 inline bool SocketImpl::isManaged()
 {
 	return _isManaged;
@@ -482,6 +483,7 @@ inline void SocketImpl::managed(bool managed)
 {
 	_isManaged = managed;
 }
+*/
 
 inline poco_socket_t SocketImpl::sockfd() const
 {

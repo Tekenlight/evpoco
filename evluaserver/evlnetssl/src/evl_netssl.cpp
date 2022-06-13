@@ -13,7 +13,7 @@ const static char *_stream_socket_type_name = "streamsocket";
 static int connect_TLS(lua_State* L)
 {
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
-	bool managed = ss_ptr->impl()->isManaged();
+	//bool managed = ss_ptr->impl()->isManaged();
 	const char * peer_name = lua_tostring(L, 2);
 	Poco::Net::Context::Ptr pContext = Poco::Net::SSLManager::instance().defaultClientContext();
 	if (peer_name) {
@@ -24,7 +24,7 @@ static int connect_TLS(lua_State* L)
 		Poco::Net::SecureStreamSocket sss(Poco::Net::SecureStreamSocket::attach(*ss_ptr, pContext));
 		*ss_ptr = sss;
 	}
-	ss_ptr->impl()->managed(managed);
+	//ss_ptr->impl()->managed(managed);
 	return 0;
 }
 

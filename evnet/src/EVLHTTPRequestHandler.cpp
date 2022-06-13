@@ -361,8 +361,8 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
 	//{ "use_pooled_connection", &evpoco::use_pooled_connection },
-	{ "set_socket_managed", &evpoco::set_socket_managed },
-	{ "cleanup_stream_socket", &evpoco::cleanup_stream_socket },
+	//{ "set_socket_managed", &evpoco::set_socket_managed },
+	//{ "cleanup_stream_socket", &evpoco::cleanup_stream_socket },
 	{ "close_tcp_connection", &evpoco::close_tcp_connection },
 	{ "recv_data_from_socket", &evpoco::recv_data_from_socket_initiate },
 	{ "send_data_on_socket", &evpoco::send_data_on_socket_initiate },
@@ -632,7 +632,7 @@ static int get_accepted_stream_socket(lua_State* L)
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::Net::StreamSocket * ss_ptr = reqHandler->getAcceptedSocket()->getStreamSocketPtr();
 
-	DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
+	//DEBUGPOINT("[%p]manaded = [%d]\n", ss_ptr, ss_ptr->impl()->isManaged());
 	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 	*(Poco::Net::StreamSocket**)ptr = new StreamSocket();
 	*(*(Poco::Net::StreamSocket**)ptr) = *ss_ptr;
@@ -1185,7 +1185,7 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 	Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
 	ss_ptr->setFd(usN.sockfd());
 	ss_ptr->setBlocking(false);
-	ss_ptr->impl()->managed(managed);
+	//ss_ptr->impl()->managed(managed);
 
 	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
@@ -1232,6 +1232,7 @@ static int make_tcp_connection_initiate(lua_State* L)
 	return lua_yieldk(L, 0, (lua_KContext)0, make_tcp_connection_complete);
 }
 
+#if 0
 static int set_socket_managed(lua_State* L)
 {
 	bool managed = false;
@@ -1245,7 +1246,9 @@ static int set_socket_managed(lua_State* L)
 
 	return 0;
 }
+#endif
 
+#if 0
 static int cleanup_stream_socket(lua_State* L)
 {
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
@@ -1254,11 +1257,13 @@ static int cleanup_stream_socket(lua_State* L)
 	 * the corresponding __gc will delete the object.
 	 */
 	//DEBUGPOINT("HERE\n");
-	ss_ptr->impl()->managed(false);
+	//ss_ptr->impl()->managed(false);
 
 	return 0;
 }
+#endif
 
+#if 0
 static int use_pooled_connection(lua_State* L)
 {
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
@@ -1280,6 +1285,7 @@ static int use_pooled_connection(lua_State* L)
 
 	return 1;
 }
+#endif
 
 static int close_tcp_connection(lua_State* L)
 {
@@ -1292,7 +1298,8 @@ static int close_tcp_connection(lua_State* L)
 	return 0;
 }
 
-#define MANAGED(ss_ptr) (ss_ptr)->impl()->isManaged()
+//#define MANAGED(ss_ptr) (ss_ptr)->impl()->isManaged()
+#define MANAGED(ss_ptr) 0
 
 static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext ctx)
 {
@@ -1916,11 +1923,11 @@ static int req__gc(lua_State *L)
 static int ss__gc(lua_State *L)
 {
 	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
-	//DEBUGPOINT("HERE managed = [%d] fd=[%d]\n", ss_ptr->impl()->isManaged(), ss_ptr->impl()->sockfd());
-	if (!(ss_ptr->impl()->isManaged())) {
+	//DEBUGPOINT("HERE [%p]  managed = [%d] fd=[%d]\n", ss_ptr, ss_ptr->impl()->isManaged(), ss_ptr->impl()->sockfd());
+	//if (!(ss_ptr->impl()->isManaged())) {
 		//DEBUGPOINT("HERE\n");
 		delete ss_ptr;
-	}
+	//}
 	//DEBUGPOINT("HERE\n");
 	return 0;
 }
