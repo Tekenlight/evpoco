@@ -50,6 +50,7 @@ public:
 		,SET_EV_TIMER
 		,SHUTDOWN_WEBSOCKET
 		,WEBSOCKET_ACTIVE
+		,RUN_LUA_SCRIPT
 	} what;
 	typedef enum {
 		NONE = 0

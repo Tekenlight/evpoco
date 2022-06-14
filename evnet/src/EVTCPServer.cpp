@@ -1146,7 +1146,7 @@ handleAccSocketWritable_finally:
 			 */
 			if (tn->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSOCKET) {
 				switch (tn->getSockMode()) {
-					case EVAcceptedStreamSocket::SERVER_MODE:
+					case EVAcceptedStreamSocket::HTTP:
 						switch (tn->getSockUpgradeTo()) {
 							case EVAcceptedStreamSocket::WEBSOCKET:
 								//tn->getStreamSocketPtr()->impl()->managed(true);
@@ -2213,7 +2213,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
 				switch (tn->getSockMode()) {
-					case EVAcceptedStreamSocket::SERVER_MODE:
+					case EVAcceptedStreamSocket::HTTP:
 						//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
 						sendDataOnAccSocket(tn, event);
 						break;
@@ -2259,7 +2259,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 							 */
 							if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
 								switch (tn->getSockMode()) {
-									case EVAcceptedStreamSocket::SERVER_MODE:
+									case EVAcceptedStreamSocket::HTTP:
 										switch (tn->getSockUpgradeTo()) {
 											case EVAcceptedStreamSocket::WEBSOCKET:
 												DEBUGPOINT("Here\n");
@@ -2324,7 +2324,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
 					sendDataOnReturnPipe(tn, event);
 				}
-				else if (tn->getSockMode() == EVAcceptedStreamSocket::SERVER_MODE) {
+				else if (tn->getSockMode() == EVAcceptedStreamSocket::HTTP) {
 					sendDataOnAccSocket(tn, event);
 				}
 				//else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
@@ -3958,6 +3958,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("WEBSOCKET_ACTIVE from %d\n", tn->getSockfd());
 				webSocketActiveProcess(srNF);
 				break;
+			case EVTCPServiceRequest::RUN_LUA_SCRIPT:
+				//DEBUGPOINT("RUN_LUA_SCRIPT from %d\n", tn->getSockfd());
+				runLuaScriptProcess(srNF);
+				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
 				std::abort();
@@ -4784,6 +4788,77 @@ long EVTCPServer::webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::St
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest
 	 * and webSocketActiveProcess */
+
+	return sr_num;
+}
+
+
+/*
+ * Functions pertaining to running of a lua script asynchronously as an
+ * independent thread
+ */
+
+struct run_lua_script_inp_s {
+	int argc;
+	char *argv[];
+};
+
+int EVTCPServer::runLuaScriptProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+	{
+		struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s*)sr->getTaskInputData();
+
+		for (int i = 0; i < p->argc; i++) {
+			free(p->argv[i]);
+		}
+		free(p);
+	}
+
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
+
+	return 0;
+
+}
+
+long EVTCPServer::runLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[])
+{
+	long sr_num = getNextSRSrlNum();
+	struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s *)malloc(sizeof(struct run_lua_script_inp_s));
+	memset(p, 0, sizeof(struct run_lua_script_inp_s));
+	p->argc = argc;
+	for (int i = 0; i < argc; i++) {
+		p->argv[i] = strdup(argv[i]);
+	}
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::RUN_LUA_SCRIPT, en->getSockfd(), p));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and runLuaScriptProcess */
 
 	return sr_num;
 }

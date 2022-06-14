@@ -37,15 +37,14 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_cl_state(false),
 	_socketInError(0),
 	_event_queue(create_ev_queue()),
-	_reservation_queue(create_ev_queue()),
-	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
 	_waiting_tobe_enqueued(false),
 	_socket_upgraded_to(EVAcceptedStreamSocket::NONE),
-	_shutdown_initiated(false)
+	_shutdown_initiated(false),
+	_task_type(0)
 {
-	_sock_mode = EVAcceptedStreamSocket::SERVER_MODE;
+	_sock_mode = EVAcceptedStreamSocket::HTTP;
 	struct timeval tv;
 	gettimeofday(&tv,0);
 	_timeOfLastUse = tv.tv_sec;
@@ -68,13 +67,12 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 	_cl_state(false),
 	_socketInError(0),
 	_event_queue(create_ev_queue()),
-	_reservation_queue(create_ev_queue()),
-	_active_cs_events(0),
 	_new_active_cs_events(0),
 	_base_sr_srl_num(0),
 	_waiting_tobe_enqueued(false),
 	_socket_upgraded_to(EVAcceptedStreamSocket::NONE),
-	_shutdown_initiated(false)
+	_shutdown_initiated(false),
+	_task_type(0)
 {
 	_sock_mode = EVAcceptedStreamSocket::COMMAND_LINE_MODE;
 	_out_streamSocket.setFd(CL_wr_fd);
@@ -120,6 +118,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		destroy_ev_queue(this->_event_queue);
 		this->_event_queue = NULL;
 	}
+	/*
 	if (this->_reservation_queue) {
 		EVTCPServiceRequest * sr = NULL;
 		sr = (EVTCPServiceRequest*)dequeue(_reservation_queue);
@@ -130,6 +129,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		destroy_ev_queue(this->_reservation_queue);
 		this->_event_queue = NULL;
 	}
+	*/
 }
 
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
@@ -235,21 +235,6 @@ bool EVAcceptedStreamSocket::reqDataAvlbl()
 {
 	int c = 0;
 	return (_req_memory_stream->copy(0, &c, 1) > 0);
-}
-
-chunked_memory_stream * EVAcceptedStreamSocket::getResMemStream()
-{
-	return _res_memory_stream;
-}
-
-chunked_memory_stream * EVAcceptedStreamSocket::getReqMemStream()
-{
-	return _req_memory_stream;
-}
-
-ev_queue_type EVAcceptedStreamSocket::getIoEventQueue()
-{
-	return _event_queue;
 }
 
 } } // namespace evnet and Poco end.

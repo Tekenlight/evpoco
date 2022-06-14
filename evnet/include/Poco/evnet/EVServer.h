@@ -46,6 +46,7 @@ public:
 	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type) = 0;
 	virtual long stopTakingRequests(int cb_evid_num) = 0;
 	virtual long webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss) = 0;
+	virtual long runLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[]) = 0;
 	bool aborting();
 	void setAborting();
 

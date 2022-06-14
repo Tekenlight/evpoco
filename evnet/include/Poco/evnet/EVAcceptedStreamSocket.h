@@ -57,8 +57,12 @@ public:
 		HTTP2
 	} socket_upgrade_to_enum;
 
-	enum SOCK_MODE {
-		SERVER_MODE = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2, HTTP2_MODE = 3
+	enum PROTOCOL {
+		HTTP = 0, COMMAND_LINE_MODE = 1, WEBSOCKET_MODE = 2, HTTP2_MODE = 3
+	};
+
+	enum TASK_TYPE {
+		CLIENT_REQUEST, ASYNC_TASK
 	};
 
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
@@ -126,6 +130,8 @@ public:
 	struct ev_loop* getEventLoop();
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
 
+	int getTaskType();
+	void setTaskType(int t);
 	bool getCLState();
 	void setCLState(bool state);
 	accepted_sock_state getState();
@@ -133,10 +139,11 @@ public:
 	inline void setSockInError();
 	inline bool sockInError();
 	ev_queue_type getIoEventQueue();
-	ev_queue_type getReservationQueue();
+#if 0
 	void decrNumCSEvents();
 	void incrNumCSEvents();
 	bool pendingCSEvents();
+#endif
 	void newdecrNumCSEvents();
 	void newresetNumCSEvents();
 	virtual void newincrNumCSEvents();
@@ -181,17 +188,25 @@ private:
 	int							_socketInError; /* Tells if an error is observed while processing request
 												   on this socket. */
 	bool						_sockBusy; /* Tells if the socket is in custody of a worker thread */
-	//int						_active_cs_events; /* Tells how many SR requests are pending on this sock */
-	std::atomic_int				_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	std::atomic_int				_new_active_cs_events; /* Tells how many SR requests are pending on this sock */
 	unsigned long				_base_sr_srl_num;
 	bool						_waiting_tobe_enqueued;
 	socket_upgrade_to_enum		_socket_upgraded_to;
 	std::string					_ws_recvd_msg_handler; /* Name of the request handler in case of received frames
 														  on websockets. */
-	ev_queue_type				_reservation_queue;
 	bool						_shutdown_initiated;
+	int							_task_type;
 };
+
+inline int EVAcceptedStreamSocket::getTaskType()
+{
+	return this->_task_type;
+}
+
+inline void EVAcceptedStreamSocket::setTaskType(int t)
+{
+	this->_task_type = t;
+}
 
 inline bool EVAcceptedStreamSocket::shutdownInitiated()
 {
@@ -201,11 +216,6 @@ inline bool EVAcceptedStreamSocket::shutdownInitiated()
 inline void EVAcceptedStreamSocket::setShutdownInitiaded()
 {
 	_shutdown_initiated = true;
-}
-
-inline ev_queue_type EVAcceptedStreamSocket::getReservationQueue()
-{
-	return _reservation_queue;
 }
 
 inline std::string EVAcceptedStreamSocket::getWsRecvdMsgHandler()
@@ -304,6 +314,7 @@ inline bool EVAcceptedStreamSocket::sockInError()
 	return (_socketInError>0);
 }
 
+#if 0
 inline void EVAcceptedStreamSocket::decrNumCSEvents()
 {
 	//_active_cs_events--;
@@ -322,6 +333,7 @@ inline bool EVAcceptedStreamSocket::pendingCSEvents()
 	//DEBUGPOINT("ACTIVE EVENTS = %d\n", _active_cs_events);
 	return (cs_events>0);
 }
+#endif
 
 inline void EVAcceptedStreamSocket::newresetNumCSEvents()
 {
@@ -390,6 +402,21 @@ inline Net::SocketAddress& EVAcceptedStreamSocket::clientAddress()
 inline Net::SocketAddress& EVAcceptedStreamSocket::serverAddress()
 {
 	return _serverAddress;
+}
+
+inline chunked_memory_stream * EVAcceptedStreamSocket::getResMemStream()
+{
+	return _res_memory_stream;
+}
+
+inline chunked_memory_stream * EVAcceptedStreamSocket::getReqMemStream()
+{
+	return _req_memory_stream;
+}
+
+inline ev_queue_type EVAcceptedStreamSocket::getIoEventQueue()
+{
+	return _event_queue;
 }
 
 } } // namespace evnet and Poco end.
