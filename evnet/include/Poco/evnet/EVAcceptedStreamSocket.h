@@ -62,7 +62,7 @@ public:
 	};
 
 	enum TASK_TYPE {
-		CLIENT_REQUEST, ASYNC_TASK
+		CLIENT_REQUEST = 0, ASYNC_TASK
 	};
 
 	EVAcceptedStreamSocket(StreamSocket & streamSocket);
@@ -276,6 +276,7 @@ inline bool EVAcceptedStreamSocket::waitingTobeEnqueued()
 inline bool EVAcceptedStreamSocket::srInSession(unsigned long sr_srl_num)
 {
 	//DEBUGPOINT("BASE SR SRL NUM = %ld\n", _base_sr_srl_num);
+	//DEBUGPOINT("SR SRL NUM = %ld\n", sr_srl_num);
 	return (sr_srl_num > _base_sr_srl_num);
 }
 

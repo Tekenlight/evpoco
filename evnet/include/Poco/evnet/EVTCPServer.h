@@ -355,7 +355,7 @@ public:
 	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type);
 	virtual long stopTakingRequests(int cb_evid_num);
 	virtual long webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss);
-	virtual long runLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[]);
+	virtual long asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[]);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
@@ -363,7 +363,7 @@ public:
 	int evTimerProcess(EVTCPServiceRequest * sr);
 	int shutdownWebSocketProcess(EVTCPServiceRequest * sr);
 	int webSocketActiveProcess(EVTCPServiceRequest * sr);
-	int runLuaScriptProcess(EVTCPServiceRequest * sr);
+	int asyncRunLuaScriptProcess(EVTCPServiceRequest * sr);
 
 	static ssize_t receiveData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
 	static ssize_t readData(int fd, void * chptr, size_t size, int * wait_mode_ptr = NULL);
@@ -426,7 +426,7 @@ private:
 	EVTCPServer(const EVTCPServer&);
 	EVTCPServer& operator = (const EVTCPServer&);
 	
-	void addCLPrimaryFdToAcceptedList(int fd, int wr_fd);
+	EVAcceptedStreamSocket* addCLPrimaryFdToAcceptedList(int fd, int wr_fd, int task_type = EVAcceptedStreamSocket::CLIENT_REQUEST);
 		/// Function to add the primary pipe rd fd to IO monitoring to listen to commands
 	void handleConnReq(const bool& abortCurrent);
 		/// Function to handle the event of socket receiving a connection request.

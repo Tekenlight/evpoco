@@ -240,8 +240,10 @@ protected:
 			memset(out, 0, 100);
 			ret = read(rd_fd, out, 99);
 			ret = atoi(out);
-
 			srv.stop();
+			close(rd_fd);
+			close(wr_fd);
+
 		}
 		return ret;
 	}

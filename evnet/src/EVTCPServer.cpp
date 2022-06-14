@@ -1287,9 +1287,11 @@ ssize_t EVTCPServer::readData(int fd, void * chptr, size_t size, int * wait_mode
 		else {
 			const char * error_string = NULL;
 			if (!errno) {
-				error_string = "Peer closed connection";
+				DEBUGPOINT("Here\n");
+				error_string = "Connection closed";
 			}
 			else {
+				DEBUGPOINT("Here\n");
 				error_string = strerror(errno);
 			}
 			DEBUGPOINT("%d:%d-%s\n", errno, fd, error_string);
@@ -2204,32 +2206,42 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					if (this->_mode == SERVER_MODE) {
 						DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					}
+					else {
+						//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
+					}
 					tn->deleteState();
 					/* Should reset of number of CS events be done at all
 					 * tn->newresetNumCSEvents();
 					 * */
 					tn->setWaitingTobeEnqueued(false);
-					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n",tn-newPendingCSEvents()); 
+					//DEBUGPOINT("COMPLETED PROCESSING # CS EVENTS %d\n", tn->newpendingCSEvents()); 
 				}
 				//else DEBUGPOINT("RETAINING STATE\n");
-				switch (tn->getSockMode()) {
-					case EVAcceptedStreamSocket::HTTP:
-						//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
-						sendDataOnAccSocket(tn, event);
-						break;
-					case EVAcceptedStreamSocket::WEBSOCKET_MODE:
-						//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
-						// The worker thread takes care of 
-						// reading and writing data from and to
-						// socket in case of WEBSOCKET_MODE
-						break;
-					case EVAcceptedStreamSocket::COMMAND_LINE_MODE:
-						sendDataOnReturnPipe(tn, event);
-						break;
-					default:
-						DEBUGPOINT("Invalid socket mode [%d]\n", tn->getSockMode());
-						std::abort();
+				if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
+					switch (tn->getSockMode()) {
+						case EVAcceptedStreamSocket::HTTP:
+							//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
+							sendDataOnAccSocket(tn, event);
+							break;
+						case EVAcceptedStreamSocket::WEBSOCKET_MODE:
+							//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
+							// The worker thread takes care of 
+							// reading and writing data from and to
+							// socket in case of WEBSOCKET_MODE
+							break;
+						case EVAcceptedStreamSocket::COMMAND_LINE_MODE:
+							//DEBUGPOINT("newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
+							sendDataOnReturnPipe(tn, event);
+							break;
+						default:
+							DEBUGPOINT("Invalid socket mode [%d]\n", tn->getSockMode());
+							std::abort();
 
+					}
+				}
+				else {
+					/* Nothing to send in case of EVAcceptedStreamSocket::ASYNC_TASK
+					 */
 				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
@@ -2258,11 +2270,12 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 							 * completely sent to the client.
 							 */
 							if (!tn->resDataAvlbl() && tn->getSockUpgradeTo()) {
+								//DEBUGPOINT("Here\n");
 								switch (tn->getSockMode()) {
 									case EVAcceptedStreamSocket::HTTP:
 										switch (tn->getSockUpgradeTo()) {
 											case EVAcceptedStreamSocket::WEBSOCKET:
-												DEBUGPOINT("Here\n");
+												//DEBUGPOINT("Here\n");
 												//tn->getStreamSocketPtr()->impl()->managed(true);
 												tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 												break;
@@ -2310,34 +2323,63 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								}
 							}
 							else {
-								monitorDataOnAccSocket(tn);
+								if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
+									//DEBUGPOINT("Here\n");
+									monitorDataOnAccSocket(tn);
+								}
+								else {
+									/* In case of async task there is not much to do
+									 * we just close the task here and move on
+									 */
+									DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+									clearAcceptedSocket(pcNf->sockfd());
+								}
 							}
 						}
 						else {
-							monitorDataOnCLFd(tn);
+							//DEBUGPOINT("Here fd = [%d]\n", tn->getSockfd());
+							//monitorDataOnCLFd(tn);
+							if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
+								//DEBUGPOINT("Here\n");
+								monitorDataOnAccSocket(tn);
+							}
+							else {
+								/* In case of async task there is not much to do
+								 * we just close the task here and move on
+								 */
+								//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+								clearAcceptedSocket(pcNf->sockfd());
+							}
 						}
 					}
 				}
 				break;
 			case EVTCPServerNotification::DATA_FOR_SEND_READY:
-				//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d sockMode = [%d]\n", ss.impl()->sockfd(), tn->getSockMode());
-				if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
-					sendDataOnReturnPipe(tn, event);
+				if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
+					//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d sockMode = [%d]\n", ss.impl()->sockfd(), tn->getSockMode());
+					if (tn->getSockMode() == EVAcceptedStreamSocket::COMMAND_LINE_MODE) {
+						sendDataOnReturnPipe(tn, event);
+					}
+					else if (tn->getSockMode() == EVAcceptedStreamSocket::HTTP) {
+						sendDataOnAccSocket(tn, event);
+					}
+					//else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+						/* Nothing to do in case of WEBSOCKET MODE
+						 * Since as per the present design, all websocket
+						 * communication will be handled in the worker 
+						 * thread only
+						 */
+						//DEBUGPOINT("Here\n");
+					//}
+					else {
+						DEBUGPOINT("Invalid Socket Mode\n");
+						std::abort();
+					}
 				}
-				else if (tn->getSockMode() == EVAcceptedStreamSocket::HTTP) {
-					sendDataOnAccSocket(tn, event);
-				}
-				//else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
-					/* Nothing to do in case of WEBSOCKET MODE
-					 * Since as per the present design, all websocket
-					 * communication will be handled in the worker 
-					 * thread only
-					 */
-					//DEBUGPOINT("Here\n");
-				//}
 				else {
-					DEBUGPOINT("Invalid Socket Mode\n");
-					std::abort();
+					//DEBUGPOINT("DATA_FOR_SEND_READY on socket %d sockMode = [%d]\n", ss.impl()->sockfd(), tn->getSockMode());
+					/* Nothing to send in case of ASYNC_TASK
+					 */
 				}
 				break;
 			case EVTCPServerNotification::ERROR_IN_PROCESSING:
@@ -2380,7 +2422,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -2406,7 +2448,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
@@ -2438,6 +2480,7 @@ EVAcceptedStreamSocket*  EVTCPServer::createEVAccSocket(StreamSocket& ss)
 	acceptedSock->setClientAddress(ss.peerAddress());
 	acceptedSock->setServerAddress(ss.address());
 	acceptedSock->setEventLoop(this->_loop);
+	acceptedSock->setTaskType(EVAcceptedStreamSocket::CLIENT_REQUEST);
 
 	{
 		ev_io * socket_watcher_ptr = 0;
@@ -2678,14 +2721,14 @@ handleCLFdReadable_finally:
 	return ret;
 }
 
-#include <poll.h>
-
-void EVTCPServer::addCLPrimaryFdToAcceptedList(int fd, int wr_fd)
+EVAcceptedStreamSocket* EVTCPServer::addCLPrimaryFdToAcceptedList(int fd, int wr_fd, int task_type)
 {
+	EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(fd, wr_fd);
 	try {
 
-		EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(fd, wr_fd);
+		acceptedSock = new EVAcceptedStreamSocket(fd, wr_fd);
 		acceptedSock->setEventLoop(this->_loop);
+		acceptedSock->setTaskType(task_type);
 
 		{
 			ev_io * socket_watcher_ptr = 0;
@@ -2724,13 +2767,18 @@ void EVTCPServer::addCLPrimaryFdToAcceptedList(int fd, int wr_fd)
 	}
 	catch (Poco::Exception& exc) {
 		ErrorHandler::handle(exc);
+		std::abort();
 	}
 	catch (std::exception& exc) {
 		ErrorHandler::handle(exc);
+		std::abort();
 	}
 	catch (...) {
 		ErrorHandler::handle();
+		std::abort();
 	}
+
+	return acceptedSock;
 
 }
 
@@ -3960,7 +4008,7 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				break;
 			case EVTCPServiceRequest::RUN_LUA_SCRIPT:
 				//DEBUGPOINT("RUN_LUA_SCRIPT from %d\n", tn->getSockfd());
-				runLuaScriptProcess(srNF);
+				asyncRunLuaScriptProcess(srNF);
 				break;
 			default:
 				//DEBUGPOINT("INVALID EVENT %d from %d\n", event, tn->getSockfd());
@@ -4803,7 +4851,7 @@ struct run_lua_script_inp_s {
 	char *argv[];
 };
 
-int EVTCPServer::runLuaScriptProcess(EVTCPServiceRequest * sr)
+int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
 {
 	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
 	if (!tn) {
@@ -4813,6 +4861,62 @@ int EVTCPServer::runLuaScriptProcess(EVTCPServiceRequest * sr)
 
 	{
 		struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s*)sr->getTaskInputData();
+		/* We are doing this just to get a unique fd
+		 * to identify the tn in _accssColl
+		 */
+		int filedes[2] = {-1, -1};
+		if (0 != pipe(&(filedes[0]))) {
+			DEBUGPOINT("Unbable create an IPC pipe [%s]\n", strerror(errno));
+			std::abort();
+		}
+
+		EVAcceptedStreamSocket *async_task_tn =
+				this->addCLPrimaryFdToAcceptedList(filedes[0], filedes[1], EVAcceptedStreamSocket::ASYNC_TASK);
+
+		{
+			ev_io * socket_watcher_ptr = 0;
+			socket_watcher_ptr = async_task_tn->getSocketWatcher();
+
+			ev_io_stop(this->_loop, socket_watcher_ptr);
+			ev_clear_pending(this->_loop, socket_watcher_ptr);
+			/* Nothing to send in case of EVAcceptedStreamSocket::ASYNC_TASK
+			 */
+			async_task_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+		}
+
+		{
+			size_t n = p->argc;
+			size_t buf_size = 1;
+			for (int i = 0; i < n; i++) {
+				buf_size += strlen(p->argv[i]) + 1;
+			}
+			char * buf = (char*)malloc(buf_size);
+			memset(buf, 0, buf_size);
+			for (int i = 0; i < n; i++) {
+				if (i != 0) strcat(buf, " ");
+				strcat(buf,  p->argv[i]);
+			}
+			strcat(buf, "\n");
+			async_task_tn->pushReqData(buf, (size_t)buf_size);
+			/* Need not free buf because chunked memory stream
+			 * frees the buffer after the stream is read
+			 * completely
+			 */
+		}
+
+		{
+			async_task_tn->setProcState(_pConnectionFactory->createCLProcState(this));
+			async_task_tn->getProcState()->setMode(EVAcceptedStreamSocket::COMMAND_LINE_MODE);
+			//DEBUGPOINT("Created processing state %p for %d\n", async_task_tn->getProcState(), async_task_tn->getSockfd());
+			async_task_tn->getProcState()->setClientAddress(async_task_tn->clientAddress());
+			async_task_tn->getProcState()->setServerAddress(async_task_tn->serverAddress());
+			/* Session starts when a new processing state is created. */
+			unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
+			async_task_tn->setBaseSRSrlNum(sr_num);
+
+			justEnqueue(async_task_tn);
+		}
+
 
 		for (int i = 0; i < p->argc; i++) {
 			free(p->argv[i]);
@@ -4821,6 +4925,9 @@ int EVTCPServer::runLuaScriptProcess(EVTCPServiceRequest * sr)
 	}
 
 	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet(0);
+	//DEBUGPOINT("state = [%p]\n", tn->getProcState());
+	//DEBUGPOINT("Here sr in session = [%d]  srnum = [%ld][%ld]\n", tn->srInSession(usN->getSRNum()), usN->getSRNum(), sr->getSRNum());
 	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
@@ -4842,7 +4949,7 @@ int EVTCPServer::runLuaScriptProcess(EVTCPServiceRequest * sr)
 
 }
 
-long EVTCPServer::runLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[])
+long EVTCPServer::asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[])
 {
 	long sr_num = getNextSRSrlNum();
 	struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s *)malloc(sizeof(struct run_lua_script_inp_s));
@@ -4858,7 +4965,7 @@ long EVTCPServer::runLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest
-	 * and runLuaScriptProcess */
+	 * and asyncRunLuaScriptProcess */
 
 	return sr_num;
 }

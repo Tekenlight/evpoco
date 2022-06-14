@@ -179,10 +179,12 @@ namespace evpoco {
 	static int send_data_on_acc_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int shutdown_websocket(lua_State* L);
 	static int websocket_active(lua_State* L);
+	static int async_run_lua_script(lua_State* L);
 	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
 	static int track_ss_as_websocket(lua_State* L);
 	static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int ev_hibernation_initiate(lua_State* L);
+	static int ev_dbg_pthread_self(lua_State* L);
 	static int ev_hibernation_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_cms_on_socket_initiate(lua_State* L);
 	static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ctx);
@@ -369,8 +371,10 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "send_data_on_acc_socket", &evpoco::send_data_on_acc_socket},
 	{ "shutdown_websocket", &evpoco::shutdown_websocket},
 	{ "websocket_active", &evpoco::websocket_active},
+	{ "async_run_lua_script", &evpoco::async_run_lua_script},
 	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
 	{ "ev_hibernate", &evpoco::ev_hibernation_initiate},
+	{ "ev_dbg_pthread_self", &evpoco::ev_dbg_pthread_self},
 	{ "send_cms_on_socket", &evpoco::send_cms_on_socket_initiate },
 	{ "nb_make_http_connection", &evpoco::nb_make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
@@ -1382,6 +1386,19 @@ static int ev_hibernation_complete(lua_State* L, int status, lua_KContext ctx)
 	return 0;
 }
 
+static int ev_dbg_pthread_self(lua_State* L)
+{
+	const char * str = "";
+	if (lua_gettop(L) > 0) {
+		const char * str = luaL_checkstring(L, 1);
+		DEBUGPOINT(" [%s]\n", str);
+	}
+	else {
+		DEBUGPOINT("\n");
+	}
+	return 0;
+}
+
 static int ev_hibernation_initiate(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -1432,6 +1449,33 @@ static int shutdown_websocket(lua_State* L)
 	reqHandler->shutdownWebSocket(*ss_ptr, type);
 
 	return 0;
+}
+
+static int async_run_lua_script_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	char ** argv = (char**)ctx;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+	bool ret = true;
+	if (usN.getRet() != 0) ret = false;
+
+	lua_pushboolean(L, ret);
+	free(argv);
+	return 1;
+}
+
+static int async_run_lua_script(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	int argc = lua_gettop(L);
+	char **argv = (char**)malloc(argc*sizeof(char*));
+	for (int i = 0; i < argc; i++) {
+		argv[i] = (char*)luaL_checkstring(L, (i+1));
+	}
+
+	reqHandler->asyncRunLuaScript(argc, argv);
+	return lua_yieldk(L, 0, (lua_KContext)argv, async_run_lua_script_complete);
 }
 
 static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx)

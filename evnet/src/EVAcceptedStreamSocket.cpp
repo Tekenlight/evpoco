@@ -42,7 +42,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_waiting_tobe_enqueued(false),
 	_socket_upgraded_to(EVAcceptedStreamSocket::NONE),
 	_shutdown_initiated(false),
-	_task_type(0)
+	_task_type(CLIENT_REQUEST)
 {
 	_sock_mode = EVAcceptedStreamSocket::HTTP;
 	struct timeval tv;
@@ -72,7 +72,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(int CL_rd_fd, int CL_wr_fd):
 	_waiting_tobe_enqueued(false),
 	_socket_upgraded_to(EVAcceptedStreamSocket::NONE),
 	_shutdown_initiated(false),
-	_task_type(0)
+	_task_type(CLIENT_REQUEST)
 {
 	_sock_mode = EVAcceptedStreamSocket::COMMAND_LINE_MODE;
 	_out_streamSocket.setFd(CL_wr_fd);
@@ -117,6 +117,12 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		}
 		destroy_ev_queue(this->_event_queue);
 		this->_event_queue = NULL;
+	}
+	if (this->_clRdFd != -1) {
+		close(this->_clRdFd);
+	}
+	if (this->_clWrFd != -1) {
+		close(this->_clRdFd);
 	}
 	/*
 	if (this->_reservation_queue) {
