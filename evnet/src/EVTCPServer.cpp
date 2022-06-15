@@ -633,7 +633,7 @@ void EVTCPServer::freeClear()
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 {
-	//DEBUGPOINT("CLEARING FOR [%d]\n", fd);
+	DEBUGPOINT("CLEARING FOR [%d]\n", fd);
 	EVAcceptedStreamSocket *tn = getTn(fd);
 	//DEBUGPOINT("CLEARING FOR [%d] [%p]\n", fd, &(tn->getStreamSocket()));
 	_accssColl.erase(fd);
@@ -1182,12 +1182,12 @@ handleAccSocketWritable_finally:
 		else {
 		}
 		if (tn->shutdownInitiated()) {
-			//DEBUGPOINT("SHUTTING DOWN HERE\n");
+			//DEBUGPOINT("SHUTTING DOWN HERE fd [%d]\n", tn->getSockfd());
 			if (!tn->sockBusy() && !tn->newpendingCSEvents()) {
 				clearAcceptedSocket(tn->getSockfd());
 			}
 			else {
-				DEBUGPOINT("Here for %d\n", tn->getSockfd());
+				//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 				tn->setSockInError();
 			}
 		}
@@ -1202,7 +1202,7 @@ handleAccSocketWritable_finally:
 		 * When the processing gets complete, and the socket is returned,
 		 * At that time the socket will get disposed.
 		 * */
-		DEBUGPOINT("Here for %d\n", tn->getSockfd());
+		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 		tn->setSockInError();
 		if (tn->shutdownInitiated() && !tn->sockBusy() && !tn->newpendingCSEvents()) {
 			//DEBUGPOINT("SHUTTING DOWN HERE\n");
@@ -2268,6 +2268,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				else {
 					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+					//DEBUGPOINT("Here for %d busy %d\n", tn->getSockfd(), tn->sockBusy());
 
 					/* SHOULD MONITOR FOR MORE DATA ONLY IF SOCKET IS FREE */
 					if (!(tn->sockBusy())) {
@@ -2340,8 +2341,10 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 									 * we just close the task here and move on
 									 */
 									//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-									//DEBUGPOINT("clearing for %d\n", pcNf->sockfd());
-									clearAcceptedSocket(pcNf->sockfd());
+									if (!tn->newpendingCSEvents()) {
+										//DEBUGPOINT("clearing for %d\n", pcNf->sockfd());
+										clearAcceptedSocket(pcNf->sockfd());
+									}
 								}
 							}
 						}
@@ -2356,8 +2359,10 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								/* In case of async task there is not much to do
 								 * we just close the task here and move on
 								 */
-								//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-								clearAcceptedSocket(pcNf->sockfd());
+								if (!tn->newpendingCSEvents()) {
+									//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+									clearAcceptedSocket(pcNf->sockfd());
+								}
 							}
 						}
 					}
@@ -4603,6 +4608,10 @@ ssize_t EVTCPServer::handleEVTimerEvent(cb_ref_data_ptr_type ref_data)
 {
 	//DEBUGPOINT("Here\n");
 	EVAcceptedStreamSocket *tn = getTn(ref_data->_acc_fd);
+	if (!tn) {
+		DEBUGPOINT("COULD NOT LOCATE THE ACCEPTED SOCKET [%d]\n", ref_data->_acc_fd);
+		std::abort();
+	}
 	if ((tn->getProcState()) && tn->srInSession(ref_data->_usN->getSRNum())) {
 		enqueue(tn->getIoEventQueue(), (void*)ref_data->_usN);
 		tn->newdecrNumCSEvents();
@@ -4661,6 +4670,7 @@ int EVTCPServer::evTimerProcess(EVTCPServiceRequest * sr)
 		free(p);
 	}
 	//DEBUGPOINT("tn->getState() = [%d]\n", tn->getState());
+	//DEBUGPOINT("tn->sockBusy() = [%d]\n", tn->sockBusy());
 
 	return 0;
 }
