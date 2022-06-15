@@ -276,6 +276,7 @@ void SocketImpl::close()
 {
 	if (_sockfd != POCO_INVALID_SOCKET)
 	{
+		//printf("%s:%d closing for [%d]\n", __FILE__, __LINE__, _sockfd);
 		poco_closesocket(_sockfd);
 		_sockfd = POCO_INVALID_SOCKET;
 	}

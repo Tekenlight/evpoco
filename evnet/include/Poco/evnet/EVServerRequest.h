@@ -30,6 +30,13 @@ public:
 
 	~EVServerRequest();
 		/// Destroys the EVServerRequest.
+		//
+	
+	enum REQ_TYPE {
+		HTTP_REQ = 0, CL_REQ = 1
+	};
+
+	virtual int getReqMode() = 0;
 		
 };
 

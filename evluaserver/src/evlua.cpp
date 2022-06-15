@@ -61,7 +61,7 @@ using Poco::StreamCopier;
 class EVFormRequestHandler: public EVLHTTPRequestHandler
 {
 public:
-	virtual std::string getMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	virtual std::string getMappingScript(Poco::evnet::EVServerRequest* requestPtr)
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
@@ -75,7 +75,7 @@ public:
 			return s;
 		}
 	}
-	virtual std::string getWSMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	virtual std::string getWSMappingScript(Poco::evnet::EVServerRequest* requestPtr)
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 

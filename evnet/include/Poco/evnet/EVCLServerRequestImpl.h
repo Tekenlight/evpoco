@@ -83,6 +83,8 @@ public:
 	void setBuf(char *);
 	char *getBuf();
 
+	virtual int getReqMode();
+
 private:
 	EVCLServerResponseImpl&       	_response;
 	EVServerSession&            	_session;
@@ -95,6 +97,12 @@ private:
 // inlines
 //
 //
+
+inline int EVCLServerRequestImpl::getReqMode()
+{
+	return EVServerRequest::CL_REQ;
+}
+
 
 inline void EVCLServerRequestImpl::setBuf(char * buf)
 {

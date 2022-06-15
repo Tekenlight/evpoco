@@ -202,7 +202,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 		 * EVTCPServer::handleAccSocketReadable(const bool) or
 		 * EVTCPServer::handleCLFdReadable(const bool)
 		 */
-		//DEBUGPOINT("INVOKING handleAccSocketReadable\n");
+		//DEBUGPOINT("INVOKING handleAccSocketReadable for [%d]\n", cb_ptr->ssPtr->impl()->sockfd());
 		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
 		//ev_io_stop(loop, w);
@@ -646,7 +646,13 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 			ev_clear_pending(this->_loop, socket_watcher_ptr);
 		}
 	}
-	tn->getStreamSocket().close();
+	if ((tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) &&
+				(tn->getSockMode() != COMMAND_LINE_MODE) ) {
+		/* In commandline mode and async task modes
+		 * pipe fds are closed by destructor of EVAcceptedStreamSocket
+		 */
+		tn->getStreamSocket().close();
+	}
 	delete tn;
 }
 
@@ -1036,7 +1042,7 @@ handleCLWrFdWritable_finally:
 		 * When the processing gets complete, and the socket is returned,
 		 * At that time the socket will get disposed.
 		 * */
-		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+		DEBUGPOINT("Here for %d\n", tn->getSockfd());
 		tn->setSockInError();
 	}
 
@@ -1188,6 +1194,7 @@ handleAccSocketWritable_finally:
 				clearAcceptedSocket(tn->getSockfd());
 			}
 			else {
+				DEBUGPOINT("Here for %d\n", tn->getSockfd());
 				tn->setSockInError();
 			}
 		}
@@ -1202,7 +1209,7 @@ handleAccSocketWritable_finally:
 		 * When the processing gets complete, and the socket is returned,
 		 * At that time the socket will get disposed.
 		 * */
-		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+		DEBUGPOINT("Here for %d\n", tn->getSockfd());
 		tn->setSockInError();
 		if (tn->shutdownInitiated() && !tn->sockBusy() && !tn->newpendingCSEvents()) {
 			//DEBUGPOINT("SHUTTING DOWN HERE\n");
@@ -1227,15 +1234,18 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size, i
 	else if (wait_mode_ptr) *wait_mode_ptr = 0;
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			//DEBUGPOINT("Here for sock [%d] ret = [%zd] [%d][%s]\n", ss.impl()->sockfd(), ret, errno, strerror(errno));
 			return 0;
 		}
 		else {
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				//DEBUGPOINT("Here for sock [%d] ret = [%zd] [%d][%s]\n", ss.impl()->sockfd(), ret, errno, error_string);
 			}
 			else {
 				error_string = strerror(errno);
+				//DEBUGPOINT("Here for sock [%d] ret = [%zd] [%d][%s]\n", ss.impl()->sockfd(), ret, errno, strerror(errno));
 			}
 			return -1;
 		}
@@ -1633,6 +1643,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 	try {
 		if (!(tn->shutdownInitiated())) {
 			ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
+			//DEBUGPOINT("Here ret = [%zd]\n", ret);
 		}
 		else {
 			do {
@@ -1677,7 +1688,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 		}
 	}
 	catch (std::exception & e) {
-		DEBUGPOINT("Here ret = [%zd]\n", ret);
+		//DEBUGPOINT("Here ret = [%zd]\n", ret);
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
@@ -1699,7 +1710,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 					ev_io_stop(this->_loop, socket_watcher_ptr);
 					ev_clear_pending(this->_loop, socket_watcher_ptr);
 				}
-				//DEBUGPOINT("SHUTTING DOWN HERE\n");
+				//DEBUGPOINT("SHUTTING DOWN HERE sockfd = [%d] err = [%s]\n", ss.impl()->sockfd(), strerror(errno));
 				errorWhileReceiving(ss.impl()->sockfd(), true);
 			}
 			else {
@@ -1747,6 +1758,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 			}
 			else {
 				free(buffer);
+				//DEBUGPOINT("Here ret = [%zd]\n", ret);
 				if (ret1 < 0) {
 					ret = -1;
 				}
@@ -1754,6 +1766,7 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 		} while(!_blocking && ret1>0);
 	}
 	else {
+		//DEBUGPOINT("Here shutdown has been initiated\n");
 		do {
 			void * buffer = malloc(TCP_BUFFER_SIZE);
 			memset(buffer,0,TCP_BUFFER_SIZE);
@@ -1870,7 +1883,7 @@ void EVTCPServer::dataReadyForSend(int fd)
 													EVTCPServerNotification::DATA_FOR_SEND_READY));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1917,7 +1930,7 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_RECEIVING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1935,7 +1948,7 @@ void EVTCPServer::errorInAuxProcesing(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_AUX_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1951,7 +1964,7 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -2056,6 +2069,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * This can be a cause for unnecessary thread context switching
 		 * opportunity for optimization.
 		 * */
+		//DEBUGPOINT("Here for [%d]\n", ss.impl()->sockfd());
 		handleAccSocketReadable(ss, false);
 	}
 	else {
@@ -2185,6 +2199,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 		/* If some error has been noticed on this socket, dispose it off cleanly
 		 * over here
 		 * */
+		//DEBUGPOINT("Here event = %d\n", event);
 		if ((event == EVTCPServerNotification::REQDATA_CONSUMED) && (tn->sockInError())) {
 			DEBUGPOINT("Here for %d\n", tn->getSockfd());
 			event = EVTCPServerNotification::ERROR_IN_PROCESSING;
@@ -2331,7 +2346,8 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 									/* In case of async task there is not much to do
 									 * we just close the task here and move on
 									 */
-									DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+									//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+									//DEBUGPOINT("clearing for %d\n", pcNf->sockfd());
 									clearAcceptedSocket(pcNf->sockfd());
 								}
 							}
@@ -2422,7 +2438,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				break;
@@ -2448,7 +2464,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						}
 						subscriptions.clear();
 					}
-					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
+					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 					clearAcceptedSocket(pcNf->sockfd());
 				}
 				else {
@@ -2715,6 +2731,7 @@ handleCLFdReadable_finally:
 				ev_clear_pending(this->_loop, socket_watcher_ptr);
 			}
 		}
+		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
 		errorWhileReceiving(ss.impl()->sockfd(), true);
 	}
 
@@ -4848,7 +4865,7 @@ long EVTCPServer::webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::St
 
 struct run_lua_script_inp_s {
 	int argc;
-	char *argv[];
+	char **argv;
 };
 
 int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
@@ -4885,7 +4902,8 @@ int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
 		}
 
 		{
-			size_t n = p->argc;
+			int n = p->argc;
+			//DEBUGPOINT("Here n = [%d]\n", n);
 			size_t buf_size = 1;
 			for (int i = 0; i < n; i++) {
 				buf_size += strlen(p->argv[i]) + 1;
@@ -4921,6 +4939,7 @@ int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
 		for (int i = 0; i < p->argc; i++) {
 			free(p->argv[i]);
 		}
+		free(p->argv);
 		free(p);
 	}
 
@@ -4955,6 +4974,7 @@ long EVTCPServer::asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int a
 	struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s *)malloc(sizeof(struct run_lua_script_inp_s));
 	memset(p, 0, sizeof(struct run_lua_script_inp_s));
 	p->argc = argc;
+	(p->argv) = (char**)malloc(argc*sizeof(char*));
 	for (int i = 0; i < argc; i++) {
 		p->argv[i] = strdup(argv[i]);
 	}

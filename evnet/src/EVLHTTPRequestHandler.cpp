@@ -1388,6 +1388,8 @@ static int ev_hibernation_complete(lua_State* L, int status, lua_KContext ctx)
 
 static int ev_dbg_pthread_self(lua_State* L)
 {
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("Here for sock =[%d]\n", reqHandler->getAcceptedSocket()->getSockfd());
 	const char * str = "";
 	if (lua_gettop(L) > 0) {
 		const char * str = luaL_checkstring(L, 1);
@@ -1453,13 +1455,21 @@ static int shutdown_websocket(lua_State* L)
 
 static int async_run_lua_script_complete(lua_State* L, int status, lua_KContext ctx)
 {
+	int argc = lua_gettop(L);
 	char ** argv = (char**)ctx;
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
 	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	bool ret = true;
 	if (usN.getRet() != 0) ret = false;
 
 	lua_pushboolean(L, ret);
+
+	/*
+	for (int i = 0; i < argc; i++) {
+		free(argv[i]);
+	}
+	*/
 	free(argv);
 	return 1;
 }
@@ -1471,7 +1481,7 @@ static int async_run_lua_script(lua_State* L)
 	int argc = lua_gettop(L);
 	char **argv = (char**)malloc(argc*sizeof(char*));
 	for (int i = 0; i < argc; i++) {
-		argv[i] = (char*)luaL_checkstring(L, (i+1));
+		argv[i] = (char*)(luaL_checkstring(L, (i+1)));
 	}
 
 	reqHandler->asyncRunLuaScript(argc, argv);
@@ -4187,9 +4197,12 @@ int EVLHTTPRequestHandler::handleRequest()
 	 * Thus, it is not possible to do this initialization in the 
 	 * constructor of this class.
 	 * */
+	//DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n", (void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
+	EVAcceptedStreamSocket * tn = getAcceptedSocket();
 	if (INITIAL == getState()) {
 		int mode = getEVRHMode();
-		if (mode == EVHTTPRequestHandler::SERVER_MODE || mode == EVHTTPRequestHandler::WEBSOCKET_MODE) {
+		if ((tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) &&
+			(mode == EVHTTPRequestHandler::SERVER_MODE || mode == EVHTTPRequestHandler::WEBSOCKET_MODE)) {
 			if (mode == EVHTTPRequestHandler::SERVER_MODE)
 				_mapping_script = getMappingScript(getHTTPRequestPtr());
 			else
@@ -4211,6 +4224,8 @@ int EVLHTTPRequestHandler::handleRequest()
 			nargs=i;
 		}
 		else {
+			//DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n",
+					//(void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
 			_mapping_script = getMappingScript(getCLRequestPtr());
 			if (0 != loadReqMapper()) {
 				return PROCESSING_ERROR;
@@ -4264,7 +4279,8 @@ int EVLHTTPRequestHandler::handleRequest()
 		}
 	}
 
-	//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);
+	//DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n",
+			//(void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
 		//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);

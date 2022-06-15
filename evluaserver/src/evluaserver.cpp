@@ -310,22 +310,35 @@ static void stop_heart_beat(pthread_t tid)
 class EVFormRequestHandler: public EVLHTTPRequestHandler
 {
 public:
-	virtual std::string getMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	virtual std::string getMappingScript(Poco::evnet::EVServerRequest* requestPtr)
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
-		char * path_env = getenv(EVLUA_PATH);
-		if (!path_env) {
-			return config.getString("evlua.requestMappingScript", "mapper.lua");
+		if (requestPtr->getReqMode() == Poco::evnet::EVServerRequest::HTTP_REQ) {
+			char * path_env = getenv(EVLUA_PATH);
+			if (!path_env) {
+				return config.getString("evlua.requestMappingScript", "mapper.lua");
+			}
+			else {
+				std::string s;
+				s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "mapper.lua");
+				return s;
+			}
 		}
 		else {
-			std::string s;
-			s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "mapper.lua");
-			return s;
+			char * path_env = getenv(EVLUA_PATH);
+			if (!path_env) {
+				return config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+			}
+			else {
+				std::string s;
+				s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+				return s;
+			}
 		}
 		//return config.getString("evluaserver.requestMappingScript", "mapper.lua");
 	}
-	virtual std::string getWSMappingScript(const Poco::evnet::EVServerRequest* requestPtr)
+	virtual std::string getWSMappingScript(Poco::evnet::EVServerRequest* requestPtr)
 	{
 		Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 

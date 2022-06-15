@@ -119,10 +119,12 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		this->_event_queue = NULL;
 	}
 	if (this->_clRdFd != -1) {
-		close(this->_clRdFd);
+		//DEBUGPOINT("CLOSING %d\n", this->_clRdFd);
+		//close(this->_clRdFd);
 	}
 	if (this->_clWrFd != -1) {
-		close(this->_clRdFd);
+		//DEBUGPOINT("CLOSING %d\n", this->_clWrFd);
+		//close(this->_clRdFd);
 	}
 	/*
 	if (this->_reservation_queue) {

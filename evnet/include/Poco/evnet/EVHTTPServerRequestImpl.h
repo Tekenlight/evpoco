@@ -126,6 +126,7 @@ public:
 	size_t getMessageBodySize();
 	void setContinueProcessed();
 	bool continueProcessed();
+	virtual int getReqMode();
 
 private:
 	EVHTTPServerResponseImpl&       _response;
@@ -146,6 +147,11 @@ private:
 // inlines
 //
 //
+
+inline int EVHTTPServerRequestImpl::getReqMode()
+{
+	return EVServerRequest::HTTP_REQ;
+}
 
 inline void EVHTTPServerRequestImpl::setContinueProcessed()
 {

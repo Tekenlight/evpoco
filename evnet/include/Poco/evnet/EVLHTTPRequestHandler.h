@@ -253,8 +253,8 @@ public:
 	virtual int handleRequest();
 		/// Handles the given request.
 
-	virtual std::string getMappingScript(const EVServerRequest* requestPtr) = 0;
-	virtual std::string getWSMappingScript(const EVServerRequest* requestPtr) = 0;
+	virtual std::string getMappingScript(EVServerRequest* requestPtr) = 0;
+	virtual std::string getWSMappingScript(EVServerRequest* requestPtr) = 0;
 
 	void addToComponents(mapped_item_type, void*);
 	void* getFromComponents(mapped_item_type);
