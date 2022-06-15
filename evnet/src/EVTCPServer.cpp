@@ -651,7 +651,12 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 		/* In commandline mode and async task modes
 		 * pipe fds are closed by destructor of EVAcceptedStreamSocket
 		 */
-		tn->getStreamSocket().close();
+		/* As such we need not do this
+		 * since deleteion of tn, calls 
+		 * destructor pf StreamSocket
+		 * which in turn closes the socket.
+		 */
+		//tn->getStreamSocket().close();
 	}
 	delete tn;
 }
