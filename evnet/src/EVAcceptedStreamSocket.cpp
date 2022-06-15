@@ -26,7 +26,6 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_clWrFd(-1),
 	_sockFd(streamSocket.impl()->sockfd()),
 	_socket_watcher(0),
-	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
 	_sockBusy(false),
@@ -44,6 +43,7 @@ EVAcceptedStreamSocket::EVAcceptedStreamSocket(StreamSocket & streamSocket):
 	_shutdown_initiated(false),
 	_task_type(CLIENT_REQUEST)
 {
+	_streamSocket = streamSocket;
 	_sock_mode = EVAcceptedStreamSocket::HTTP;
 	struct timeval tv;
 	gettimeofday(&tv,0);
@@ -118,26 +118,10 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		destroy_ev_queue(this->_event_queue);
 		this->_event_queue = NULL;
 	}
-	if (this->_clRdFd != -1) {
-		//DEBUGPOINT("CLOSING %d\n", this->_clRdFd);
-		//close(this->_clRdFd);
-	}
+	_streamSocket.impl()->close();
 	if (this->_clWrFd != -1) {
-		//DEBUGPOINT("CLOSING %d\n", this->_clWrFd);
-		//close(this->_clRdFd);
+		_out_streamSocket.impl()->close();
 	}
-	/*
-	if (this->_reservation_queue) {
-		EVTCPServiceRequest * sr = NULL;
-		sr = (EVTCPServiceRequest*)dequeue(_reservation_queue);
-		while (sr) {
-			delete sr;
-			sr = (EVTCPServiceRequest*)dequeue(_event_queue);
-		}
-		destroy_ev_queue(this->_reservation_queue);
-		this->_event_queue = NULL;
-	}
-	*/
 }
 
 StreamSocket &  EVAcceptedStreamSocket::getStreamSocket()
