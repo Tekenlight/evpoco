@@ -1503,6 +1503,10 @@ static int websocket_active(lua_State* L)
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
 
 	reqHandler->webSocketActive(*ss_ptr);
+	if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
 	return lua_yieldk(L, 0, (lua_KContext)0, websocket_active_complete);
 }
 

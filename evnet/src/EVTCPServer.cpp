@@ -4812,7 +4812,9 @@ int EVTCPServer::webSocketActiveProcess(EVTCPServiceRequest * sr)
 	{
 		StreamSocket &ss = sr->getStreamSocket();
 		EVAcceptedStreamSocket *conn_tn = getTn(ss.impl()->sockfd());
-		if (conn_tn && !(conn_tn->getCLState()) && !(conn_tn->shutdownInitiated())) {
+		if (conn_tn && !(conn_tn->getCLState()) &&
+			!(conn_tn->shutdownInitiated()) &&
+			(conn_tn->getStreamSocket().impl()->sockfd() != POCO_INVALID_SOCKET)) {
 			active = true;
 		}
 		else {
