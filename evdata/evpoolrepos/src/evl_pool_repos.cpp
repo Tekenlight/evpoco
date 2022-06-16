@@ -41,6 +41,11 @@ class sock_queue_holder : public Poco::evnet::evl_pool::queue_holder {
 
 static void add_to_pool(Poco::Net::StreamSocket * ss_ptr, const char *poolname, const char *name)
 {
+	if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
+		//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
+		return;
+	}
+
 	Poco::Net::StreamSocket * n_ss_ptr = new Poco::Net::StreamSocket();
 	*n_ss_ptr = *ss_ptr;
 	//DEBUGPOINT("[%p] added to pool\n", n_ss_ptr);
@@ -71,30 +76,29 @@ static int share_from_pool(lua_State* L)
 	const char *name = luaL_checkstring(L, 2);
 
 	while (true) {
-		{
-			ev_spin_lock(pool_ptr->lock);
-			Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
-			if (NULL != ss_ptr) {
-				if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
-					delete ss_ptr;
-					ev_spin_unlock(pool_ptr->lock);
-					continue;
-				}
-				void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
-				*(Poco::Net::StreamSocket**)ptr = ss_ptr;
-				//DEBUGPOINT("[%p] got from pool\n", ss_ptr);
-				luaL_setmetatable(L, _stream_socket_type_name);
-				add_to_pool(ss_ptr, poolname, name);
-
+		ev_spin_lock(pool_ptr->lock);
+		Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
+		if (NULL != ss_ptr) {
+			if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
+				//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
+				delete ss_ptr;
 				ev_spin_unlock(pool_ptr->lock);
-				break;
+				continue;
 			}
-			else {
-				lua_pushnil(L);
+			void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
+			*(Poco::Net::StreamSocket**)ptr = ss_ptr;
+			//DEBUGPOINT("[%p] got from pool\n", ss_ptr);
+			luaL_setmetatable(L, _stream_socket_type_name);
+			add_to_pool(ss_ptr, poolname, name);
 
-				ev_spin_unlock(pool_ptr->lock);
-				break;
-			}
+			ev_spin_unlock(pool_ptr->lock);
+			break;
+		}
+		else {
+			lua_pushnil(L);
+
+			ev_spin_unlock(pool_ptr->lock);
+			break;
 		}
 	}
 
@@ -112,6 +116,8 @@ static int get_from_pool(lua_State* L)
 		Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
 		if (NULL != ss_ptr) {
 			if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
+				//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
+				delete ss_ptr;
 				continue;
 			}
 			void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
