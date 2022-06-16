@@ -180,6 +180,7 @@ namespace evpoco {
 	static int shutdown_websocket(lua_State* L);
 	static int websocket_active(lua_State* L);
 	static int async_run_lua_script(lua_State* L);
+	static int async_run_lua_script_singleton(lua_State* L);
 	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
 	static int track_ss_as_websocket(lua_State* L);
 	static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx);
@@ -372,6 +373,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "shutdown_websocket", &evpoco::shutdown_websocket},
 	{ "websocket_active", &evpoco::websocket_active},
 	{ "async_run_lua_script", &evpoco::async_run_lua_script},
+	{ "async_run_lua_script_singleton", &evpoco::async_run_lua_script_singleton},
 	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
 	{ "ev_hibernate", &evpoco::ev_hibernation_initiate},
 	{ "ev_dbg_pthread_self", &evpoco::ev_dbg_pthread_self},
@@ -1472,6 +1474,20 @@ static int async_run_lua_script_complete(lua_State* L, int status, lua_KContext 
 	*/
 	free(argv);
 	return 1;
+}
+
+static int async_run_lua_script_singleton(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	int argc = lua_gettop(L);
+	char **argv = (char**)malloc(argc*sizeof(char*));
+	for (int i = 0; i < argc; i++) {
+		argv[i] = (char*)(luaL_checkstring(L, (i+1)));
+	}
+
+	reqHandler->asyncRunLuaScript(argc, argv, true);
+	return lua_yieldk(L, 0, (lua_KContext)argv, async_run_lua_script_complete);
 }
 
 static int async_run_lua_script(lua_State* L)

@@ -355,7 +355,7 @@ public:
 	virtual long shutdownWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss, int type);
 	virtual long stopTakingRequests(int cb_evid_num);
 	virtual long webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss);
-	virtual long asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[]);
+	virtual long asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[], bool single_instance);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
@@ -389,6 +389,7 @@ protected:
 private:
 	void init();
 	void clearAcceptedSocket(poco_socket_t);
+	void clearTask(EVAcceptedStreamSocket * tn);
 	ssize_t handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
@@ -418,6 +419,7 @@ private:
 	void handle_redis_transceive_complete(struct redis_call_related_data * redis_data_ptr);
 
 	typedef std::map<poco_socket_t,EVAcceptedStreamSocket *> ASColMapType;
+	typedef std::map<std::string,int> AsyncTaskMapType;
 	typedef std::map<int,file_event_status_s> FileEvtSubscrMap;
 
 	static const int TCP_BUFFER_SIZE = 4096;
@@ -505,6 +507,7 @@ private:
 	ev_timer*							_timeout_watcher_ptr;
 
 	ASColMapType						_accssColl;
+	AsyncTaskMapType					_async_tasks_coll;
 	FileEvtSubscrMap					_file_evt_subscriptions;
 
 	NotificationQueue					_queue;

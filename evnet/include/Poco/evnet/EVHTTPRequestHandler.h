@@ -225,7 +225,7 @@ public:
 	long shutdownWebSocket(Net::StreamSocket &ss, int type = 3);
 	long stopTakingRequests();
 	long webSocketActive(Net::StreamSocket &ss);
-	long asyncRunLuaScript(int argc, char * argv[]);
+	long asyncRunLuaScript(int argc, char * argv[], bool single_instance = false);
 
 	long closeHTTPSession(EVHTTPClientSession& sess);
 

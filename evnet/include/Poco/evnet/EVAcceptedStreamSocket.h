@@ -130,6 +130,8 @@ public:
 	struct ev_loop* getEventLoop();
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
 
+	std::string &getTaskName();
+	void setTaskName(std::string &s);
 	int getTaskType();
 	void setTaskType(int t);
 	bool getCLState();
@@ -196,7 +198,20 @@ private:
 														  on websockets. */
 	bool						_shutdown_initiated;
 	int							_task_type;
+	std::string					_task_name;
 };
+
+inline std::string &EVAcceptedStreamSocket::getTaskName()
+{
+	//DEBUGPOINT("Key pointer = [%p]\n", &(this->_task_name));
+	return this->_task_name;
+}
+
+inline void EVAcceptedStreamSocket::setTaskName(std::string &s)
+{
+	//DEBUGPOINT("SETTING TASK NAME TO [%s]\n", s.c_str());
+	this->_task_name = s;
+}
 
 inline int EVAcceptedStreamSocket::getTaskType()
 {

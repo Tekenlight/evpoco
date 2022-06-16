@@ -299,13 +299,13 @@ long EVHTTPRequestHandler::evTimer(int time_in_s)
 	return 0;
 }
 
-long EVHTTPRequestHandler::asyncRunLuaScript(int argc, char * argv[])
+long EVHTTPRequestHandler::asyncRunLuaScript(int argc, char * argv[], bool single_instance)
 {
 	long sr_num = 0;
 	SRData * srdata = new SRData();
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 
-	sr_num = getServer().asyncRunLuaScript(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), argc, argv);
+	sr_num = getServer().asyncRunLuaScript(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), argc, argv, single_instance);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;

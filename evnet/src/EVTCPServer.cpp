@@ -609,6 +609,7 @@ EVTCPServer::~EVTCPServer()
 {
 	try {
 		stop();
+		//DEBUGPOINT("STOPPING\n");
 		_pDispatcher->release();
 		freeClear();
 	}
@@ -623,6 +624,7 @@ void EVTCPServer::freeClear()
         delete it->second;
     }
     _accssColl.clear();
+    _async_tasks_coll.clear();
 
 	ef_unset_cb_func();
 	for (FileEvtSubscrMap::iterator it = _file_evt_subscriptions.begin(); it != _file_evt_subscriptions.end(); ++it) {
@@ -647,6 +649,27 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 		}
 	}
 	delete tn;
+}
+
+void EVTCPServer::clearTask(EVAcceptedStreamSocket * tn)
+{
+	if (tn->getTaskType() == EVAcceptedStreamSocket::ASYNC_TASK) {
+		std::string key = tn->getTaskName();
+		//std::string key("/Volumes/NEW_DISK/user/sudheerp/platform/evpoco/two.lua");
+		auto it = _async_tasks_coll.find(key);
+		if (_async_tasks_coll.end() != it) {
+			--_async_tasks_coll[key];
+			if (!_async_tasks_coll[key]) {
+				_async_tasks_coll.erase(key);
+			}
+		}
+		else {
+			DEBUGPOINT("TASK WITHOUT TRACKING RECORD [%s]\n", tn->getTaskName().c_str());
+			std::abort();
+		}
+	}
+	clearAcceptedSocket(tn->getSockfd());
+	return;
 }
 
 const TCPServerParams& EVTCPServer::params() const
@@ -1184,7 +1207,7 @@ handleAccSocketWritable_finally:
 		if (tn->shutdownInitiated()) {
 			//DEBUGPOINT("SHUTTING DOWN HERE fd [%d]\n", tn->getSockfd());
 			if (!tn->sockBusy() && !tn->newpendingCSEvents()) {
-				clearAcceptedSocket(tn->getSockfd());
+				clearTask(tn);
 			}
 			else {
 				//DEBUGPOINT("Here for %d\n", tn->getSockfd());
@@ -1206,7 +1229,7 @@ handleAccSocketWritable_finally:
 		tn->setSockInError();
 		if (tn->shutdownInitiated() && !tn->sockBusy() && !tn->newpendingCSEvents()) {
 			//DEBUGPOINT("SHUTTING DOWN HERE\n");
-			clearAcceptedSocket(tn->getSockfd());
+			clearTask(tn);
 		}
 	}
 
@@ -2020,8 +2043,8 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		return;
 	}
 	if (tn->getCLState()) {
-		DEBUGPOINT("CLOSING SOCKET [%d]\n", tn->getSockfd());
-		clearAcceptedSocket(tn->getSockfd());
+		//DEBUGPOINT("CLOSING SOCKET [%d]\n", tn->getSockfd());
+		clearTask(tn);
 		return ;
 	}
 
@@ -2264,7 +2287,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					 * the request, hence cannot complete housekeeping.
 					 * */
 					DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-					clearAcceptedSocket(pcNf->sockfd());
+					clearTask(tn);
 				}
 				else {
 					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
@@ -2343,7 +2366,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 									//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
 									if (!tn->newpendingCSEvents()) {
 										//DEBUGPOINT("clearing for %d\n", pcNf->sockfd());
-										clearAcceptedSocket(pcNf->sockfd());
+										clearTask(tn);
 									}
 								}
 							}
@@ -2361,7 +2384,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								 */
 								if (!tn->newpendingCSEvents()) {
 									//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-									clearAcceptedSocket(pcNf->sockfd());
+									clearTask(tn);
 								}
 							}
 						}
@@ -2415,7 +2438,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						subscriptions.clear();
 					}
 					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-					clearAcceptedSocket(pcNf->sockfd());
+					clearTask(tn);
 				}
 				break;
 
@@ -2437,7 +2460,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						subscriptions.clear();
 					}
 					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-					clearAcceptedSocket(pcNf->sockfd());
+					clearTask(tn);
 				}
 				break;
 
@@ -2463,7 +2486,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						subscriptions.clear();
 					}
 					//DEBUGPOINT("clearing for %d\n", tn->getSockfd());
-					clearAcceptedSocket(pcNf->sockfd());
+					clearTask(tn);
 				}
 				else {
 					//DEBUGPOINT("RETAINING  ACC SOCK\n");
@@ -2999,7 +3022,7 @@ void EVTCPServer::run()
 		EVAcceptedStreamSocket *tn = _ssLRUList.getFirst();
 		while (tn) {
 			//DEBUGPOINT("Clearing for [%d]\n", tn->getSockfd());
-			clearAcceptedSocket(tn->getSockfd());
+			clearTask(tn);
 			tn = _ssLRUList.getFirst();
 		}
 	}
@@ -4871,6 +4894,7 @@ long EVTCPServer::webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::St
 struct run_lua_script_inp_s {
 	int argc;
 	char **argv;
+	bool single_instance;
 };
 
 int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
@@ -4883,63 +4907,90 @@ int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
 
 	{
 		struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s*)sr->getTaskInputData();
-		/* We are doing this just to get a unique fd
-		 * to identify the tn in _accssColl
-		 */
-		int filedes[2] = {-1, -1};
-		if (0 != pipe(&(filedes[0]))) {
-			DEBUGPOINT("Unbable create an IPC pipe [%s]\n", strerror(errno));
-			std::abort();
-		}
+		std::string key(p->argv[0]);
+		auto it = _async_tasks_coll.find(key);
 
-		EVAcceptedStreamSocket *async_task_tn =
-				this->addCLPrimaryFdToAcceptedList(filedes[0], filedes[1], EVAcceptedStreamSocket::ASYNC_TASK);
-
-		{
-			ev_io * socket_watcher_ptr = 0;
-			socket_watcher_ptr = async_task_tn->getSocketWatcher();
-
-			ev_io_stop(this->_loop, socket_watcher_ptr);
-			ev_clear_pending(this->_loop, socket_watcher_ptr);
-			/* Nothing to send in case of EVAcceptedStreamSocket::ASYNC_TASK
+		//DEBUGPOINT("single_instance = [%d]\n", p->single_instance);
+		//DEBUGPOINT("_async_tasks_coll.end() == it = [%d]\n", (_async_tasks_coll.end() == it));
+		//DEBUGPOINT("%d instance(s) of %s already running\n", _async_tasks_coll[key], key.c_str());
+		if (!(p->single_instance) || (_async_tasks_coll.end() == it)) {
+			/* If the said task is already running then
+			 * we dont start it again as that is what is
+			 * suggested by the caller
 			 */
-			async_task_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
-		}
-
-		{
-			int n = p->argc;
-			//DEBUGPOINT("Here n = [%d]\n", n);
-			size_t buf_size = 1;
-			for (int i = 0; i < n; i++) {
-				buf_size += strlen(p->argv[i]) + 1;
-			}
-			char * buf = (char*)malloc(buf_size);
-			memset(buf, 0, buf_size);
-			for (int i = 0; i < n; i++) {
-				if (i != 0) strcat(buf, " ");
-				strcat(buf,  p->argv[i]);
-			}
-			strcat(buf, "\n");
-			async_task_tn->pushReqData(buf, (size_t)buf_size);
-			/* Need not free buf because chunked memory stream
-			 * frees the buffer after the stream is read
-			 * completely
+			/* We are doing this just to get a unique fd
+			 * to identify the tn in _accssColl
 			 */
+			int filedes[2] = {-1, -1};
+			if (0 != pipe(&(filedes[0]))) {
+				DEBUGPOINT("Unbable create an IPC pipe [%s]\n", strerror(errno));
+				std::abort();
+			}
+
+			EVAcceptedStreamSocket *async_task_tn =
+					this->addCLPrimaryFdToAcceptedList(filedes[0], filedes[1], EVAcceptedStreamSocket::ASYNC_TASK);
+
+			{
+				ev_io * socket_watcher_ptr = 0;
+				socket_watcher_ptr = async_task_tn->getSocketWatcher();
+
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				/* Nothing to send in case of EVAcceptedStreamSocket::ASYNC_TASK
+				 */
+				async_task_tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
+			}
+
+			{
+				int n = p->argc;
+				//DEBUGPOINT("Here n = [%d]\n", n);
+				size_t buf_size = 1;
+				for (int i = 0; i < n; i++) {
+					buf_size += strlen(p->argv[i]) + 1;
+				}
+				char * buf = (char*)malloc(buf_size);
+				memset(buf, 0, buf_size);
+				for (int i = 0; i < n; i++) {
+					if (i != 0) strcat(buf, " ");
+					strcat(buf,  p->argv[i]);
+				}
+				strcat(buf, "\n");
+				async_task_tn->pushReqData(buf, (size_t)buf_size);
+				/* Need not free buf because chunked memory stream
+				 * frees the buffer after the stream is read
+				 * completely
+				 */
+			}
+
+			{
+				async_task_tn->setProcState(_pConnectionFactory->createCLProcState(this));
+				async_task_tn->getProcState()->setMode(EVAcceptedStreamSocket::COMMAND_LINE_MODE);
+				//DEBUGPOINT("Created processing state %p for %d\n", async_task_tn->getProcState(), async_task_tn->getSockfd());
+				async_task_tn->getProcState()->setClientAddress(async_task_tn->clientAddress());
+				async_task_tn->getProcState()->setServerAddress(async_task_tn->serverAddress());
+				/* Session starts when a new processing state is created. */
+				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
+				async_task_tn->setBaseSRSrlNum(sr_num);
+
+				justEnqueue(async_task_tn);
+			}
+
+			{
+				async_task_tn->setTaskName(key);
+				auto it = _async_tasks_coll.find(key);
+				if (_async_tasks_coll.end() != it) {
+					++_async_tasks_coll[key];
+				}
+				else {
+					_async_tasks_coll[key] = 1;
+				}
+			}
+
+
 		}
-
-		{
-			async_task_tn->setProcState(_pConnectionFactory->createCLProcState(this));
-			async_task_tn->getProcState()->setMode(EVAcceptedStreamSocket::COMMAND_LINE_MODE);
-			//DEBUGPOINT("Created processing state %p for %d\n", async_task_tn->getProcState(), async_task_tn->getSockfd());
-			async_task_tn->getProcState()->setClientAddress(async_task_tn->clientAddress());
-			async_task_tn->getProcState()->setServerAddress(async_task_tn->serverAddress());
-			/* Session starts when a new processing state is created. */
-			unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
-			async_task_tn->setBaseSRSrlNum(sr_num);
-
-			justEnqueue(async_task_tn);
+		else {
+			DEBUGPOINT("%d instance(s) of %s already running\n", _async_tasks_coll[key], key.c_str());
 		}
-
 
 		for (int i = 0; i < p->argc; i++) {
 			free(p->argv[i]);
@@ -4973,7 +5024,7 @@ int EVTCPServer::asyncRunLuaScriptProcess(EVTCPServiceRequest * sr)
 
 }
 
-long EVTCPServer::asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[])
+long EVTCPServer::asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[], bool single_instance)
 {
 	long sr_num = getNextSRSrlNum();
 	struct run_lua_script_inp_s * p = (struct run_lua_script_inp_s *)malloc(sizeof(struct run_lua_script_inp_s));
@@ -4983,6 +5034,7 @@ long EVTCPServer::asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int a
 	for (int i = 0; i < argc; i++) {
 		p->argv[i] = strdup(argv[i]);
 	}
+	p->single_instance = single_instance;
 
 	/* Enque the service request */
 	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
