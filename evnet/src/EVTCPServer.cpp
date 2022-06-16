@@ -633,7 +633,7 @@ void EVTCPServer::freeClear()
 
 void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 {
-	DEBUGPOINT("CLEARING FOR [%d]\n", fd);
+	//DEBUGPOINT("CLEARING FOR [%d]\n", fd);
 	EVAcceptedStreamSocket *tn = getTn(fd);
 	//DEBUGPOINT("CLEARING FOR [%d] [%p]\n", fd, &(tn->getStreamSocket()));
 	_accssColl.erase(fd);
