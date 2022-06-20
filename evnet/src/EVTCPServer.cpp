@@ -2048,6 +2048,11 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		return ;
 	}
 
+	if (tn->getTaskType() == EVAcceptedStreamSocket::ASYNC_TASK) {
+		DEBUGPOINT("Async tasks cannot be monitored in the event loop\n");
+		std::abort();
+	}
+
 	//DEBUGPOINT("newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
 
 	socket_watcher_ptr = tn->getSocketWatcher();
