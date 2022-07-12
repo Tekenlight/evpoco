@@ -4196,13 +4196,21 @@ int EVLHTTPRequestHandler::loadReqMapper()
 
 int EVLHTTPRequestHandler::loadReqHandler()
 {
+	char * path_env = getDeploymentPath();
+	std::string s;
+	if (!path_env) {
+		s = _request_handler;
+	}
+	else {
+		s = s + path_env + "/" + _request_handler;
+	}
 	/*
 	 * TBD: Caching of compiled lua files
 	 * Same  _request_handler can get called again and again for multiple requests
 	 * The compiled output should be cached in a static map so that
 	 * Subsequent calls will be without FILE IO
 	 * */
-	int ret = luaL_loadfile(_L, _request_handler.c_str());
+	int ret = luaL_loadfile(_L, s.c_str());
 	if (0 != ret) {
 		send_string_response(__LINE__, lua_tostring(_L, -1));
 	}
@@ -4227,6 +4235,7 @@ int EVLHTTPRequestHandler::handleRequest()
 				_mapping_script = getMappingScript(getHTTPRequestPtr());
 			else
 				_mapping_script = getWSMappingScript(getHTTPRequestPtr());
+			//DEBUGPOINT("mode = [%d] Mapping script = [%s]\n", mode, _mapping_script.c_str());
 			if (0 != loadReqMapper()) {
 				return PROCESSING_ERROR;
 			}

@@ -47,7 +47,7 @@ local meta = ws_util.send_msg(conn, json_str);
 print(ffi.string(meta.buf));
 
 while (1) do
-	platform.ev_hibernate(4)
+	platform.ev_hibernate(24)
 	local status = pcall(ws_util.ping, conn, "KEEP ALIVE");
 	if (not status) then
 		print("MAUSAM KHARAB HONE KE KARAN, PRASAR ME ADACHAN HEI");

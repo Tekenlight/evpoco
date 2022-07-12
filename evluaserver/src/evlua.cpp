@@ -67,11 +67,11 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			return config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+			return config.getString("evlua.clMappingScript", "evlua_mapper.lua");
 		}
 		else {
 			std::string s;
-			s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "evlua_mapper.lua");
+			s = s + path_env + "/" + config.getString("evlua.clMappingScript", "evlua_mapper.lua");
 			return s;
 		}
 	}
@@ -81,13 +81,17 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			return config.getString("evlua.requestMappingScript", "mapper.lua");
+			return config.getString("evlua.wsMessageMappingScript", "mapper.lua");
 		}
 		else {
 			std::string s;
-			s = s + path_env + "/" + config.getString("evlua.requestMappingScript", "mapper.lua");
+			s = s + path_env + "/" + config.getString("evlua.wsMessageMappingScript", "mapper.lua");
 			return s;
 		}
+	}
+	virtual char * getDeploymentPath()
+	{
+		return getenv("EVLUA_PATH");
 	}
 };
 
