@@ -341,6 +341,14 @@ static int connection_quote(lua_State *L)
 	return 1;
 }
 
+static int reset_connection_error(lua_State *L)
+{
+	Poco::evnet::EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+    connection_t *conn = (connection_t *)luaL_checkudata(L, 1, EV_POSTGRES_CONNECTION);
+	conn->conn_in_error = 0;
+	return 0;
+}
+
 extern "C" int ev_postgres_connection(lua_State *L);
 int ev_postgres_connection(lua_State *L)
 {
@@ -353,6 +361,7 @@ int ev_postgres_connection(lua_State *L)
 		{"ping", connection_ping},
 		{"prepare", connection_prepare},
 		{"quote", connection_quote},
+		{"reset_connection_error", reset_connection_error},
 		{NULL, NULL}
 	};
 
