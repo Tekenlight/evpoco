@@ -202,6 +202,7 @@ static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
 		 * EVTCPServer::handleAccSocketReadable(const bool) or
 		 * EVTCPServer::handleCLFdReadable(const bool)
 		 */
+		//DEBUGPOINT("errno = [%d]\n", errno);
 		//DEBUGPOINT("INVOKING handleAccSocketReadable for [%d]\n", cb_ptr->ssPtr->impl()->sockfd());
 		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
@@ -668,6 +669,8 @@ void EVTCPServer::clearTask(EVAcceptedStreamSocket * tn)
 			std::abort();
 		}
 	}
+	//DEBUGPOINT("Here [%d]\n", tn->getSockfd());
+	//STACK_TRACE();
 	clearAcceptedSocket(tn->getSockfd());
 	return;
 }
@@ -848,6 +851,7 @@ ssize_t EVTCPServer::handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, cons
 		goto handleConnSocketWritable_finally;
 	}
 
+	errno = 0;
 	{
 		chunked_memory_stream * cms = 0;
 
@@ -970,6 +974,7 @@ ssize_t EVTCPServer::handleCLWrFdWritable(StreamSocket & streamSocket, const boo
 		goto handleCLWrFdWritable_finally;
 	}
 
+	errno = 0;
 	{
 		chunked_memory_stream * cms = 0;
 
@@ -1076,6 +1081,7 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 		goto handleAccSocketWritable_finally;
 	}
 
+	errno = 0;
 	{
 		chunked_memory_stream * cms = 0;
 
@@ -1544,6 +1550,7 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 		std::abort();
 		return -1;
 	}
+	errno = 0;
 	{
 		ssize_t ret1 = 0;
 		int count = 0;
@@ -1656,6 +1663,8 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 	char buffer[128];
 	memset(buffer,0,128);
 
+	//DEBUGPOINT("errno = [%d]\n", errno);
+	errno = 0;
 	try {
 		if (!(tn->shutdownInitiated())) {
 			ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
@@ -1708,6 +1717,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 		ret = -1;
 	}
 	if ((ret <= 0) || errno) {
+		//DEBUGPOINT("Here ret = [%zd] errno=[%d]\n", ret, errno);
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return 0;
 		}
@@ -1753,9 +1763,11 @@ ssize_t EVTCPServer::handleAccSocketReadable(StreamSocket & ss, const bool& ev_o
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
 	if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+		//DEBUGPOINT("errno = [%d]\n", errno);
 		return EVTCPServer::handleAccWebSocketReadable(ss, ev_occured);
 	}
 
+	errno = 0;
 	if (!(tn->shutdownInitiated())) {
 		ssize_t ret1 = 0;
 		int count = 0;
@@ -1913,7 +1925,7 @@ void EVTCPServer::receivedDataConsumed(int fd)
 													EVTCPServerNotification::REQDATA_CONSUMED));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE receivedDataConsumed\n");
 	//DEBUGPOINT("Here active = [%d]\n", ev_is_active(this->_stop_watcher_ptr3));
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
@@ -1930,7 +1942,7 @@ void EVTCPServer::errorWhileSending(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_SENDING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE\n");
+	//DEBUGPOINT("FROM HERE errorWhileSending\n");
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1946,7 +1958,7 @@ void EVTCPServer::errorWhileReceiving(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_WHILE_RECEIVING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
+	//DEBUGPOINT("FROM HERE errorWhileReceiving for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1964,7 +1976,7 @@ void EVTCPServer::errorInAuxProcesing(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_AUX_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
+	//DEBUGPOINT("FROM HERE errorInAuxProcesing for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -1980,7 +1992,7 @@ void EVTCPServer::errorInReceivedData(poco_socket_t fd, bool connInErr)
 													EVTCPServerNotification::ERROR_IN_PROCESSING));
 
 	/* And then wake up the loop calls event_notification_on_downstream_socket */
-	//DEBUGPOINT("FROM HERE for [%d]\n", fd);
+	//DEBUGPOINT("FROM HERE errorInReceivedData for [%d]\n", fd);
 	ev_async_send(this->_loop, this->_stop_watcher_ptr3);
 	return;
 }
@@ -2091,6 +2103,7 @@ void EVTCPServer::monitorDataOnAccSocket(EVAcceptedStreamSocket *tn)
 		 * opportunity for optimization.
 		 * */
 		//DEBUGPOINT("Here for [%d]\n", ss.impl()->sockfd());
+		//DEBUGPOINT("errno = [%d]\n", errno);
 		handleAccSocketReadable(ss, false);
 	}
 	else {
@@ -2652,6 +2665,7 @@ ssize_t EVTCPServer::handleCLFdReadable(StreamSocket & ss, const bool& ev_occure
 	tn->setTimeOfLastUse();
 	_ssLRUList.move(tn);
 
+	errno = 0;
 	{
 		ssize_t ret1 = 0;
 		int count = 0;
@@ -2757,7 +2771,7 @@ handleCLFdReadable_finally:
 				ev_clear_pending(this->_loop, socket_watcher_ptr);
 			}
 		}
-		//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+		//DEBUGPOINT("SHUTTING DOWN Here for %d\n", tn->getSockfd());
 		errorWhileReceiving(ss.impl()->sockfd(), true);
 	}
 

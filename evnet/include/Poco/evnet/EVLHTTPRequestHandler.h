@@ -268,6 +268,10 @@ public:
 	static const std::string ENABLE_CACHE;
 	Poco::Util::AbstractConfiguration& appConfig();
 
+	static const std::string PLATFORM_STR;
+	static const std::string PORT_STR;
+	static const std::string NETWORKINTERFACETORUNON_STR;
+
 	void track_async_task(long);
 	void track_async_task(long, evl_async_task::async_action, EVHTTPClientSession*);
 	void track_async_task(long, evl_async_task::async_action, EVHTTPResponse*);

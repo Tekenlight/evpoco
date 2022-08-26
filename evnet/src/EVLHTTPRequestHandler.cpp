@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <ifaddrs.h>
 #include <netdb.h>
 #include <pthread.h>
 #include <atomic>
@@ -73,6 +74,13 @@ const static char *_http_conn_type_name = "httpconn";
 const static char *_http_sresp_type_name = "httpsresp";
 const static char *_http_cresp_type_name = "httpcresp";
 const static char *_platform_name = "platform";
+
+const std::string EVLHTTPRequestHandler::SERVER_PREFIX_CFG_NAME("evlhttprequesthandler.");
+const std::string EVLHTTPRequestHandler::ENABLE_CACHE("enableluafilecache");
+
+const std::string EVLHTTPRequestHandler::PLATFORM_STR("evluaserver.");
+const std::string EVLHTTPRequestHandler::PORT_STR("port");
+const std::string EVLHTTPRequestHandler::NETWORKINTERFACETORUNON_STR("networkInterfaceToRunOn");
 
 static int platform_name__tostring(lua_State *L)
 {
@@ -164,6 +172,7 @@ namespace evpoco {
 	static int get_http_response(lua_State* L);
 	static int resolve_host_address_complete(lua_State* L, int status, lua_KContext ctx);
 	static int resolve_host_address_initiate(lua_State* L);
+	static int get_host_ip_address_and_port(lua_State* L);
 	static int make_http_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_http_connection_initiate(lua_State* L);
 	static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext ctx);
@@ -360,6 +369,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "task_return_value", &evpoco::task_return_value },
 	{ "get_http_request", &evpoco::get_http_request },
 	{ "get_http_response", &evpoco::get_http_response },
+	{ "get_host_ip_address_and_port", &evpoco::get_host_ip_address_and_port },
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
@@ -1031,6 +1041,42 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
 	free(addr_info_ptr_ptr);
 
 	return 1;
+}
+
+static int get_host_ip_address_and_port(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	char hostIPAddress[INET_ADDRSTRLEN+1];
+	struct ifaddrs * ifAddrStruct=NULL;
+	struct ifaddrs * ifa=NULL;
+	void * tmpAddrPtr=NULL;
+
+	Poco::Util::AbstractConfiguration& config = reqHandler->appConfig();
+
+	std::string prop_value = config.getString(reqHandler->PLATFORM_STR + reqHandler->NETWORKINTERFACETORUNON_STR);
+	std::string port = config.getString(reqHandler->PLATFORM_STR + reqHandler->PORT_STR, "9980");
+
+	memset(hostIPAddress, 0, (INET_ADDRSTRLEN+1));
+	getifaddrs(&ifAddrStruct);
+
+	for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+		if (!ifa->ifa_addr) {
+			continue;
+		}
+		if ((ifa->ifa_addr->sa_family == AF_INET) && // check it is IP4
+			(strstr(prop_value.c_str(), ifa->ifa_name))) {
+			// is a valid IP4 Address
+			tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+			inet_ntop(AF_INET, tmpAddrPtr, hostIPAddress, INET_ADDRSTRLEN);
+			if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+
+			lua_pushstring(L, hostIPAddress);
+			lua_pushstring(L, port.c_str());
+			break;
+		}
+	}
+
+	return 2;
 }
 
 static int resolve_host_address_initiate(lua_State* L)
@@ -3848,9 +3894,6 @@ static int luaopen_evpoco(lua_State* L)
 
 	return 1;
 }
-
-const std::string EVLHTTPRequestHandler::SERVER_PREFIX_CFG_NAME("evlhttprequesthandler.");
-const std::string EVLHTTPRequestHandler::ENABLE_CACHE("enableluafilecache");
 
 EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 	_L0(0),
