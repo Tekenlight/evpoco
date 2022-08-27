@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <ev_rwlock_struct.h>
 #include <ev_rwlock.h>
+#include <libgen.h>
 
 #include <arpa/inet.h>
 #if defined __linux__
@@ -14,7 +15,23 @@
 #define htonll htobe64
 #endif
 
-
+#ifdef __linux__
+#define EVLUA_UTIL_DEBUGP(...) { \
+	char filename[512]; \
+	char *fpath; \
+	fflush(stdout); \
+	strcpy(filename, __FILE__); \
+    fpath = basename(filename); printf("[%p][%s:%d] Reached:",(void*)pthread_self(), fpath, __LINE__); \
+    printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
+}
+#else
+#define EVLUA_UTIL_DEBUGP(...) { \
+	char fpath[256]; \
+	fflush(stdout); \
+    basename_r(__FILE__,fpath); printf("[%p][%s:%d] Reached:",(void*)pthread_self(), fpath, __LINE__); \
+    printf(__VA_ARGS__);fflush(stdout); fflush(stdout); \
+}
+#endif
 
 static std::map<std::string, void*> sg_dlls;
 static atomic_int sg_lock_init_done = 0;
@@ -51,10 +68,24 @@ void * pin_loaded_so(const char * libname)
 		ev_rwlock_wrlock(&sg_dlls_lock);
 		it = sg_dlls.find(name);
 		if (sg_dlls.end() == it) {
+			int old_errno = errno;
 			lib = dlopen(libname, RTLD_LAZY | RTLD_GLOBAL);
 			if (lib) {
 				sg_dlls[name] = lib;
 			}
+			else {
+				EVLUA_UTIL_DEBUGP("Potential impossible condition: error = [%s]\n", strerror(errno));
+				std::abort();
+			}
+			/*
+			 * Looks like a side effect of dlopen in in OSX
+			 * dlopen seems to leave errno with a +ve value
+			 * even after the operation has succeeded.
+			 *
+			 * We restore the old value of errno.
+			 *
+			 */
+			errno = old_errno;
 		}
 		else {
 			lib = it->second;
