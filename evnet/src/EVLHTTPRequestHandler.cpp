@@ -195,6 +195,7 @@ namespace evpoco {
 	static int track_ss_as_websocket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int ev_hibernation_initiate(lua_State* L);
 	static int ev_dbg_pthread_self(lua_State* L);
+	static int get_sock_fd(lua_State* L);
 	static int ev_hibernation_complete(lua_State* L, int status, lua_KContext ctx);
 	static int send_cms_on_socket_initiate(lua_State* L);
 	static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ctx);
@@ -387,6 +388,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "track_ss_as_websocket", &evpoco::track_ss_as_websocket},
 	{ "ev_hibernate", &evpoco::ev_hibernation_initiate},
 	{ "ev_dbg_pthread_self", &evpoco::ev_dbg_pthread_self},
+	{ "get_sock_fd", &evpoco::get_sock_fd},
 	{ "send_cms_on_socket", &evpoco::send_cms_on_socket_initiate },
 	{ "nb_make_http_connection", &evpoco::nb_make_http_connection_initiate },
 	{ "close_http_connection", &evpoco::close_http_connection},
@@ -1447,6 +1449,17 @@ static int ev_dbg_pthread_self(lua_State* L)
 		DEBUGPOINT("\n");
 	}
 	return 0;
+}
+
+static int get_sock_fd(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	//DEBUGPOINT("Here for sock =[%d]\n", reqHandler->getAcceptedSocket()->getSockfd());
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+
+	lua_pushinteger(L, ss_ptr->impl()->sockfd());
+
+	return 1;
 }
 
 static int ev_hibernation_initiate(lua_State* L)
