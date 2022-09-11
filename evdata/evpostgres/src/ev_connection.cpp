@@ -241,6 +241,19 @@ static int connection_close(lua_State *L)
 		return orig_connection_close(L);
 	}
 	else {
+		//PGTransactionStatusType stat = PQtransactionStatus(conn);
+		switch (PQtransactionStatus(conn->pg_conn)) {
+			case PQTRANS_ACTIVE:
+			case PQTRANS_INTRANS:
+			case PQTRANS_INERROR:
+			case PQTRANS_UNKNOWN:
+				DEBUGPOINT("ALL NOT OK\n");
+				return orig_connection_close(L);
+			case PQTRANS_IDLE:
+				//DEBUGPOINT("ALL OK\n");
+			default:
+				break;
+		}
 		connection_t *n_conn = (connection_t *)malloc(sizeof(connection_t));
 		{
 			n_conn->cached_stmts = conn->cached_stmts;
