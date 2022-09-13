@@ -1390,7 +1390,7 @@ ssize_t EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bo
 	cn->setTimeOfLastUse();
 	errno = 0;
 
-	//DEBUGPOINT("EVTCPServer::handleConnSocketReadReady\n");
+	DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out\n");
 	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	if (!tn) {
 		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
@@ -1406,6 +1406,7 @@ ssize_t EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bo
 
 	EVEventNotification * usN = 0;
 	if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+		DEBUGPOINT("Here\n");
 		errno = ETIMEDOUT;
 		ret = -1;
 		usN = new EVEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
@@ -3363,6 +3364,7 @@ int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
 			timer->data = (void*)cb_ptr;
 			double timeout = (double)time_out;
 
+			//DEBUGPOINT("STARTING TIMER FOR [%lf] seconds\n", timeout);
 			ev_timer_init(timer, async_stream_socket_timeout_cb, timeout, timeout);
 			ev_timer_start(this->_loop, timer);
 

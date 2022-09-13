@@ -1366,6 +1366,7 @@ static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext
 
 	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
+		DEBUGPOINT("Here usN.getRet() = [%ld] error=[%s]\n", usN.getRet(), strerror(usN.getErrNo()));
 		free(rp);
 		return luaL_error(L, "recv_data_from_socket: Failed to receive data from socket : %s", strerror(usN.getErrNo()));
 	}
@@ -1677,6 +1678,7 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 
 	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
+		DEBUGPOINT("Here usN.getRet() = [%ld] error=[%s]\n", usN.getRet(), strerror(usN.getErrNo()));
 		free(wp);
 		return luaL_error(L, "send_data_on_socket: %s", strerror(usN.getErrNo()));
 	}
@@ -1800,6 +1802,7 @@ static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ct
 	Poco::Net::StreamSocket * ss_ptr = wp->_ss_ptr;
 
 	if (usN.getRet() < 0) {
+		DEBUGPOINT("Here usN.getRet() = [%ld] error=[%s]\n", usN.getRet(), strerror(usN.getErrNo()));
 		free(wp);
 		return luaL_error(L, "send_cms_on_socket: failed: %s", strerror(usN.getErrNo()));
 	}
