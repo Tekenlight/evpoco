@@ -1180,7 +1180,7 @@ static int make_http_connection_initiate(lua_State* L)
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	EVHTTPClientSession *session = NULL;;
-	if (lua_gettop(L) != 2) {
+	if (lua_gettop(L) < 2) {
 		luaL_error(L, "make_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
 		return 0;
 	}
@@ -1195,12 +1195,16 @@ static int make_http_connection_initiate(lua_State* L)
 		return 0;
 	}
 	else {
-		const char * server_address = lua_tostring(L, -2);
-		int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
+		int timeout = -1;
+		if (lua_gettop(L) > 2) {
+			timeout = luaL_checkinteger(L, 3);
+		}
+		const char * server_address = lua_tostring(L, 1);
+		int value = 0; lua_numbertointeger(lua_tonumber(L, 2), &value);
 		unsigned short  port_num = (unsigned short)value;
 
 		session = new EVHTTPClientSession();
-		reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
+		reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session, timeout);
 	}
 
 	return lua_yieldk(L, 0, (lua_KContext)session, make_http_connection_complete);
@@ -1256,7 +1260,7 @@ static int make_tcp_connection_initiate(lua_State* L)
 {
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_gettop(L) != 3 && lua_gettop(L) != 2) {
+	if (lua_gettop(L) < 2) {
 		luaL_error(L, "make_tcp_connection: invalid number of arguments, expected 2 or 3, actual %d ", lua_gettop(L));
 		return 0;
 	}
@@ -1270,17 +1274,16 @@ static int make_tcp_connection_initiate(lua_State* L)
 		luaL_error(L, "make_tcp_connection: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
 		return 0;
 	}
-	else if ((lua_gettop(L) == 3) && (!lua_isnil(L, 3)) && (!lua_isboolean(L, 3))) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 3)));
-		luaL_error(L, "make_tcp_connection: invalid third argumet %s", lua_typename(L, lua_type(L, 3)));
-		return 0;
-	}
 	else {
 		const char * server_address = lua_tostring(L, 1);
 		int value = 0; lua_numbertointeger(lua_tonumber(L, 2), &value);
 		unsigned short  port_num = (unsigned short)value;
+		int timeout = -1;
+		if (lua_gettop(L) > 2) {
+			timeout = luaL_checkinteger(L, 3);
+		}
 
-		reqHandler->makeNewSocketConnection(NULL, server_address, port_num);
+		reqHandler->makeNewSocketConnection(NULL, server_address, port_num, timeout);
 		//DEBUGPOINT("Here %s:%d\n", server_address, port_num);
 	}
 	//DEBUGPOINT("Here\n");
@@ -2034,26 +2037,32 @@ static int nb_make_http_connection_initiate(lua_State* L)
 	//DEBUGPOINT("HERE %d\n", lua_gettop(L));
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	EVHTTPClientSession *session = NULL;;
-	if (lua_gettop(L) != 2) {
+	if (lua_gettop(L) < 2) {
 		luaL_error(L, "make_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
 		return 0;
 	}
-	else if (lua_isnil(L, -2) || !lua_isstring(L, -2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
+	else if (lua_isnil(L, 1) || !lua_isstring(L, 1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
 		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
 		return 0;
 	}
-	else if (!lua_isnil(L, -1) && !lua_isstring(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
+	else if (!lua_isnil(L, 2) && !lua_isstring(L, 2)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
 		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
 		return 0;
 	}
-	const char * server_address = lua_tostring(L, -2);
-	int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
+	int timeout = -1;
+	if (lua_gettop(L) > 2) {
+		timeout = luaL_checkinteger(L, 3);
+	}
+	const char * server_address = lua_tostring(L, 1);
+	int value = 0; lua_numbertointeger(lua_tonumber(L, 2), &value);
 	unsigned short  port_num = (unsigned short)value;
 
+	DEBUGPOINT("Server address = [%s], port_num = [%d] timeout = [%d]\n", server_address, value, timeout);
 	session = new EVHTTPClientSession();
-	sr_num = reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session);
+	DEBUGPOINT("Server address = [%s], port_num = [%d] timeout = [%d]\n", server_address, value, timeout);
+	sr_num = reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session, timeout);
 	reqHandler->track_async_task(sr_num, evl_async_task::MAKE_HTTP_CONNECTION, session);
 
 	lua_pushinteger(L, sr_num);
@@ -2211,10 +2220,14 @@ static int nb_subscribe_to_http_response(lua_State* L)
 		luaL_error(L, "nb_subscribe_to_http_response: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 		return 0;
 	}
+	int timeout = -1;
+	if (lua_gettop(L) > 1) {
+		timeout = luaL_checkinteger(L, 2);
+	}
 	EVHTTPClientSession& session = *(*(EVHTTPClientSession**)lua_touserdata(L, 1));
 	EVHTTPResponse* response = new EVHTTPResponse();
 
-	sr_num = reqHandler->waitForHTTPResponse(NULL, (session), *response);
+	sr_num = reqHandler->waitForHTTPResponse(NULL, (session), *response, timeout);
 	reqHandler->track_async_task(sr_num, evl_async_task::RECV_HTTP_RESPONSE, response);
 
 	lua_pushinteger(L, sr_num);
@@ -2253,10 +2266,14 @@ static int receive_http_response_initiate(lua_State* L)
 		luaL_error(L, "send_request_header: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 		return 0;
 	}
+	int timeout = -1;
+	if (lua_gettop(L) > 1) {
+		timeout = luaL_checkinteger(L, 2);
+	}
 	EVHTTPClientSession& session = *(*(EVHTTPClientSession**)lua_touserdata(L, 1));
 	EVHTTPResponse* response = new EVHTTPResponse();
 
-	reqHandler->waitForHTTPResponse(NULL, (session), *response);
+	reqHandler->waitForHTTPResponse(NULL, (session), *response, timeout);
 	return lua_yieldk(L, 0, (lua_KContext)response, receive_http_response_complete);
 }
 

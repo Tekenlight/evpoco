@@ -103,7 +103,7 @@ public:
 
 	struct SRData {
 		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
-				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1), ss_ptr(0) {}
+				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1), ss_ptr(0), timeout(-1) {}
 		~SRData() { if (ss_ptr) delete ss_ptr;}
 		Net::SocketAddress		addr;
 		EVHTTPClientSession*	session_ptr;
@@ -117,6 +117,7 @@ public:
 		struct addrinfo**       addr_info_ptr_ptr;
 		long					ref_sr_num;
 		Net::StreamSocket*		ss_ptr;
+		int						timeout;
 	} ;
 
 	typedef std::map<long,SRData *> SRColMapType;
@@ -205,17 +206,17 @@ public:
 
 	long resolveHost(TCallback cb, const char* domain_name, const char* serv_name, struct addrinfo ** addr_info_ptr_ptr);
 
-	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const char * serv_name, EVHTTPClientSession& sess);
-	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess);
-	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess);
+	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const char * serv_name, EVHTTPClientSession& sess, int timeout);
+	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess, int timeout);
+	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess, int timeout);
 
-	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css);
-	long makeNewSocketConnection(TCallback cb, const char * domain_name, const unsigned short port_num);
+	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css, int timeout);
+	long makeNewSocketConnection(TCallback cb, const char * domain_name, const unsigned short port_num, int timeout);
 	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed = 1, int timeout = -1);
 	long redistransceive(TCallback cb, redisAsyncContext *ac, const char * message);
 	void redisDisconnect(TCallback cb, redisAsyncContext *ac);
 
-	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res);
+	long waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res, int timeout);
 
 	long sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPRequest &req);
 	long sendHTTPRequestData(EVHTTPClientSession &ses, EVHTTPRequest & req);

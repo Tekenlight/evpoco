@@ -310,7 +310,7 @@ public:
 	long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css,
 												int poll_for, int managed, int time_out);
 	virtual long submitRequestForConnection(int sr_num, EVAcceptedSocket *tn,
-								Net::SocketAddress& addr, Net::StreamSocket & css);
+								Net::SocketAddress& addr, Net::StreamSocket & css, int timeout);
 	virtual long submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *tn,
 								const char* domain_name, const char* serv_name);
 		/// To be called whenever another thread wants to make a new connection.
@@ -321,7 +321,7 @@ public:
 	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css);
 		/// To be called whenver a worker thread wants to send data
 		/// to a server it has opened connection with.
-	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css);
+	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int timeout);
 		/// To be called whenver a worker thread wants to recv data
 		/// to a server it has opened connection with.
 	void postHostResolution(dns_io_ptr_type dio_ptr);
@@ -396,6 +396,7 @@ private:
 	ssize_t handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleManagedConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);

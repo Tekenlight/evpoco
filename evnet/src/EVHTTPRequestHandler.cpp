@@ -12,6 +12,7 @@
 
 #include <fcntl.h>
 #include <stdarg.h>
+#include <netdb.h>
 
 #include <ef_io.h>
 
@@ -113,7 +114,7 @@ long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int po
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css)
+long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css, int timeout)
 {
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -122,17 +123,18 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddr
 	srdata->addr = addr;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
-	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), addr, css);
+	//DEBUGPOINT("Here timeout = [%d]\n", timeout);
+	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), addr, css, timeout);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
 
-	DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	//DEBUGPOINT("Service Request Number = %ld\n", sr_num);
 	return sr_num;
 }
 
 long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
-					const char * domain_name, const unsigned short port_num)
+					const char * domain_name, const unsigned short port_num, int timeout)
 {
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -144,6 +146,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
 	srdata->domain_name = domain_name;
 	srdata->serv_name = NULL;
 	srdata->port_num = port_num;
+	srdata->timeout = timeout;
 
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_TCPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, NULL);
 
@@ -160,7 +163,7 @@ long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 	return 0;
 }
 
-long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess)
+long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess, int timeout)
 {
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -176,10 +179,12 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 	srdata->session_ptr = &sess;
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
+	srdata->timeout = timeout;
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
 	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
-		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAcceptedSocket(), sess.getAddr(), sess.getSS());
+		//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
+		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAcceptedSocket(), sess.getAddr(), sess.getSS(), timeout);
 	}
 	else {
 		// TBD : Connect to proxy server first over here. TBD
@@ -207,7 +212,7 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 
 
 long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
-					const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess)
+					const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess, int timeout)
 {
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -226,7 +231,11 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 	srdata->serv_name = NULL;
 	srdata->port_num = port_num;
 	srdata->session_ptr = &sess;
+	srdata->timeout = timeout;
 
+	//DEBUGPOINT("Here timeout = [%d]\n", timeout);
+	//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
+	//DEBUGPOINT("Here domain_name = [%s]\n", domain_name);
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, NULL);
 
 	srdata->ref_sr_num = sr_num;
@@ -236,8 +245,9 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 }
 
 long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
-					const char * domain_name, const char * serv_name, EVHTTPClientSession& sess)
+					const char * domain_name, const char * serv_name, EVHTTPClientSession& sess, int timeout)
 {
+	//DEBUGPOINT("Here timeout = [%d]\n", timeout);
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
 
@@ -255,7 +265,10 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb,
 	srdata->serv_name = serv_name;
 	srdata->port_num = -1;
 	srdata->session_ptr = &sess;
+	srdata->timeout = timeout;
 
+	//DEBUGPOINT("Here timeout = [%d]\n", timeout);
+	//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_HTTPCONN_HOSTRESOLVED, getAcceptedSocket(), domain_name, serv_name);
 
 	srdata->ref_sr_num = sr_num;
@@ -369,7 +382,7 @@ long EVHTTPRequestHandler::shutdownWebSocket(Net::StreamSocket& connss, int type
 	return 0;
 }
 
-long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res)
+long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession& sess, EVHTTPResponse& res, int timeout)
 {
 	Poco::evnet::EVServer & server = getServer();
 	long sr_num = 0;
@@ -383,8 +396,9 @@ long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 	srdata->cb = cb;
 	srdata->response = &res;
+	srdata->timeout = timeout;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAcceptedSocket(), sess.getSS());
+	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAcceptedSocket(), sess.getSS(), timeout);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -403,6 +417,7 @@ long EVHTTPRequestHandler::resolveHost(TCallback cb,
 	srdata->cb = cb;
 	srdata->addr_info_ptr_ptr = addr_info_ptr_ptr;
 
+	//DEBUGPOINT("Here\n");
 	sr_num =  getServer().submitRequestForHostResolution(HTTPRH_DNSR_HOST_RESOLUTION_DONE, getAcceptedSocket(), domain_name, serv_name);
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -552,7 +567,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						delete old;
 						Poco::evnet::EVServer & server = getServer();
 						sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST,
-											getAcceptedSocket(), srdata->session_ptr->getSS());
+											getAcceptedSocket(), srdata->session_ptr->getSS(), srdata->timeout);
 						_srColl[sr_num] = srdata;
 						continue_event_loop = true;
 					}
@@ -600,8 +615,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					Poco::evnet::EVServer & server = getServer();
 					if (proxyConfig().host.empty() || bypassProxy(srdata->session_ptr->getAddr().host().toString())) {
 
+						//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
 						sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED,
-									getAcceptedSocket(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS());
+								getAcceptedSocket(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS(), srdata->timeout);
 					}
 					else {
 						// TBD : Connect to proxy server first over here. TBD
@@ -645,8 +661,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					if (proxyConfig().host.empty()) {
 
 						srdata->ss_ptr = new Net::StreamSocket();
+						//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
 						sr_num = server.submitRequestForConnection(HTTPRH_TCPCONN_CONNECTION_ESTABLISHED,
-									getAcceptedSocket(), srdata->addr, *(srdata->ss_ptr));
+									getAcceptedSocket(), srdata->addr, *(srdata->ss_ptr), srdata->timeout);
 					}
 					else {
 						// TBD : Connect to proxy server first over here. TBD
