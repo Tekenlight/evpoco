@@ -33,6 +33,7 @@ EVTCPServiceRequest& EVTCPServiceRequest::operator = (const EVTCPServiceRequest&
 	this->_conn_socket_managed = from._conn_socket_managed;
 	this->_event = from._event;
 	this->_ss = from._ss;
+	this->_time_out_for_oper = from._time_out_for_oper;
 	return *this;
 }
 
@@ -49,7 +50,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(const EVTCPServiceRequest& from):
 	_poll_for(from._poll_for),
 	_conn_socket_managed(from._conn_socket_managed),
 	_event(from._event),
-	_ss(from._ss)
+	_ss(from._ss),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -65,7 +67,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, what event, poco_socket_t 
 	_file_fd(-1),
 	_poll_for(0),
 	_conn_socket_managed(0),
-	_ss(ss)
+	_ss(ss),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -81,7 +84,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_file_fd(-1),
 	_poll_for(0),
 	_conn_socket_managed(0),
-	_ss(ss)
+	_ss(ss),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -96,7 +100,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(file_fd),
 	_poll_for(0),
-	_conn_socket_managed(0)
+	_conn_socket_managed(0),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -114,7 +119,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_poll_for(0),
 	_conn_socket_managed(0),
 	_event(event),
-	_ss(ss)
+	_ss(ss),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -130,7 +136,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(-1),
 	_poll_for(0),
-	_conn_socket_managed(0)
+	_conn_socket_managed(0),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -146,7 +153,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(td),
 	_file_fd(-1),
 	_poll_for(0),
-	_conn_socket_managed(0)
+	_conn_socket_managed(0),
+	_time_out_for_oper(-1)
 {
 }
 
@@ -161,7 +169,8 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(data),
 	_file_fd(-1),
 	_poll_for(0),
-	_conn_socket_managed(0)
+	_conn_socket_managed(0),
+	_time_out_for_oper(-1)
 {
 }
 

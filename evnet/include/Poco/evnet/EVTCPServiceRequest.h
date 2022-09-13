@@ -80,6 +80,8 @@ public:
 
 	Net::SocketAddress& getAddr();
 
+	int getTimeOut();
+	void setTimeOut(int time_out);
 	int getCBEVIDNum();
 
 	void setSRNum(long sr_num);
@@ -117,7 +119,18 @@ private:
 	int							_file_fd; // File descriptor of the disk file
 	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ss
 	int							_conn_socket_managed;
+	int							_time_out_for_oper;
 };
+
+inline int EVTCPServiceRequest::getTimeOut()
+{
+	return _time_out_for_oper;
+}
+
+inline void EVTCPServiceRequest::setTimeOut(int time_out)
+{
+	_time_out_for_oper = time_out;
+}
 
 inline int EVTCPServiceRequest::getCBEVIDNum()
 {

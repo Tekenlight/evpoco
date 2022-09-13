@@ -63,6 +63,15 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 
 void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
 {
+	if (this->_socket_watcher) {
+		ev_io_stop(this->_loop, this->_socket_watcher);
+		if ((void*)(this->_socket_watcher->data)) {
+			free((void*)(this->_socket_watcher->data));
+			this->_socket_watcher->data = NULL;
+		}
+		free(this->_socket_watcher);
+		this->_socket_watcher = NULL;
+	}
 	this->_socket_watcher = socket_watcher_ptr;
 }
 

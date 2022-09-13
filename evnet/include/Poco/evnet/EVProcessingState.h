@@ -55,9 +55,12 @@ public:
 	bool needMoreData();
 	EVConnectedStreamSocket * getEVConnSock(int fd);
 	void setEVConnSock(EVConnectedStreamSocket * cs);
+	EVConnectedStreamSocket * getPollingEVConnSock(int fd);
+	void setPollingEVConnSock(EVConnectedStreamSocket * cs);
 	ev_queue_type getEventQ();
 	void setEventQ(ev_queue_type);
 	void eraseEVConnSock(int fd);
+	void erasePollingEVConnSock(int fd);
 	void setClientAddress(Net::SocketAddress addr);
 	void setServerAddress(Net::SocketAddress addr);
 	Net::SocketAddress& clientAddress();
@@ -72,6 +75,7 @@ private:
 	int							_no_new_data;
 	int							_need_more_data;
 	CSColMapType				_cssMap;
+	CSColMapType				_polling_cssMap;
 	ev_queue_type				_upstream_io_event_queue;
 	Net::SocketAddress			_clientAddress;
 	Net::SocketAddress			_serverAddress;
@@ -103,6 +107,11 @@ inline EVProcessingState::~EVProcessingState()
         delete it->second;
     }
     _cssMap.clear();
+    for ( CSColMapType::iterator it = _polling_cssMap.begin(); it != _polling_cssMap.end(); ++it ) {
+		//DEBUGPOINT("Here fd = [%d]\n", it->second->getStreamSocket().impl()->sockfd());
+        delete it->second;
+    }
+    _polling_cssMap.clear();
 }
 inline EVServer* EVProcessingState::getServer() { return _server; }
 inline void EVProcessingState::setNewDataNotProcessed() { _no_new_data = 1; }
@@ -111,6 +120,20 @@ inline bool EVProcessingState::newDataProcessed() { return (_no_new_data == 0); 
 inline void EVProcessingState::noMoreDataNecessary() { _need_more_data = 0; }
 inline void EVProcessingState::moreDataNecessary() { _need_more_data = 1; }
 inline bool EVProcessingState::needMoreData() { return (_need_more_data != 0); }
+inline EVConnectedStreamSocket * EVProcessingState::getPollingEVConnSock(int fd)
+{
+	EVConnectedStreamSocket * cn = NULL;
+	try {
+		cn = _polling_cssMap.at(fd);
+	} catch (...) {
+		cn = NULL;
+	}
+	return (cn);
+}
+inline void EVProcessingState::setPollingEVConnSock(EVConnectedStreamSocket * cs)
+{
+	_polling_cssMap[cs->getSockfd()] = cs;
+}
 inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd)
 {
 	EVConnectedStreamSocket * cn = NULL;
@@ -124,6 +147,17 @@ inline EVConnectedStreamSocket * EVProcessingState::getEVConnSock(int fd)
 inline void EVProcessingState::setEVConnSock(EVConnectedStreamSocket * cs)
 {
 	_cssMap[cs->getSockfd()] = cs;
+}
+inline void EVProcessingState::erasePollingEVConnSock(int fd)
+{
+	EVConnectedStreamSocket * cn = NULL;
+	auto it = _polling_cssMap.find(fd);
+	if (_polling_cssMap.end() != it) {
+		cn = it->second;
+		_polling_cssMap.erase(fd);
+		delete cn;
+	}
+	return;
 }
 inline void EVProcessingState::eraseEVConnSock(int fd)
 {

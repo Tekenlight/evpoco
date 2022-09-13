@@ -2081,6 +2081,7 @@ static int new_request(lua_State* L)
 // This is request header send
 static int send_request_header(lua_State* L)
 {
+	//DEBUGPOINT("Here\n");
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
@@ -2103,6 +2104,7 @@ static int send_request_header(lua_State* L)
 // This is request send
 static int send_request_body(lua_State* L)
 {
+	//DEBUGPOINT("Here\n");
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
@@ -2202,6 +2204,7 @@ static int receive_http_response_complete(lua_State* L, int status, lua_KContext
 
 static int receive_http_response_initiate(lua_State* L)
 {
+	//DEBUGPOINT("Here\n");
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
