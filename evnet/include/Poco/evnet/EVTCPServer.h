@@ -87,6 +87,7 @@ typedef struct _strms_io_struct_type * strms_io_cb_ptr_type;
 
 typedef ssize_t (EVTCPServer::*fdReadyMethod)(StreamSocket &, const bool& );
 typedef ssize_t (EVTCPServer::*cfdReadyMethod)(strms_io_cb_ptr_type, const bool& );
+typedef ssize_t (EVTCPServer::*cfdTimeOutMethod)(strms_io_cb_ptr_type, const bool& );
 
 struct _strms_io_struct_type {
 	long sr_num; // The identifier of service request, to be used in case of requests from worker threads
@@ -97,6 +98,7 @@ struct _strms_io_struct_type {
 	cfdReadyMethod connSocketReadable;
 	cfdReadyMethod connSocketWritable;
 	cfdReadyMethod connSocketReadAndWritable;
+	cfdTimeOutMethod connSocketTimeOut;
 	StreamSocket *ssPtr;
 	EVConnectedStreamSocket *cn;
 	int connSocketManaged;
@@ -393,6 +395,7 @@ private:
 	void clearTask(EVAcceptedStreamSocket * tn);
 	ssize_t handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
+	ssize_t handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadReady(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);
 	ssize_t handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, const bool& ev_occured);

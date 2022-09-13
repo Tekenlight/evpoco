@@ -36,6 +36,7 @@ public:
 		,READY_FOR_READ
 		,READY_FOR_WRITE
 		,READY_FOR_READWRITE
+		,SOCKET_OPER_TIMED_OUT
 	} sock_state;
 	EVEventNotification(long sr_num, int cb_evid_num);
 	EVEventNotification(long sr_num, poco_socket_t sockfd, int cb_evid_num, ssize_t ret, int err_no = 0);

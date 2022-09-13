@@ -56,6 +56,9 @@ public:
 	StreamSocket *  getStreamSocketPtr();
 	/// This method gives a pointer to the stored StreamSocket
 
+	ev_timer * getTimer();
+	/// This method gets the socket watcher that was associated with this socket.
+	
 	ev_io * getSocketWatcher();
 	/// This method gets the socket watcher that was associated with this socket.
 	
@@ -100,6 +103,7 @@ public:
 	chunked_memory_stream * getRcvMemStream();
 	void deleteState();
 
+	void setTimer(ev_timer *timer);
 	void setSocketWatcher(ev_io *socket_watcher_ptr);
 	void setEventLoop(struct ev_loop* loop);
 	struct ev_loop* getEventLoop();
@@ -118,6 +122,7 @@ private:
 	poco_socket_t				_sock_fd;
 	poco_socket_t				_acc_sock_fd;
 	ev_io*						_socket_watcher;
+	ev_timer*					_timer;
 	struct ev_loop*				_loop;
 	StreamSocket				_streamSocket;
 	time_t						_timeOfLastUse;

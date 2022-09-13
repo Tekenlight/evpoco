@@ -93,7 +93,7 @@ long EVHTTPRequestHandler::redistransceive(TCallback cb, redisAsyncContext *ac, 
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed)
+long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed, int timeout)
 {
 	Net::StreamSocket css;
 	Poco::evnet::EVServer & server = getServer();
@@ -104,7 +104,7 @@ long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int po
 	srdata->cb = cb;
 
 	css.setFd(fd);
-	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for, managed);
+	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for, managed, timeout);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;

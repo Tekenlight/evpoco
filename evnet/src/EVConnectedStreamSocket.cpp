@@ -23,6 +23,7 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_sock_fd(streamSocket.impl()->sockfd()),
 	_acc_sock_fd(acc_fd),
 	_socket_watcher(0),
+	_timer(0),
 	_streamSocket(streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
@@ -51,6 +52,15 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 		free(this->_socket_watcher);
 		this->_socket_watcher = NULL;
 	}
+	if (this->_timer) {
+		ev_timer_stop(this->_loop, this->_timer);
+		if ((void*)(this->_timer->data)) {
+			free((void*)(this->_timer->data));
+			this->_timer->data = NULL;
+		}
+		free(this->_timer);
+		this->_timer = NULL;
+	}
 	if (this->_send_memory_stream) {
 		delete this->_send_memory_stream;
 		this->_send_memory_stream = NULL;
@@ -59,6 +69,20 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 		delete this->_rcv_memory_stream;
 		this->_rcv_memory_stream = NULL;
 	}
+}
+
+void EVConnectedStreamSocket::setTimer(ev_timer *timer)
+{
+	if (this->_timer) {
+		ev_timer_stop(this->_loop, this->_timer);
+		if ((void*)(this->_timer->data)) {
+			free((void*)(this->_timer->data));
+			this->_timer->data = NULL;
+		}
+		free(this->_timer);
+		this->_timer = NULL;
+	}
+	this->_timer = timer;
 }
 
 void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
@@ -73,6 +97,11 @@ void EVConnectedStreamSocket::setSocketWatcher(ev_io *socket_watcher_ptr)
 		this->_socket_watcher = NULL;
 	}
 	this->_socket_watcher = socket_watcher_ptr;
+}
+
+ev_timer * EVConnectedStreamSocket::getTimer()
+{
+	return this->_timer;
 }
 
 ev_io * EVConnectedStreamSocket::getSocketWatcher()
