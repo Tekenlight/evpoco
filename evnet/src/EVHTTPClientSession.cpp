@@ -251,6 +251,13 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 
 		len2 += http_parser_execute(_parser,&settings, buffer, len1);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
+			char * buf_for_dump = (char*)malloc(len1+1);
+			memset(buf_for_dump, 0, len1+1);
+			memcpy(buf_for_dump, buffer, len1);
+			DEBUGPOINT("============================================================\n");
+			DEBUGPOINT("%s\n", buf_for_dump);
+			DEBUGPOINT("============================================================\n");
+			free(buf_for_dump);
 			DEBUGPOINT("%s\n", http_errno_description((enum http_errno)_parser->http_errno));
 			DEBUGPOINT("\n%s\n", buffer);
 			response.clear();

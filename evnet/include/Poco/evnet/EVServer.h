@@ -48,6 +48,7 @@ public:
 	virtual long stopTakingRequests(int cb_evid_num) = 0;
 	virtual long webSocketActive(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket &ss) = 0;
 	virtual long asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[], bool single_instance) = 0;
+	virtual long stopTrackingConnSock(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss) = 0;
 	bool aborting();
 	void setAborting();
 

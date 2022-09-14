@@ -352,6 +352,7 @@ public:
 	virtual long redisDisconnect(int cb_evid_num, EVAcceptedSocket *en, redisAsyncContext *ac);
 		/// Disconnect the redis connection and cleanup
 
+	virtual long stopTrackingConnSock(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss);
 	virtual long sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& accss, void* data, size_t len);
 	virtual long trackAsWebSocket(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss, const char * msg_handler);
 	virtual long evTimer(int cb_evid_num, EVAcceptedSocket *en, int time_in_ms);
@@ -361,6 +362,7 @@ public:
 	virtual long asyncRunLuaScript(int cb_evid_num, EVAcceptedSocket *en, int argc, char * argv[], bool single_instance);
 		/// Request submited by a worker thread to reserve
 		/// the acccepted socket for a push based task
+	int stopTrackingConnSockProcess(EVTCPServiceRequest * sr);
 	int sendRawDataOnAccSocketProcess(EVTCPServiceRequest * sr);
 	int trackAsWebSocketProcess(EVTCPServiceRequest * sr);
 	int evTimerProcess(EVTCPServiceRequest * sr);

@@ -210,7 +210,6 @@ public:
 	long makeNewHTTPConnection(TCallback cb, const char * domain_name, const unsigned short port_num, EVHTTPClientSession& sess, int timeout);
 	long makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess, int timeout);
 
-	long makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css, int timeout);
 	long makeNewSocketConnection(TCallback cb, const char * domain_name, const unsigned short port_num, int timeout);
 	long pollSocketForReadOrWrite(TCallback cb, int fd, int poll_for, int managed = 1, int timeout = -1);
 	long redistransceive(TCallback cb, redisAsyncContext *ac, const char * message);
@@ -228,6 +227,7 @@ public:
 	long webSocketActive(Net::StreamSocket &ss);
 	long asyncRunLuaScript(int argc, char * argv[], bool single_instance = false);
 
+	long stopTrackingConnSock(Net::StreamSocket &ss);
 	long closeHTTPSession(EVHTTPClientSession& sess);
 
 	file_handle_p ev_file_open(const char * path, int oflag, ...);

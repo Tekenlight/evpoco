@@ -59,7 +59,7 @@ public:
 	void setPollingEVConnSock(EVConnectedStreamSocket * cs);
 	ev_queue_type getEventQ();
 	void setEventQ(ev_queue_type);
-	void eraseEVConnSock(int fd);
+	void eraseEVConnSock(int fd, bool invalidate = false);
 	void erasePollingEVConnSock(int fd);
 	void setClientAddress(Net::SocketAddress addr);
 	void setServerAddress(Net::SocketAddress addr);
@@ -159,12 +159,15 @@ inline void EVProcessingState::erasePollingEVConnSock(int fd)
 	}
 	return;
 }
-inline void EVProcessingState::eraseEVConnSock(int fd)
+inline void EVProcessingState::eraseEVConnSock(int fd, bool invalidate)
 {
 	EVConnectedStreamSocket * cn = NULL;
 	auto it = _cssMap.find(fd);
 	if (_cssMap.end() != it) {
 		cn = it->second;
+		if (invalidate) {
+			cn->invalidateSocket();
+		}
 		_cssMap.erase(fd);
 		delete cn;
 	}

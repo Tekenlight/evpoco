@@ -51,6 +51,7 @@ public:
 		,SHUTDOWN_WEBSOCKET
 		,WEBSOCKET_ACTIVE
 		,RUN_LUA_SCRIPT
+		,STOP_TRACKING_CONN_SOCK
 	} what;
 	typedef enum {
 		NONE = 0

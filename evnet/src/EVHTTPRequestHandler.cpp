@@ -114,25 +114,6 @@ long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int po
 	return sr_num;
 }
 
-long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb, Net::SocketAddress& addr, Net::StreamSocket& css, int timeout)
-{
-	Poco::evnet::EVServer & server = getServer();
-	long sr_num = 0;
-	SRData * srdata = new SRData();
-
-	srdata->addr = addr;
-	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
-	srdata->cb = cb;
-	//DEBUGPOINT("Here timeout = [%d]\n", timeout);
-	sr_num = server.submitRequestForConnection(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), addr, css, timeout);
-
-	srdata->ref_sr_num = sr_num;
-	_srColl[sr_num] = srdata;
-
-	//DEBUGPOINT("Service Request Number = %ld\n", sr_num);
-	return sr_num;
-}
-
 long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
 					const char * domain_name, const unsigned short port_num, int timeout)
 {
@@ -333,6 +314,20 @@ long EVHTTPRequestHandler::webSocketActive(Net::StreamSocket &ss)
 	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
 
 	sr_num = getServer().webSocketActive(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), ss);
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	return sr_num;
+}
+
+long EVHTTPRequestHandler::stopTrackingConnSock(Net::StreamSocket &ss)
+{
+	long sr_num = 0;
+	SRData * srdata = new SRData();
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+
+	sr_num = getServer().stopTrackingConnSock(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), ss);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;

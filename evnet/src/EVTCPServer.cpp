@@ -1263,7 +1263,8 @@ ssize_t EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bo
 	cn->setTimeOfLastUse();
 	errno = 0;
 
-	DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out\n");
+	//DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for [%d]\n", cn->getSockfd());
+	//DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for acc fd[%d]\n", cn->getAccSockfd());
 	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	if (!tn) {
 		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
@@ -1476,9 +1477,10 @@ ssize_t EVTCPServer::handleManagedConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, c
 	ssize_t ret = -1;
 	EVConnectedStreamSocket *cn = cb_ptr->cn;
 	cn->setTimeOfLastUse();
+	ev_timer_stop(this->_loop, cn->getTimer());
 	errno = 0;
 
-	DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out\n");
+	DEBUGPOINT("EVTCPServer::handleManagedConnSockTimeOut: operation timed out\n");
 	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	if (!tn) {
 		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
@@ -1514,7 +1516,6 @@ ssize_t EVTCPServer::handleManagedConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, c
 		DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
 		std::abort();
 	}
-	ev_timer_stop(this->_loop, cn->getTimer());
 
 	return ret;
 }
@@ -2657,6 +2658,7 @@ EVAcceptedStreamSocket*  EVTCPServer::createEVAccSocket(StreamSocket& ss)
 		ss.setNoDelay(true);
 	}
 
+	//DEBUGPOINT("Creating accepted connecton for  [%d]\n", ss.impl()->sockfd());
 	EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(ss);
 	acceptedSock->setClientAddress(ss.peerAddress());
 	acceptedSock->setServerAddress(ss.address());
@@ -3167,6 +3169,8 @@ void EVTCPServer::run()
 		EVAcceptedStreamSocket *tn = _ssLRUList.getFirst();
 		while (tn) {
 			//DEBUGPOINT("Clearing for [%d]\n", tn->getSockfd());
+			//DEBUGPOINT("Socket upgraded to [%d]\n", tn->getSockUpgradeTo());
+			//DEBUGPOINT("Shutdown initiated [%d]\n", tn->shutdownInitiated());
 			clearTask(tn);
 			tn = _ssLRUList.getFirst();
 		}
@@ -4257,6 +4261,10 @@ void EVTCPServer::handleServiceRequest(const bool& ev_occured)
 				//DEBUGPOINT("TRACK_AS_WEBSOCKET from %d\n", tn->getSockfd());
 				trackAsWebSocketProcess(srNF);
 				break;
+			case EVTCPServiceRequest::STOP_TRACKING_CONN_SOCK:
+				//DEBUGPOINT("STOP_TRACKING_CONN_SOCK from %d\n", tn->getSockfd());
+				stopTrackingConnSockProcess(srNF);
+				break;
 			case EVTCPServiceRequest::SET_EV_TIMER:
 				//DEBUGPOINT("SET_EV_TIMER from %d\n", tn->getSockfd());
 				evTimerProcess(srNF);
@@ -4408,7 +4416,8 @@ long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en,
 	long sr_num = getNextSRSrlNum();
 
 	/* Enque the service request */
-	//DEBUGPOINT("sr_num = [%d]:[%ld][%d][%d]\n", css.impl()->sockfd(), sr_num, poll_for, managed);
+	//DEBUGPOINT("Accepted fd = [%d]\n", en->getSockfd());
+	//DEBUGPOINT("sr_num = [%d]:css[%ld]poll_for[%d][%d]\n", css.impl()->sockfd(), sr_num, poll_for, managed);
 	EVTCPServiceRequest *sr = new EVTCPServiceRequest(sr_num, cb_evid_num,
                                         EVTCPServiceRequest::POLL_REQUEST, en->getSockfd(), css);
 	sr->setPollFor(poll_for);
@@ -4418,7 +4427,7 @@ long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en,
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
-	/* This will result in invocation of handleServiceRequest */
+	/* This will result in invocation of pollSocketForReadOrWrite */
 	return sr_num;
 }
 
@@ -4741,6 +4750,59 @@ long EVTCPServer::sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, 
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
 	/* This will result in invocation of handleServiceRequest
 	 * and sendRawDataOnAccSocketProcess */
+
+	return sr_num;
+}
+
+int EVTCPServer::stopTrackingConnSockProcess(EVTCPServiceRequest * sr)
+{
+	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	if (!tn) {
+		DEBUGPOINT("tn not found for [%d]\n", sr->accSockfd());
+		std::abort();
+	}
+
+
+	StreamSocket connss = sr->getStreamSocket();
+	//DEBUGPOINT("Here sockfd = [%d]\n", connss.impl()->sockfd());
+	tn->getProcState()->eraseEVConnSock(connss.impl()->sockfd(), true);
+
+	bool status = true;
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet((int)status);
+	//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		if (!(tn->sockBusy())) {
+			srCompleteEnqueue(tn);
+		}
+		else {
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
+
+
+	return 0;
+}
+
+long EVTCPServer::stopTrackingConnSock(int cb_evid_num, EVAcceptedSocket *en, Net::StreamSocket& connss)
+{
+	long sr_num = getNextSRSrlNum();
+
+	/* Enque the service request */
+	enqueueSR(en, new EVTCPServiceRequest(sr_num, cb_evid_num,
+									EVTCPServiceRequest::STOP_TRACKING_CONN_SOCK, en->getSockfd(), connss));
+	/* And then wake up the loop calls process_service_request */
+	ev_async_send(this->_loop, this->_stop_watcher_ptr2);
+	/* This will result in invocation of handleServiceRequest
+	 * and stopTrackingConnSockProcess */
 
 	return sr_num;
 }

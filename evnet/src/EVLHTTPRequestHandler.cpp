@@ -179,6 +179,7 @@ namespace evpoco {
 	static int make_http_connection_initiate(lua_State* L);
 	static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_tcp_connection_initiate(lua_State* L);
+	static int stop_tracking_conn_sock(lua_State* L);
 	static int use_pooled_connection(lua_State* L);
 	static int set_socket_managed(lua_State* L);
 	static int cleanup_stream_socket(lua_State* L);
@@ -190,6 +191,7 @@ namespace evpoco {
 	static int send_data_on_acc_socket_complete(lua_State* L, int status, lua_KContext ctx);
 	static int shutdown_websocket(lua_State* L);
 	static int websocket_active(lua_State* L);
+	static int debug_ss_ptr(lua_State* L);
 	static int async_run_lua_script(lua_State* L);
 	static int async_run_lua_script_singleton(lua_State* L);
 	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
@@ -368,6 +370,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 };
 
 static const luaL_Reg evpoco_lib[] = {
+	{ "debug_ss_ptr", &evpoco::debug_ss_ptr},
 	{ "wait", &evpoco::wait_initiate },
 	{ "task_return_value", &evpoco::task_return_value },
 	{ "get_http_request", &evpoco::get_http_request },
@@ -376,6 +379,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
+	{ "stop_tracking_conn_sock", &evpoco::stop_tracking_conn_sock },
 	//{ "use_pooled_connection", &evpoco::use_pooled_connection },
 	//{ "set_socket_managed", &evpoco::set_socket_managed },
 	//{ "cleanup_stream_socket", &evpoco::cleanup_stream_socket },
@@ -1116,8 +1120,8 @@ static int resolve_host_address_initiate(lua_State* L)
 
 static int http_connection__gc(lua_State* L)
 {
-	//DEBUGPOINT("HERE\n");
 	EVHTTPClientSession* session = *(EVHTTPClientSession**)lua_touserdata(L, 1);
+	//DEBUGPOINT("HERE sock = [%d]\n", session->getSS().impl()->sockfd());
 	delete session;
 	/*
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
@@ -1185,13 +1189,13 @@ static int make_http_connection_initiate(lua_State* L)
 		return 0;
 	}
 	else if (lua_isnil(L, 1) || !lua_isstring(L, 1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -2)));
-		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 		return 0;
 	}
 	else if (!lua_isnil(L, 2) && !lua_isstring(L, 2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
 		return 0;
 	}
 	else {
@@ -1255,6 +1259,23 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 	//DEBUGPOINT("HERE valid socket that can get data in blocking mode for sure %d\n", usN.sockfd());
 	return 1;
 }
+
+static int stop_tracking_conn_sock_complete(lua_State* L, int status, lua_KContext ctx)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	return 0;
+}
+
+static int stop_tracking_conn_sock(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+
+	reqHandler->stopTrackingConnSock(*ss_ptr);
+	return lua_yieldk(L, 0, (lua_KContext)0, stop_tracking_conn_sock_complete);
+}
+
 
 static int make_tcp_connection_initiate(lua_State* L)
 {
@@ -1370,6 +1391,7 @@ static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext
 	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		DEBUGPOINT("Here usN.getRet() = [%ld] error=[%s]\n", usN.getRet(), strerror(usN.getErrNo()));
+		DEBUGPOINT("Here fd = [%d]\n", rp->_ss_ptr->impl()->sockfd());
 		free(rp);
 		return luaL_error(L, "recv_data_from_socket: Failed to receive data from socket : %s", strerror(usN.getErrNo()));
 	}
@@ -1416,6 +1438,7 @@ static int recv_data_from_socket_initiate(lua_State* L)
 	}
 
 	int wait_mode = 0;
+	//DEBUGPOINT("Here ss_ptr->fd = [%d]\n", ss_ptr->impl()->sockfd());
 	long ret = EVTCPServer::receiveData(*(ss_ptr), buf, size, &wait_mode);
 	if (ret < 0) {
 		//DEBUGPOINT("Here %ld {%d:%s}\n", ret, errno, strerror(errno));
@@ -1428,7 +1451,6 @@ static int recv_data_from_socket_initiate(lua_State* L)
 		rp->_size = size;
 		rp->_ss_ptr = ss_ptr;
 		rp->_timeout = timeout;
-		//DEBUGPOINT("Here\n");
 		if (wait_mode == -2) {
 			reqHandler->pollSocketForReadOrWrite(NULL, rp->_ss_ptr->impl()->sockfd(),
 											Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(rp->_ss_ptr), timeout);
@@ -1601,6 +1623,13 @@ static int websocket_active(lua_State* L)
 		return 1;
 	}
 	return lua_yieldk(L, 0, (lua_KContext)0, websocket_active_complete);
+}
+
+static int debug_ss_ptr(lua_State* L)
+{
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+	DEBUGPOINT("Socket fd = [%d]\n", ss_ptr->impl()->sockfd());
+	return 0;
 }
 
 #include <sys/select.h>
@@ -2043,12 +2072,12 @@ static int nb_make_http_connection_initiate(lua_State* L)
 	}
 	else if (lua_isnil(L, 1) || !lua_isstring(L, 1)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
-		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, -2)));
+		luaL_error(L, "make_http_connection: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
 		return 0;
 	}
 	else if (!lua_isnil(L, 2) && !lua_isstring(L, 2)) {
 		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
+		luaL_error(L, "make_http_connection: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
 		return 0;
 	}
 	int timeout = -1;
