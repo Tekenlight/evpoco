@@ -26,21 +26,21 @@ int socket_live(int fd)
 	if (ret == 0) ret = 1;
 
 	if (fd_item.revents & POLLHUP) {
-		printf("POLLHUP = [%X]\n", POLLHUP);
-		printf("fd_item.revents & POLLHUP = [%X]\n", (fd_item.revents & POLLHUP));
-		printf("SOCKET DISCONNECTD POLLHUP [%X]\n", fd);
+		printf("[%s:%d] POLLHUP = [%X]\n", __FILE__, __LINE__, POLLHUP);
+		printf("[%s:%d] fd_item.revents & POLLHUP = [%X]\n", __FILE__, __LINE__, (fd_item.revents & POLLHUP));
+		printf("[%s:%d] SOCKET DISCONNECTD POLLHUP [%X]\n", __FILE__, __LINE__, fd);
 		ret = 0;
 	}
 	else if (fd_item.revents & POLLERR) {
-		printf("POLERR = [%X]\n", POLLERR);
-		printf("fd_item.revents & POLLERR = [%X]\n", (fd_item.revents & POLLERR));
-		printf("SOCKET ERROR POLLERR [%d]\n", fd);
+		printf("[%s:%d] POLERR = [%X]\n", __FILE__, __LINE__, POLLERR);
+		printf("[%s:%d] fd_item.revents & POLLERR = [%X]\n", __FILE__, __LINE__, (fd_item.revents & POLLERR));
+		printf("[%s:%d] SOCKET ERROR POLLERR [%d]\n", __FILE__, __LINE__, fd);
 		ret = 0;
 	}
 	else if (fd_item.revents & POLLNVAL) {
-		printf("POLINVAL = [%X] revents = [%X]\n", POLLNVAL, fd_item.revents);
-		printf("fd_item.revents & POLLNVAL = [%X]\n", (fd_item.revents & POLLNVAL));
-		printf("SOCKET ERROR POLLNVAL [%d]\n", fd);
+		printf("[%s:%d] POLINVAL = [%X] revents = [%X]\n", __FILE__, __LINE__, POLLNVAL, fd_item.revents);
+		printf("[%s:%d] fd_item.revents & POLLNVAL = [%X]\n", __FILE__, __LINE__, (fd_item.revents & POLLNVAL));
+		printf("[%s:%d] SOCKET ERROR POLLNVAL [%d]\n", __FILE__, __LINE__, fd);
 		ret = 0;
 	}
 
