@@ -1239,17 +1239,9 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 		return 2;
 	}
 
-	bool managed = false;
-	if (lua_gettop(L) > 2) {
-		//DEBUGPOINT("TYPE = [%d] [%d]\n", lua_type(L, 3), LUA_TBOOLEAN);
-		luaL_checktype(L, 3, LUA_TBOOLEAN);
-		managed = (lua_toboolean(L, 3))?true:false;
-	}
-
 	Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
 	ss_ptr->setFd(usN.sockfd());
 	ss_ptr->setBlocking(false);
-	//ss_ptr->impl()->managed(managed);
 
 	void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 	*(Poco::Net::StreamSocket**)ptr = ss_ptr;
@@ -1405,11 +1397,11 @@ static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext
 	else if (ret == 0) {
 		if (wait_mode == -2) {
 			reqHandler->pollSocketForReadOrWrite(NULL, rp->_ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(rp->_ss_ptr));
+												Poco::evnet::EVLHTTPRequestHandler::WRITE, rp->_timeout);
 		}
 		else {
 			reqHandler->pollSocketForReadOrWrite(NULL, rp->_ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(rp->_ss_ptr));
+												Poco::evnet::EVLHTTPRequestHandler::READ, rp->_timeout);
 		}
 		return lua_yieldk(L, 0, (lua_KContext)rp, recv_data_from_socket_complete);
 	}
@@ -1453,11 +1445,11 @@ static int recv_data_from_socket_initiate(lua_State* L)
 		rp->_timeout = timeout;
 		if (wait_mode == -2) {
 			reqHandler->pollSocketForReadOrWrite(NULL, rp->_ss_ptr->impl()->sockfd(),
-											Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(rp->_ss_ptr), timeout);
+											Poco::evnet::EVLHTTPRequestHandler::WRITE, rp->_timeout);
 		}
 		else {
 			reqHandler->pollSocketForReadOrWrite(NULL, rp->_ss_ptr->impl()->sockfd(),
-											Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(rp->_ss_ptr), timeout);
+											Poco::evnet::EVLHTTPRequestHandler::READ, rp->_timeout);
 		}
 		return lua_yieldk(L, 0, (lua_KContext)rp, recv_data_from_socket_complete);
 	}
@@ -1725,11 +1717,11 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 	else if (ret == 0) {
 		if (wait_mode == -1) {
 			reqHandler->pollSocketForReadOrWrite(NULL, wp->_ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(wp->_ss_ptr));
+												Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 		}
 		else {
 			reqHandler->pollSocketForReadOrWrite(NULL, wp->_ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(wp->_ss_ptr));
+												Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 		}
 		return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 	}
@@ -1745,11 +1737,11 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
 			//DEBUGPOINT("Here\n");
 			if (wait_mode == -1) {
 				reqHandler->pollSocketForReadOrWrite(NULL, wp->_ss_ptr->impl()->sockfd(),
-													Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(wp->_ss_ptr));
+													Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 			}
 			else {
 				reqHandler->pollSocketForReadOrWrite(NULL, wp->_ss_ptr->impl()->sockfd(),
-													Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(wp->_ss_ptr));
+													Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 			}
 			return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 		}
@@ -1789,11 +1781,11 @@ static int send_data_on_socket_initiate(lua_State* L)
 		//DEBUGPOINT("Here\n");
 		if (wait_mode == -1) {
 			reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(ss_ptr), timeout);
+												Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 		}
 		else {
 			reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-												Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(ss_ptr), timeout);
+												Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 		}
 		return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 	}
@@ -1814,11 +1806,11 @@ static int send_data_on_socket_initiate(lua_State* L)
 			//DEBUGPOINT("Here\n");
 			if (wait_mode == -1) {
 				reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-													Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(ss_ptr), timeout);
+													Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 			}
 			else {
 				reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-													Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(ss_ptr), timeout);
+													Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 			}
 			return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_data_on_socket);
 		}
@@ -1866,11 +1858,11 @@ static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ct
 				wp->_written = total_bytes;
 				if (wait_mode == -1) {
 					reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-														Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(ss_ptr));
+														Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 				}
 				else {
 					reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-														Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(ss_ptr));
+														Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 				}
 				return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_cms_on_socket);
 			}
@@ -1935,11 +1927,11 @@ static int send_cms_on_socket_initiate(lua_State* L)
 				wp->_timeout = timeout;
 				if (wait_mode == -1) {
 					reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-														Poco::evnet::EVLHTTPRequestHandler::READ, MANAGED(ss_ptr), timeout);
+														Poco::evnet::EVLHTTPRequestHandler::READ, wp->_timeout);
 				}
 				else {
 					reqHandler->pollSocketForReadOrWrite(NULL, ss_ptr->impl()->sockfd(),
-														Poco::evnet::EVLHTTPRequestHandler::WRITE, MANAGED(ss_ptr), timeout);
+														Poco::evnet::EVLHTTPRequestHandler::WRITE, wp->_timeout);
 				}
 				return lua_yieldk(L, 0, (lua_KContext)wp, complete_send_cms_on_socket);
 			}

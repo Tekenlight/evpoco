@@ -308,7 +308,7 @@ public:
 	void srComplete(EVAcceptedStreamSocket* );
 	void enqueueSR(EVAcceptedSocket *tn, EVTCPServiceRequest * sr);
 	long submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css,
-												int poll_for, int managed, int time_out);
+												int poll_for, int time_out);
 	virtual long submitRequestForConnection(int sr_num, EVAcceptedSocket *tn,
 								Net::SocketAddress& addr, Net::StreamSocket & css, int timeout);
 	virtual long submitRequestForHostResolution(int cb_evid_num, EVAcceptedSocket *tn,

@@ -1358,7 +1358,7 @@ ssize_t EVTCPServer::handleConnSocketReadAndWriteReady(strms_io_cb_ptr_type cb_p
 	ev_io_stop(this->_loop, socket_watcher_ptr);
 	ev_clear_pending(this->_loop, socket_watcher_ptr);
 	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
-	DEBUGPOINT("EVTCPServer::handleConnSocketReadAndWriteReady %d\n", cb_ptr->connSocketManaged);
+	DEBUGPOINT("EVTCPServer::handleConnSocketReadAndWriteReady\n");
 
 	ref_cn->invalidateSocket();
 	tn->getProcState()->erasePollingEVConnSock(cn->getSockfd());
@@ -1413,7 +1413,6 @@ ssize_t EVTCPServer::handleConnSocketWriteReady(strms_io_cb_ptr_type cb_ptr, con
 	cn->setState(EVConnectedStreamSocket::NOT_WAITING);
 	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady\n");
 
-	//DEBUGPOINT("EVTCPServer::handleConnSocketWriteReady %d\n", cb_ptr->connSocketManaged);
 	ref_cn->invalidateSocket();
 	tn->getProcState()->erasePollingEVConnSock(cn->getSockfd());
 	return ret;
@@ -3390,7 +3389,7 @@ int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
 		cb_ptr->connSocketWritable = &EVTCPServer::handleConnSocketWriteReady;
 		cb_ptr->connSocketReadAndWritable = &EVTCPServer::handleConnSocketReadAndWriteReady;
 		cb_ptr->cn = connectedSock;
-		cb_ptr->connSocketManaged = sr->getConnSocketManaged();
+		//cb_ptr->connSocketManaged = sr->getConnSocketManaged();
 		socket_watcher_ptr->data = (void*)cb_ptr;
 		// Since this method is for making connection to a given socket address
 		// There is no need for the address resolution step.
@@ -3422,7 +3421,7 @@ int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
 			cb_ptr->cn = connectedSock;
 			//cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadReady;
 			cb_ptr->connSocketTimeOut = &EVTCPServer::handleConnSockTimeOut;
-			cb_ptr->connSocketManaged = sr->getConnSocketManaged();
+			//cb_ptr->connSocketManaged = sr->getConnSocketManaged();
 
 			ev_timer * timer = (ev_timer *)malloc(sizeof(ev_timer));
 			memset(timer, 0, sizeof(ev_timer));
@@ -3948,7 +3947,7 @@ int EVTCPServer::makeTCPConnection(EVTCPServiceRequest * sr)
 		cb_ptr->cn = connectedSock;
 		//cb_ptr->connSocketReadable = &EVTCPServer::handleConnSocketReadable;
 		cb_ptr->connSocketTimeOut = &EVTCPServer::handleManagedConnSockTimeOut;
-		cb_ptr->connSocketManaged = sr->getConnSocketManaged();
+		//cb_ptr->connSocketManaged = sr->getConnSocketManaged();
 
 		ev_timer * timer = (ev_timer *)malloc(sizeof(ev_timer));
 		memset(timer, 0, sizeof(ev_timer));
@@ -4410,7 +4409,7 @@ long EVTCPServer::submitRequestForConnection(int cb_evid_num, EVAcceptedSocket *
 }
 
 long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en,
-										Net::StreamSocket& css, int poll_for, int managed, int timeout)
+										Net::StreamSocket& css, int poll_for, int timeout)
 {
 	//STACK_TRACE();
 	long sr_num = getNextSRSrlNum();
@@ -4421,7 +4420,7 @@ long EVTCPServer::submitRequestForPoll(int cb_evid_num, EVAcceptedSocket *en,
 	EVTCPServiceRequest *sr = new EVTCPServiceRequest(sr_num, cb_evid_num,
                                         EVTCPServiceRequest::POLL_REQUEST, en->getSockfd(), css);
 	sr->setPollFor(poll_for);
-	sr->setConnSocketManaged(managed);
+	//sr->setConnSocketManaged(managed);
 	sr->setTimeOut(timeout);
 	enqueueSR(en, sr);
 
