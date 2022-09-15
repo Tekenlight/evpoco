@@ -192,6 +192,7 @@ namespace evpoco {
 	static int shutdown_websocket(lua_State* L);
 	static int websocket_active(lua_State* L);
 	static int debug_ss_ptr(lua_State* L);
+	static int socket_active(lua_State* L);
 	static int async_run_lua_script(lua_State* L);
 	static int async_run_lua_script_singleton(lua_State* L);
 	static int websocket_active_complete(lua_State* L, int status, lua_KContext ctx);
@@ -371,6 +372,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 
 static const luaL_Reg evpoco_lib[] = {
 	{ "debug_ss_ptr", &evpoco::debug_ss_ptr},
+	{ "socket_active", &evpoco::socket_active},
 	{ "wait", &evpoco::wait_initiate },
 	{ "task_return_value", &evpoco::task_return_value },
 	{ "get_http_request", &evpoco::get_http_request },
@@ -1622,6 +1624,19 @@ static int debug_ss_ptr(lua_State* L)
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
 	DEBUGPOINT("Socket fd = [%d]\n", ss_ptr->impl()->sockfd());
 	return 0;
+}
+
+extern "C" int socket_live(int fd);
+static int socket_active(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
+
+	int active = socket_live(ss_ptr->impl()->sockfd());
+	lua_pushboolean(L, active);
+
+	return 1;
+
 }
 
 #include <sys/select.h>

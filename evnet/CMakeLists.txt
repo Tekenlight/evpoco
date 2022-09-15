@@ -2,7 +2,7 @@ set(LIBNAME "evnet")
 set(POCO_LIBNAME "${LIBNAME}")
 
 # Sources
-file(GLOB SRCS_G "src/*.cpp")
+file(GLOB SRCS_G "src/*.cpp" "src/*.c")
 POCO_SOURCES_AUTO( SRCS ${SRCS_G})
 
 # Headers

@@ -211,6 +211,7 @@ static int repurpose_connection(lua_State *L)
 {
     redis_connection_t *conn = (redis_connection_t *)luaL_checkudata(L, 1, EV_REDIS_CONNECTION);
 	if (conn->conn_in_error == 1) {
+		//DEBUGPOINT("CLOSING CONNECTION [%p][%p]\n", conn, conn->ac);
 		return orig_connection_close(L);
 	}
 	else {
@@ -223,6 +224,7 @@ static int repurpose_connection(lua_State *L)
 			n_conn->free_reply_obj = conn->free_reply_obj;
 			n_conn->orig_fd = conn->orig_fd;
 		}
+		//DEBUGPOINT("REPURPOSING CONNECTION [%p][%p]\n", conn, conn->ac);
 		add_conn_to_pool(REDIS_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
 	}
 	return 0;
