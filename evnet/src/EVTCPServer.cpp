@@ -1263,8 +1263,8 @@ ssize_t EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, const bo
 	cn->setTimeOfLastUse();
 	errno = 0;
 
-	//DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for [%d]\n", cn->getSockfd());
-	//DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for acc fd[%d]\n", cn->getAccSockfd());
+	DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for [%d]\n", cn->getSockfd());
+	DEBUGPOINT("EVTCPServer::handleConnSockTimeOut: operation timed out for acc fd[%d]\n", cn->getAccSockfd());
 	EVAcceptedStreamSocket *tn = getTn(cn->getAccSockfd());
 	if (!tn) {
 		DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
