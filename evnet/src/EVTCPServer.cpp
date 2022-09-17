@@ -1809,14 +1809,24 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 		if (ret > 0) {
 
 			{
-				tn->setProcState(_pConnectionFactory->createReqProcState(this));
-				tn->getProcState()->setMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+				/*
+				 * Experimental fix to not create no processing state
+				 * upon each request in the WEBSOCKET protocol.
+				 *
+				 * Consider the entire life cycle of WEBSOCKET
+				 * as a single state
+				 *
+				 */
+				if (!tn->getProcState()) {
+					tn->setProcState(_pConnectionFactory->createReqProcState(this));
+					tn->getProcState()->setMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
+					/* Session starts when a new processing state is created. */
+					unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
+					tn->setBaseSRSrlNum(sr_num);
+				}
 				//DEBUGPOINT("Created processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 				tn->getProcState()->setClientAddress(tn->clientAddress());
 				tn->getProcState()->setServerAddress(tn->serverAddress());
-				/* Session starts when a new processing state is created. */
-				unsigned long sr_num = std::atomic_load(&(this->_sr_srl_num));
-				tn->setBaseSRSrlNum(sr_num);
 			}
 
 			{
