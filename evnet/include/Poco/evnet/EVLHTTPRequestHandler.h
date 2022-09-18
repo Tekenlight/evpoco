@@ -261,6 +261,7 @@ public:
 	void* getFromComponents(mapped_item_type);
 	int addHTTPConnection(EVHTTPClientSession* p);
 	EVHTTPClientSession* getHTTPConnection(int i);
+	void removeHTTPConnection(EVHTTPClientSession* p);
 	std::string getDynamicMetaName();
 	char* getEphemeralBuf();
 
@@ -348,6 +349,7 @@ inline int EVLHTTPRequestHandler::addHTTPConnection(EVHTTPClientSession* p)
 {
 	++_http_connection_count;
 	_http_connections[_http_connection_count] = p;
+	p->setIndex(_http_connection_count);
 	return _http_connection_count;
 }
 
@@ -356,6 +358,19 @@ inline EVHTTPClientSession* EVLHTTPRequestHandler::getHTTPConnection(int i)
 	auto it = _http_connections.find(i);
 	if (_http_connections.end() != it) return it->second;
 	else return NULL;
+}
+
+inline void EVLHTTPRequestHandler::removeHTTPConnection(EVHTTPClientSession* p)
+{
+	int i = p->getIndex();
+	if (i == -1) return;
+
+	auto it = _http_connections.find(i);
+	if (_http_connections.end() != it) {
+		_http_connections.erase(i);
+	}
+
+	return;
 }
 
 inline void EVLHTTPRequestHandler::addToComponents(mapped_item_type t, void* p)

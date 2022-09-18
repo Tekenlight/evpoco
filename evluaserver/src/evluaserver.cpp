@@ -257,11 +257,23 @@ static void * heart_beat(void * inputs)
 			redisReply *reply = NULL;
 			for (std::string s : *(m_list)) {
 				std::string redis_command;
+				/*
 				redis_command += "{\"host\":\"";
 				redis_command += host_ip_address;
 				redis_command += "\", \"port\":";
 				redis_command += std::to_string(listen_port);
 				redis_command += "}";
+				*/
+
+				redis_command += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+				redis_command += "<ns1:host_config_rec xmlns:ns1=\"http://evpoco.tekenlight.org/idl_spec\">";
+				redis_command += "<host>";
+				redis_command += host_ip_address;
+				redis_command += "</host>";
+				redis_command += "<port>";
+				redis_command += std::to_string(listen_port);
+				redis_command += "</port>";
+				redis_command += "</ns1:host_config_rec>";
 
 				size_t return_length = 0;
 				unsigned char * base64_encoded_arg = 

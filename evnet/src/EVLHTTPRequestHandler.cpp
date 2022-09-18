@@ -107,7 +107,8 @@ static int http_sresp_type_name__tostring(lua_State *L)
 
 static int http_conn_type_name__tostring(lua_State *L)
 {
-	lua_pushstring(L, "httpconn");
+	EVHTTPClientSession * session = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
+	lua_pushfstring(L, "httpconn:[%p]", session);
 
 	return 1;
 }
@@ -2108,28 +2109,12 @@ static int nb_make_http_connection_initiate(lua_State* L)
 
 static int close_http_connection(lua_State* L)
 {
+	int value = 0;
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	EVHTTPClientSession *session = NULL;;
-	if (lua_gettop(L) != 1) {
-		luaL_error(L, "close_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
-		return 0;
-	}
-	if (!lua_isnil(L, -1) && !lua_isnumber(L, -1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, -1)));
-		luaL_error(L, "close_http_connection: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
-		return 0;
-	}
-	else {
-		int value = 0; lua_numbertointeger(lua_tonumber(L, -1), &value);
-		session = reqHandler->getHTTPConnection(value);
-		if (!session) {
-			luaL_error(L, "close_http_connection: invalid argumet %d", value);
-			return 0;
-		}
-		reqHandler->closeHTTPSession(*session);
-	}
 
-	//DEBUGPOINT("HERE %p\n",session);
+	EVHTTPClientSession * session = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
+	reqHandler->closeHTTPSession(*session);
+
 	return 0;
 }
 

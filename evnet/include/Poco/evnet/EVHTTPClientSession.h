@@ -62,6 +62,8 @@ public:
 	chunked_memory_stream* getSendStream();
 	void setAccfd(poco_socket_t fd);
 	poco_socket_t getAccfd();
+	void setIndex(int i);
+	int getIndex();
 
 private:
 	poco_socket_t			_acc_fd;
@@ -71,10 +73,21 @@ private:
 	chunked_memory_stream*	_send_stream;
 	chunked_memory_stream*	_recv_stream;
 	http_parser*			_parser;
+	int						_index;
 
 	void setRespProperties(EVHTTPResponse& response);
 	int http_parser_hack();
 };
+
+inline void EVHTTPClientSession::setIndex(int i)
+{
+	_index = i;
+}
+
+inline int EVHTTPClientSession::getIndex()
+{
+	return _index;
+}
 
 inline void EVHTTPClientSession::setAccfd(poco_socket_t fd)
 {

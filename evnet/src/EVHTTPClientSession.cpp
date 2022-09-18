@@ -30,7 +30,9 @@ EVHTTPClientSession::EVHTTPClientSession(Net::StreamSocket& sock, Net::SocketAdd
 	_state(NOT_CONNECTED),
 	_parser(0),
 	_send_stream(0),
-	_recv_stream(0)
+	_recv_stream(0),
+	_acc_fd(-1),
+	_index(-1)
 {
 	parser_init(0);
 }
@@ -39,7 +41,9 @@ EVHTTPClientSession::EVHTTPClientSession():
 	_state(NOT_CONNECTED),
 	_parser(0),
 	_send_stream(0),
-	_recv_stream(0)
+	_recv_stream(0),
+	_acc_fd(-1),
+	_index(-1)
 {
 	parser_init(0);
 }

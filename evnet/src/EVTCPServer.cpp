@@ -1818,6 +1818,7 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 				 *
 				 */
 				if (!tn->getProcState()) {
+					DEBUGPOINT("Creating processing state for [%d]\n", tn->getSockfd());
 					tn->setProcState(_pConnectionFactory->createReqProcState(this));
 					tn->getProcState()->setMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
 					/* Session starts when a new processing state is created. */
@@ -2392,9 +2393,18 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					}
 					else {
-						//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
+						DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
 					}
+					/* EXPERIMENTAL CHANGES for delete state
+					 * in websocket mode, we are having a single state object
+					 * that runs throughout the lifecycle
+					 *
+					*/
 					tn->deleteState();
+					//if (tn->getSockMode() != EVAcceptedStreamSocket::WEBSOCKET_MODE)
+						//tn->deleteState();
+					/* EXPERIMENTAL CHANGES */
+
 					/* Should reset of number of CS events be done at all
 					 * tn->newresetNumCSEvents();
 					 * */

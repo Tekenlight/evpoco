@@ -12,6 +12,7 @@ extern "C" {
 
 extern void add_conn_to_pool(const char * type, const char * name, void * conn);
 extern void * get_conn_from_pool(const char * type, const char * name);
+extern "C" int socket_live(int fd);
 
 const static char *_stream_socket_type_name = "streamsocket";
 
@@ -85,6 +86,12 @@ static int share_from_pool(lua_State* L)
 				ev_spin_unlock(pool_ptr->lock);
 				continue;
 			}
+			if (!socket_live(ss_ptr->impl()->sockfd())) {
+				//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
+				delete ss_ptr;
+				ev_spin_unlock(pool_ptr->lock);
+				continue;
+			}
 			void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 			*(Poco::Net::StreamSocket**)ptr = ss_ptr;
 			//DEBUGPOINT("[%p] got from pool\n", ss_ptr);
@@ -116,6 +123,11 @@ static int get_from_pool(lua_State* L)
 		Poco::Net::StreamSocket * ss_ptr =  (Poco::Net::StreamSocket*)get_conn_from_pool(poolname, name);
 		if (NULL != ss_ptr) {
 			if (ss_ptr->impl()->sockfd() == POCO_INVALID_SOCKET) {
+				//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
+				delete ss_ptr;
+				continue;
+			}
+			if (!socket_live(ss_ptr->impl()->sockfd())) {
 				//DEBUGPOINT("SOCKET HAS BECOME INVALID\n");
 				delete ss_ptr;
 				continue;
