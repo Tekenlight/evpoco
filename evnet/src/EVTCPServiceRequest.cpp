@@ -30,10 +30,12 @@ EVTCPServiceRequest& EVTCPServiceRequest::operator = (const EVTCPServiceRequest&
 	this->_task_input_data = from._task_input_data;
 	this->_file_fd = from._file_fd;
 	this->_poll_for = from._poll_for;
+	this->_poll_for_fd = from._poll_for_fd;
 	this->_conn_socket_managed = from._conn_socket_managed;
 	this->_event = from._event;
-	this->_ss = from._ss;
+	this->_ssp = from._ssp;
 	this->_time_out_for_oper = from._time_out_for_oper;
+	this->_cn = from._cn;
 	return *this;
 }
 
@@ -48,10 +50,12 @@ EVTCPServiceRequest::EVTCPServiceRequest(const EVTCPServiceRequest& from):
 	_task_input_data(from._task_input_data),
 	_file_fd(from._file_fd),
 	_poll_for(from._poll_for),
+	_poll_for_fd(from._poll_for_fd),
 	_conn_socket_managed(from._conn_socket_managed),
 	_event(from._event),
-	_ss(from._ss),
-	_time_out_for_oper(-1)
+	_ssp(from._ssp),
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -66,9 +70,11 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, what event, poco_socket_t 
 	_task_input_data(0),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_ss(ss),
-	_time_out_for_oper(-1)
+	_ssp(&ss),
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -83,9 +89,11 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_ss(ss),
-	_time_out_for_oper(-1)
+	_ssp(&ss),
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -100,8 +108,10 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(file_fd),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_time_out_for_oper(-1)
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -117,10 +127,12 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
 	_event(event),
-	_ss(ss),
-	_time_out_for_oper(-1)
+	_ssp(&ss),
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -136,8 +148,10 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(0),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_time_out_for_oper(-1)
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -153,8 +167,10 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(td),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_time_out_for_oper(-1)
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
@@ -169,33 +185,15 @@ EVTCPServiceRequest::EVTCPServiceRequest(long sr_num, int cb_evid_num, what even
 	_task_input_data(data),
 	_file_fd(-1),
 	_poll_for(0),
+	_poll_for_fd(-1),
 	_conn_socket_managed(0),
-	_time_out_for_oper(-1)
+	_time_out_for_oper(-1),
+	_cn(0)
 {
 }
 
 EVTCPServiceRequest::~EVTCPServiceRequest()
 {
-}
-
-poco_socket_t EVTCPServiceRequest::sockfd()
-{
-	return _ss.impl()->sockfd();
-}
-
-poco_socket_t EVTCPServiceRequest::accSockfd()
-{
-	return _acc_fd;
-}
-
-StreamSocket& EVTCPServiceRequest::getStreamSocket()
-{
-	return _ss;
-}
-
-Net::SocketAddress& EVTCPServiceRequest::getAddr()
-{
-	return _addr;
 }
 
 } } // namespace evnet and Poco end.

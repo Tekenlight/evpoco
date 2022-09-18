@@ -24,7 +24,7 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_acc_sock_fd(acc_fd),
 	_socket_watcher(0),
 	_timer(0),
-	_streamSocket(streamSocket),
+	_streamSocket(&streamSocket),
 	_prevPtr(0),
 	_nextPtr(0),
 	_sockBusy(false),
@@ -43,6 +43,7 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 
 EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
+	this->invalidateSocket();
 	if (this->_socket_watcher) {
 		ev_io_stop(this->_loop, this->_socket_watcher);
 		if ((void*)(this->_socket_watcher->data)) {
@@ -109,11 +110,6 @@ ev_io * EVConnectedStreamSocket::getSocketWatcher()
 	return this->_socket_watcher;
 }
 
-StreamSocket &  EVConnectedStreamSocket::getStreamSocket()
-{
-	return (this->_streamSocket);
-}
-
 void EVConnectedStreamSocket::setSockBusy()
 {
 	_sockBusy = true;
@@ -129,11 +125,6 @@ void EVConnectedStreamSocket::setSockFree()
 bool EVConnectedStreamSocket::sockBusy()
 {
 	return _sockBusy;
-}
-
-StreamSocket *  EVConnectedStreamSocket::getStreamSocketPtr()
-{
-	return &(this->_streamSocket);
 }
 
 poco_socket_t EVConnectedStreamSocket::getSockfd()

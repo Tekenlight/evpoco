@@ -32,7 +32,8 @@ EVHTTPClientSession::EVHTTPClientSession(Net::StreamSocket& sock, Net::SocketAdd
 	_send_stream(0),
 	_recv_stream(0),
 	_acc_fd(-1),
-	_index(-1)
+	_index(-1),
+	_conn_sock(0)
 {
 	parser_init(0);
 }
@@ -43,7 +44,8 @@ EVHTTPClientSession::EVHTTPClientSession():
 	_send_stream(0),
 	_recv_stream(0),
 	_acc_fd(-1),
-	_index(-1)
+	_index(-1),
+	_conn_sock(0)
 {
 	parser_init(0);
 }

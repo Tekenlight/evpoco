@@ -9,6 +9,7 @@
 #include "Poco/evnet/evnet.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/evnet/EVAcceptedSocket.h"
+#include "Poco/evnet/EVConnectedStreamSocket.h"
 
 #include <ev_rwlock.h>
 
@@ -31,9 +32,9 @@ public:
 										Net::StreamSocket& css, int poll_for, int time_out = -1) = 0;
 	virtual long submitRequestForHostResolution(int cb_evid_num,
 											EVAcceptedSocket *tn, const char* domain_name, const char* serv_name)=0;
-	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css)=0;
-	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css)=0;
-	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int timeout = -1)=0;
+	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn)=0;
+	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn)=0;
+	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn, int timeout = -1)=0;
 	virtual long submitRequestForTaskExecution(int cb_evid_num, EVAcceptedSocket *tn, generic_task_handler_t tf, void* input_data) = 0;
 	virtual long submitRequestForTaskExecutionNR(generic_task_handler_nr_t tf, void* input_data) = 0;
 	virtual long notifyOnFileOpen(int cb_evid_num, EVAcceptedSocket *tn, int fd) = 0;

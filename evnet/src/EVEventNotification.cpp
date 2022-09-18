@@ -29,7 +29,8 @@ EVEventNotification::EVEventNotification(long sr_num, int cb_evid_num):
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY),
+	_conn_sock(0)
 {
 	//DEBUGPOINT("Here ret = [%zd]\n", _ret);
 }
@@ -48,7 +49,8 @@ EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int 
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY),
+	_conn_sock(0)
 {
 	//DEBUGPOINT("Here ret = [%zd]\n", _ret);
 }
@@ -67,7 +69,8 @@ EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int 
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY),
+	_conn_sock(0)
 {
 	//DEBUGPOINT("Here ret = [%zd]\n", _ret);
 }
@@ -86,7 +89,8 @@ EVEventNotification::EVEventNotification():
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY),
+	_conn_sock(0)
 {
 	//DEBUGPOINT("Here ret = [%zd]\n", _ret);
 }
@@ -105,7 +109,8 @@ EVEventNotification::EVEventNotification(long sr_num, poco_socket_t sockfd, int 
 	_oper(-1),
 	_ref_sr_num(-1),
 	_hr_ret(0),
-	_conn_sock_state(EVEventNotification::NOT_READY)
+	_conn_sock_state(EVEventNotification::NOT_READY),
+	_conn_sock(0)
 {
 	//DEBUGPOINT("Here ret = [%zd]\n", _ret);
 	//DEBUGPOINT("Here ret = [%zd]\n", ret);
@@ -127,6 +132,7 @@ EVEventNotification::EVEventNotification(EVEventNotification & from)
 	this->_ref_sr_num = from._ref_sr_num;
 	this->_hr_ret = from._hr_ret;
 	this->_conn_sock_state = from._conn_sock_state;
+	this->_conn_sock = from._conn_sock;
 
 	from._send_stream = NULL;
 	from._recv_stream = NULL;

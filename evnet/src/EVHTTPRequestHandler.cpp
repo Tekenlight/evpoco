@@ -105,7 +105,9 @@ long EVHTTPRequestHandler::pollSocketForReadOrWrite(TCallback cb, int fd, int po
 	srdata->cb = cb;
 
 	css.setFd(fd);
+	/* Using css, only to pass on the fd to the event loop */
 	sr_num = server.submitRequestForPoll(HTTPRH_CALL_CB_HANDLER, getAcceptedSocket(), css, poll_for, timeout);
+	css.setFd(POCO_INVALID_SOCKET);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -140,7 +142,7 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
 long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 {
 	sess.setState(EVHTTPClientSession::CLOSED);
-	getServer().submitRequestForClose(getAcceptedSocket(), sess.getSS());
+	getServer().submitRequestForClose(getAcceptedSocket(), sess.getSS(), sess.getConnSock());
 	return 0;
 }
 
@@ -164,7 +166,6 @@ long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSessi
 
 	//DEBUGPOINT("Here Host empty = %d, bypass = %d\n", (int)proxyConfig().host.empty(), (int)bypassProxy(addr.host().toString()));
 	if (proxyConfig().host.empty() || bypassProxy(sess.getAddr().host().toString())) {
-		//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
 		sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED, getAcceptedSocket(), sess.getAddr(), sess.getSS(), timeout);
 	}
 	else {
@@ -264,7 +265,7 @@ long EVHTTPRequestHandler::sendHTTPHeader(EVHTTPClientSession &sess, EVHTTPReque
 	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 	req.prepareHeaderForSend();
 	sess.getSendStream()->transfer(req.getMessageHeader());
-	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS());
+	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS(), sess.getConnSock());
 
 	return 0;
 }
@@ -275,7 +276,7 @@ long EVHTTPRequestHandler::sendHTTPRequestData(EVHTTPClientSession &sess, EVHTTP
 	if (sess.getState() != EVHTTPClientSession::CONNECTED) return -1;
 	if (fcntl(sess.getSS().impl()->sockfd(), F_GETFD) < 0) return -1;
 	sess.getSendStream()->transfer(req.getMessageBody());
-	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS());
+	getServer().submitRequestForSendData(getAcceptedSocket(), sess.getSS(), sess.getConnSock());
 
 	return 0;
 }
@@ -393,7 +394,7 @@ long EVHTTPRequestHandler::waitForHTTPResponse(TCallback cb, EVHTTPClientSession
 	srdata->response = &res;
 	srdata->timeout = timeout;
 
-	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAcceptedSocket(), sess.getSS(), timeout);
+	sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST, getAcceptedSocket(), sess.getSS(), sess.getConnSock(), timeout);
 
 	srdata->ref_sr_num = sr_num;
 	_srColl[sr_num] = srdata;
@@ -562,7 +563,8 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 						delete old;
 						Poco::evnet::EVServer & server = getServer();
 						sr_num = server.submitRequestForRecvData(HTTPRH_HTTPRESP_MSG_FROM_HOST,
-											getAcceptedSocket(), srdata->session_ptr->getSS(), srdata->timeout);
+											getAcceptedSocket(), srdata->session_ptr->getSS(),
+											srdata->session_ptr->getConnSock(), srdata->timeout);
 						_srColl[sr_num] = srdata;
 						continue_event_loop = true;
 					}
@@ -611,6 +613,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 					if (proxyConfig().host.empty() || bypassProxy(srdata->session_ptr->getAddr().host().toString())) {
 
 						//DEBUGPOINT("Here timeout = [%d]\n", srdata->timeout);
+						//DEBUGPOINT("Here ssp = [%p]\n", &(srdata->session_ptr->getSS()));
 						sr_num = server.submitRequestForConnection(HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED,
 								getAcceptedSocket(), srdata->session_ptr->getAddr(), srdata->session_ptr->getSS(), srdata->timeout);
 					}

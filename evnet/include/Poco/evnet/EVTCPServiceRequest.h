@@ -19,6 +19,7 @@
 #include "Poco/Net/Net.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/NotificationQueue.h"
+#include "Poco/evnet/EVConnectedStreamSocket.h"
 
 using Poco::Net::StreamSocket;
 
@@ -81,6 +82,8 @@ public:
 
 	Net::SocketAddress& getAddr();
 
+	EVConnectedStreamSocket* getConnSock();
+	void setConnSock(EVConnectedStreamSocket* cn);
 	int getTimeOut();
 	void setTimeOut(int time_out);
 	int getCBEVIDNum();
@@ -105,23 +108,57 @@ public:
 	int getPollFor();
 	int getConnSocketManaged();
 	void setConnSocketManaged(int);
+	int getPollForFd();
+	void setPollForFd(int fd);
 
 private:
 	long						_sr_num;
 	int							_cb_evid_num; // Unique Service request number, for identificaton
 	what						_event; // One of connect, send data or recieve data
 	poco_socket_t				_acc_fd; // fd of the accepted(listen) socket
-	Net::StreamSocket			_ss; // Connected StreamSocket
+	Net::StreamSocket*			_ssp; // Connected StreamSocket
 	Net::SocketAddress			_addr; // Optional address needed only in the connect request
 	const char*					_domain_name; // Either socket address or domain name can be passed
 	const char*					_serv_name; // Either socket address or domain name can be passed
 	task_func_with_return_t		_task_func;
 	void*						_task_input_data; // Input data for generic task
 	int							_file_fd; // File descriptor of the disk file
-	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ss
+	int							_poll_for; // Whether EV_WRITE, EV_READ or both should be polled for in the _ssp
+	int							_poll_for_fd; // Whether EV_WRITE, EV_READ or both should be polled for in the _ssp
 	int							_conn_socket_managed;
 	int							_time_out_for_oper;
+	EVConnectedStreamSocket*	_cn;
 };
+
+inline poco_socket_t EVTCPServiceRequest::sockfd()
+{
+	return _ssp->impl()->sockfd();
+}
+
+inline poco_socket_t EVTCPServiceRequest::accSockfd()
+{
+	return _acc_fd;
+}
+
+inline StreamSocket& EVTCPServiceRequest::getStreamSocket()
+{
+	return *(_ssp);
+}
+
+inline Net::SocketAddress& EVTCPServiceRequest::getAddr()
+{
+	return _addr;
+}
+
+inline EVConnectedStreamSocket* EVTCPServiceRequest::getConnSock()
+{
+	return _cn;
+}
+
+inline void EVTCPServiceRequest::setConnSock(EVConnectedStreamSocket* cn)
+{
+	_cn = cn;
+}
 
 inline int EVTCPServiceRequest::getTimeOut()
 {
@@ -146,6 +183,16 @@ inline int EVTCPServiceRequest::getConnSocketManaged()
 inline void EVTCPServiceRequest::setConnSocketManaged(int c)
 {
 	_conn_socket_managed = c;
+}
+
+inline int EVTCPServiceRequest::getPollForFd()
+{
+	return _poll_for_fd;
+}
+
+inline void EVTCPServiceRequest::setPollForFd(int fd)
+{
+	_poll_for_fd = fd;
 }
 
 inline int EVTCPServiceRequest::getPollFor()

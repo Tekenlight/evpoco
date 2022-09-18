@@ -117,6 +117,7 @@ public:
 	void setConnectionUsed();
 
 	void invalidateSocket();
+	void makeSSCopy();
 
 private:
 	poco_socket_t				_sock_fd;
@@ -124,7 +125,8 @@ private:
 	ev_io*						_socket_watcher;
 	ev_timer*					_timer;
 	struct ev_loop*				_loop;
-	StreamSocket				_streamSocket;
+	StreamSocket*				_streamSocket;
+	StreamSocket				_ss;
 	time_t						_timeOfLastUse;
 	EVConnectedStreamSocket*	_prevPtr;
 	EVConnectedStreamSocket*	_nextPtr;
@@ -135,6 +137,26 @@ private:
 	int							_socketInError;
 	bool						_newConnection;
 };
+
+inline void EVConnectedStreamSocket::makeSSCopy()
+{
+	if (!_streamSocket) {
+		DEBUGPOINT("COPY CAN BE DONE ONLY WHEN SOURCE IS NOT NULL\n");
+		std::abort();
+	}
+	_ss = *_streamSocket;
+	_streamSocket = &_ss;
+}
+
+inline StreamSocket &  EVConnectedStreamSocket::getStreamSocket()
+{
+	return *(this->_streamSocket);
+}
+
+inline StreamSocket *  EVConnectedStreamSocket::getStreamSocketPtr()
+{
+	return (this->_streamSocket);
+}
 
 inline bool EVConnectedStreamSocket::newConnection()
 {
@@ -184,7 +206,7 @@ inline struct ev_loop* EVConnectedStreamSocket::getEventLoop()
 
 inline void EVConnectedStreamSocket::invalidateSocket()
 {
-	_streamSocket.setFd(POCO_INVALID_SOCKET);
+	_ss.setFd(POCO_INVALID_SOCKET);
 }
 
 } } // namespace evnet and Poco end.

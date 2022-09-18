@@ -20,6 +20,7 @@
 #include <chunked_memory_stream.h>
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"
+#include "Poco/evnet/EVConnectedStreamSocket.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/NotificationQueue.h"
 
@@ -83,23 +84,36 @@ public:
 	void setRefSRNum(long);
 	sock_state getConnSockState();
 	void setConnSockState(int);
+	EVConnectedStreamSocket* getConnSock();
+	void setConnSock(EVConnectedStreamSocket * s);
 
 private:
-	poco_socket_t			_sockfd;
-	int						_errno;
-	ssize_t					_ret;
-	int						_hr_ret;
-	int						_cb_evid_num;
-	long					_sr_num;
-	chunked_memory_stream*	_send_stream;
-	chunked_memory_stream*	_recv_stream;
-	struct addrinfo*		_addr_info;
-	void*					_task_return_value;
-	int						_file_fd;
-	int						_oper;
-	long					_ref_sr_num;
-	sock_state				_conn_sock_state;
+	poco_socket_t				_sockfd;
+	int							_errno;
+	ssize_t						_ret;
+	int							_hr_ret;
+	int							_cb_evid_num;
+	long						_sr_num;
+	chunked_memory_stream*		_send_stream;
+	chunked_memory_stream*		_recv_stream;
+	struct addrinfo*			_addr_info;
+	void*						_task_return_value;
+	int							_file_fd;
+	int							_oper;
+	long						_ref_sr_num;
+	sock_state					_conn_sock_state;
+	EVConnectedStreamSocket		*_conn_sock;
 };
+
+inline EVConnectedStreamSocket* EVEventNotification::getConnSock()
+{
+	return _conn_sock;
+}
+
+inline void EVEventNotification::setConnSock(EVConnectedStreamSocket * s)
+{
+	_conn_sock = s;
+}
 
 inline EVEventNotification::sock_state EVEventNotification::getConnSockState()
 {

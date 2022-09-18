@@ -17,6 +17,7 @@
 
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"
+#include "Poco/evnet/EVConnectedStreamSocket.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/HTTPClientSession.h"
@@ -64,20 +65,33 @@ public:
 	poco_socket_t getAccfd();
 	void setIndex(int i);
 	int getIndex();
+	EVConnectedStreamSocket* getConnSock();
+	void setConnSock(EVConnectedStreamSocket * s);
 
 private:
-	poco_socket_t			_acc_fd;
-	SessionState			_state;
-	Net::StreamSocket		_sock;
-	Net::SocketAddress		_addr;
-	chunked_memory_stream*	_send_stream;
-	chunked_memory_stream*	_recv_stream;
-	http_parser*			_parser;
-	int						_index;
+	poco_socket_t				_acc_fd;
+	SessionState				_state;
+	Net::StreamSocket			_sock;
+	Net::SocketAddress			_addr;
+	chunked_memory_stream*		_send_stream;
+	chunked_memory_stream*		_recv_stream;
+	http_parser*				_parser;
+	int							_index;
+	EVConnectedStreamSocket*	_conn_sock;
 
 	void setRespProperties(EVHTTPResponse& response);
 	int http_parser_hack();
 };
+
+inline EVConnectedStreamSocket* EVHTTPClientSession::getConnSock()
+{
+	return _conn_sock;
+}
+
+inline void EVHTTPClientSession::setConnSock(EVConnectedStreamSocket * s)
+{
+	_conn_sock = s;
+}
 
 inline void EVHTTPClientSession::setIndex(int i)
 {

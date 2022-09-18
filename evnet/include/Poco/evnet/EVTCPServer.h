@@ -315,13 +315,13 @@ public:
 								const char* domain_name, const char* serv_name);
 		/// To be called whenever another thread wants to make a new connection.
 
-	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css);
+	virtual long submitRequestForClose(EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn);
 		/// To be called whenever another thread wants to close an existing connection.
 
-	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css);
+	virtual long submitRequestForSendData(EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn);
 		/// To be called whenver a worker thread wants to send data
 		/// to a server it has opened connection with.
-	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, int timeout);
+	virtual long submitRequestForRecvData(int cb_evid_num, EVAcceptedSocket *tn, Net::StreamSocket& css, EVConnectedStreamSocket *cn, int timeout);
 		/// To be called whenver a worker thread wants to recv data
 		/// to a server it has opened connection with.
 	void postHostResolution(dns_io_ptr_type dio_ptr);
