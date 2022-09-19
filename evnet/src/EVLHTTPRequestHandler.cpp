@@ -1135,10 +1135,27 @@ static int resolve_host_address_initiate(lua_State* L)
 	return lua_yieldk(L, 0, (lua_KContext)addr_info_ptr_ptr, resolve_host_address_complete);
 }
 
+static int ss__gc(lua_State *L)
+{
+	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
+	int fd = ss_ptr->impl()->sockfd();
+	//DEBUGPOINT("HERE [%p]  fd=[%d]\n", ss_ptr, ss_ptr->impl()->sockfd());
+	//if (!(ss_ptr->impl()->isManaged())) {
+		//DEBUGPOINT("HERE\n");
+		delete ss_ptr;
+	//}
+	//DEBUGPOINT("HERE\n");
+	//DEBUGPOINT("Here socket[%d] live = [%d]\n", fd, socket_live(fd));
+	return 0;
+}
+
 static int ev_connected_socket_type_name__gc(lua_State* L)
 {
 	EVConnectedStreamSocket* cn = *(EVConnectedStreamSocket**)luaL_checkudata(L, 1, _ev_connected_socket_type_name);
+	int fd = cn->getSockfd();
+	//DEBUGPOINT("CLEANING UP cn=[%p] fd=[%d]\n", cn, cn->getSockfd());
 	delete cn;
+	//DEBUGPOINT("Here socket[%d] live = [%d]\n", fd, socket_live(fd));
 
 	return 0;
 }
@@ -1316,9 +1333,7 @@ static int stop_tracking_conn_sock(lua_State* L)
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
 
-	int active = socket_live(ss_ptr->impl()->sockfd());
 	reqHandler->stopTrackingConnSock(*ss_ptr);
-	active = socket_live(ss_ptr->impl()->sockfd());
 	return lua_yieldk(L, 0, (lua_KContext)ss_ptr, stop_tracking_conn_sock_complete);
 }
 
@@ -2163,6 +2178,7 @@ static int close_http_connection(lua_State* L)
 
 	EVHTTPClientSession * session = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
 	reqHandler->closeHTTPSession(*session);
+	session->getSS().impl()->close();
 
 	return 0;
 }
@@ -2171,18 +2187,6 @@ static int req__gc(lua_State *L)
 {
 	Poco::Net::HTTPRequest* request = *(Poco::Net::HTTPRequest**)lua_touserdata(L, 1);
 	delete request;
-	return 0;
-}
-
-static int ss__gc(lua_State *L)
-{
-	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
-	//DEBUGPOINT("HERE [%p]  managed = [%d] fd=[%d]\n", ss_ptr, ss_ptr->impl()->isManaged(), ss_ptr->impl()->sockfd());
-	//if (!(ss_ptr->impl()->isManaged())) {
-		//DEBUGPOINT("HERE\n");
-		delete ss_ptr;
-	//}
-	//DEBUGPOINT("HERE\n");
 	return 0;
 }
 
