@@ -219,6 +219,7 @@ namespace evpoco {
 	static int nb_make_http_connection_initiate(lua_State* L);
 	static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_async_task* tp);
 	static int close_http_connection(lua_State* L);
+	static int close_http_connection_finalize(lua_State* L, int status, lua_KContext ctx);
 	static int new_request(lua_State* L);
 	static int send_request_header(lua_State* L);
 	static int send_request_body(lua_State* L);
@@ -1215,8 +1216,8 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
 					// nil in lieu of msg (message, srcond return value)
 
 	{
-		Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
-		*(ss_ptr) = session->getSS();
+		Poco::Net::StreamSocket * ss_ptr = new StreamSocket(session->getSS());
+		//*(ss_ptr) = session->getSS();
 		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
 		luaL_setmetatable(L, _stream_socket_type_name);
@@ -1311,7 +1312,6 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 		*(void**)ptr = (void*)cn;
 		luaL_setmetatable(L, _ev_connected_socket_type_name);
 	}
-
 
 	//DEBUGPOINT("HERE valid socket that can get data in blocking mode for sure %d\n", usN.sockfd());
 	return 2;
@@ -1688,7 +1688,7 @@ static int websocket_active(lua_State* L)
 static int debug_ss_ptr(lua_State* L)
 {
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
-	DEBUGPOINT("Socket fd = [%d]\n", ss_ptr->impl()->sockfd());
+	DEBUGPOINT("LUA STATE = [%p] Socket fd = [%d] socket_active = [%d]\n", L, ss_ptr->impl()->sockfd(), socket_live(ss_ptr->impl()->sockfd()));
 	return 0;
 }
 
@@ -2039,6 +2039,7 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 	tp->_session_ptr = NULL;
 	tp->_usN = NULL;
 	if (usN_ptr->getRet() < 0) {
+		if (usN_ptr->getConnSock()) delete usN_ptr->getConnSock();
 		delete session;
 		delete usN_ptr;
 		char msg[1024];
@@ -2051,6 +2052,7 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 		return 3;
 	}
 	if ((usN_ptr->getRet() < 0) || usN_ptr->getErrNo()) {
+		if (usN_ptr->getConnSock()) delete usN_ptr->getConnSock();
 		delete session;
 		char msg[1024];
 		sprintf(msg, "make_http_connection: could not establish connection: %s", strerror(usN_ptr->getErrNo()));
@@ -2067,16 +2069,23 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
 	luaL_setmetatable(L, _http_conn_type_name); // Stack: session
 	lua_pushnil(L); // Stack session nil
 	{
-		Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
-		*(ss_ptr) = session->getSS();
+		Poco::Net::StreamSocket * ss_ptr = new StreamSocket(session->getSS());
+		//*(ss_ptr) = session->getSS();
 		void * ptr = lua_newuserdata(L, sizeof(Poco::Net::StreamSocket*));
 		*(Poco::Net::StreamSocket**)ptr = ss_ptr;
 		luaL_setmetatable(L, _stream_socket_type_name);
 	}
+	{
+		EVConnectedStreamSocket* cn = usN_ptr->getConnSock();
+		session->setConnSock(usN_ptr->getConnSock());
+		void * ptr = lua_newuserdata(L, sizeof(EVConnectedStreamSocket*));
+		*(void**)ptr = (void*)cn;
+		luaL_setmetatable(L, _ev_connected_socket_type_name);
+	}
 
 	delete usN_ptr;
 	reqHandler->getAsyncTaskList().erase(task_id);
-	return 3;
+	return 4;
 }
 
 static int task_return_value(lua_State* L)
@@ -2171,6 +2180,44 @@ static int nb_make_http_connection_initiate(lua_State* L)
 	return 1;
 }
 
+static int old_close_http_connection(lua_State* L)
+{
+	int value = 0;
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+
+	EVHTTPClientSession * session = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
+	//reqHandler->closeHTTPSession(*session);
+	session->setState(EVHTTPClientSession::CLOSED);
+	//session->getConnSock()->cleanupSocket();
+	int fd = session->getSS().impl()->sockfd();
+	DEBUGPOINT("Here fd = [%d]\n", fd);
+	/*
+	*/
+	//session->getSS().impl()->shutdownSend();
+	//session->getSS().impl()->shutdownReceive();
+	session->getSS().impl()->close();
+
+	int ret = 1;
+	char * chptr[1024];
+	while (ret > 0) {
+		ret = recv(fd, chptr, 1024 , 0);
+		DEBUGPOINT("ret = [%d] fd = [%d] error=[%s]\n", ret, fd, strerror(errno));
+	}
+
+
+	return 0;
+}
+
+static int close_http_connection_finalize(lua_State* L, int status, lua_KContext ctx)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
+	EVHTTPClientSession * session = (EVHTTPClientSession *)ctx;
+	//DEBUGPOINT("here\n");
+
+	return 0;
+}
+
 static int close_http_connection(lua_State* L)
 {
 	int value = 0;
@@ -2178,9 +2225,9 @@ static int close_http_connection(lua_State* L)
 
 	EVHTTPClientSession * session = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
 	reqHandler->closeHTTPSession(*session);
-	session->getSS().impl()->close();
 
-	return 0;
+	//DEBUGPOINT("BEFORE YIELD LUA_STATE[%p]\n", L);
+	return lua_yieldk(L, 0, (lua_KContext)session, close_http_connection_finalize);
 }
 
 static int req__gc(lua_State *L)
@@ -4540,7 +4587,7 @@ int EVLHTTPRequestHandler::handleRequest()
 					DEBUGPOINT("%s\n", lua_tostring(_L, -1));
 					*/
 				}
-				DEBUGPOINT("Here\n");
+				//DEBUGPOINT("Here\n");
 				break;
 			case EVHTTPRequestHandler::COMMAND_LINE_MODE:
 				//DEBUGPOINT("Here\n");
@@ -4557,7 +4604,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		return PROCESSING_ERROR;
 	}
 	else if (LUA_YIELD == status) {
-		//DEBUGPOINT("Here processing for %d\n", getAccSockfd());
+		//DEBUGPOINT("Here processing for %d LUA_STATE=[%p]\n", getAccSockfd(), _L);
 		return PROCESSING;
 	}
 	else {

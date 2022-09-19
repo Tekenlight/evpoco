@@ -1083,7 +1083,7 @@ handleAccSocketWritable_finally:
 							case EVAcceptedStreamSocket::WEBSOCKET:
 								//tn->getStreamSocketPtr()->impl()->managed(true);
 								tn->setSockMode(EVAcceptedStreamSocket::WEBSOCKET_MODE);
-								//DEBUGPOINT("here\n");
+								//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
 								monitorDataOnAccSocket(tn);
 								break;
 							case EVAcceptedStreamSocket::HTTP2:
@@ -2504,7 +2504,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				/* SOCK IS FREE HERE */
 				if (tn->getProcState() && tn->waitingTobeEnqueued()) {
-					//DEBUGPOINT("Here\n");
+					//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
 
 					/* SOCK HAS BECOME BUSY HERE */
 					srCompleteEnqueue(tn);
@@ -2569,7 +2569,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 									 */
 									//DEBUGPOINT("tn->newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
 									if (!tn->newpendingCSEvents()) {
-										//DEBUGPOINT("Here\n");
+										//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
 										monitorDataOnAccSocket(tn);
 									}
 								}
@@ -2584,7 +2584,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 							}
 							else {
 								if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
-									//DEBUGPOINT("Here\n");
+									//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
 									monitorDataOnAccSocket(tn);
 								}
 								else {
@@ -2599,11 +2599,21 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								}
 							}
 						}
+						else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
+							/* We do not want fresh data to be read from WEBSOCKET until
+							 * the current session of frame data processing is complete
+							 */
+							//DEBUGPOINT("tn->newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
+							if (!tn->newpendingCSEvents()) {
+								//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
+								monitorDataOnAccSocket(tn);
+							}
+						}
 						else {
 							//DEBUGPOINT("Here fd = [%d]\n", tn->getSockfd());
 							//monitorDataOnCLFd(tn);
 							if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
-								//DEBUGPOINT("Here\n");
+								//DEBUGPOINT("Here for [%d] upgraded_to = [%d]\n", tn->getSockfd(), tn->getSockUpgradeTo());
 								monitorDataOnAccSocket(tn);
 							}
 							else {
@@ -2674,7 +2684,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				//DEBUGPOINT("ERROR_IN_AUX_PROCESSING on socket %d\n", pcNf->sockfd());
 				if (tn->newpendingCSEvents() || tn->sockBusy()) {
 					//DEBUGPOINT("RETAINING  ACC SOCK\n");
-					//DEBUGPOINT("Here for %d\n", tn->getSockfd());
+					DEBUGPOINT("Here for %d\n", tn->getSockfd());
 					tn->setSockInError();
 				}
 				else {
@@ -2816,6 +2826,7 @@ void EVTCPServer::handleConnReq(const bool& ev_occured)
 		if (_accssColl.size()  >= _numConnections) {
 			return;
 		}
+		//DEBUGPOINT("accepted = [%d]\n", ss.impl()->sockfd());
 
 		if (!_pConnectionFilter || _pConnectionFilter->accept(ss)) {
 			// enable nodelay per default: OSX really needs that
@@ -4077,43 +4088,65 @@ int EVTCPServer::closeTCPConnection(EVTCPServiceRequest * sr)
 	ev_io * socket_watcher_ptr = 0;
 	strms_io_cb_ptr_type cb_ptr = 0;
 
+	errno = 0;
+	ret = 0;
 	EVAcceptedStreamSocket *tn = getTn(sr->accSockfd());
+	//DEBUGPOINT("Here for fd = [%d]\n", tn->getSockfd());
 	if (tn->getProcState()) {
 		EVConnectedStreamSocket * cn = sr->getConnSock();
-		if (cn) {
-			socket_watcher_ptr = cn->getSocketWatcher();
-			ev_io_stop (this->_loop, socket_watcher_ptr);
-		}
-		else {
-			DEBUGPOINT("THIS CONDITION MUST NEVER HAPPEN\n");
-			std::abort();
-			cn = tn->getProcState()->getPollingEVConnSock(sr->sockfd());
-			if (cn) {
-				socket_watcher_ptr = cn->getSocketWatcher();
-				ev_io_stop (this->_loop, socket_watcher_ptr);
-			}
-		}
+		cn->cleanupSocket();
 
-		errno = 0;
-		ret = 0;
 		try {
 			sr->getStreamSocket().close();
 		} catch (Exception &e) {
 			ret = -1;
 		}
 
-		tn->getProcState()->eraseEVConnSock(sr->accSockfd());
-		tn->getProcState()->erasePollingEVConnSock(sr->accSockfd());
+		//tn->getProcState()->eraseEVConnSock(sr->sockfd());
+		//tn->getProcState()->erasePollingEVConnSock(sr->sockfd());
+	}
+	else {
+		DEBUGPOINT("THIS IS AN IMPOSSIBLE CONDITION\n");
+		std::abort();
 	}
 
+	//DEBUGPOINT("Here for fd = [%d]\n", tn->getSockfd());
 	/* We do not enqueue upstream notification for socket closure.
 	 * Neither do we check for accepted socket being busy etc.
 	 *
 	 * The assumption is that the caller is not really interested in
 	 * result of the closure operation.
 	 * */
+	/*
+	 * Changing the above strategy
+	 *
+	 */
+	//DEBUGPOINT("Here tn->newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
+	EVEventNotification * usN = new EVEventNotification(sr->getSRNum(), sr->getCBEVIDNum());
+	usN->setRet((int)ret);
+	usN->setErrNo(errno);
+	//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
+	if ((tn->getProcState()) && tn->srInSession(usN->getSRNum())) {
+		//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
+		enqueue(tn->getIoEventQueue(), (void*)usN);
+		tn->newdecrNumCSEvents();
+		//DEBUGPOINT("Here tn->newpendingCSEvents() = [%d]\n", tn->newpendingCSEvents());
+		if (!(tn->sockBusy())) {
+			//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
+			srCompleteEnqueue(tn);
+		}
+		else {
+			//DEBUGPOINT("Here ret = [%zd]\n", usN->getRet());
+			tn->setWaitingTobeEnqueued(true);
+		}
+	}
+	else {
+		delete usN;
+		DEBUGPOINT("REACHED HERE, WHICH MUST NEVER HAVE HAPPENED\n");
+		std::abort();
+		return -1;
+	}
 
-	int fd = sr->getStreamSocket().impl()->sockfd();
 	return ret;
 }
 
@@ -4542,6 +4575,7 @@ long EVTCPServer::submitRequestForClose(EVAcceptedSocket *en, Net::StreamSocket&
 	EVTCPServiceRequest *sr = new EVTCPServiceRequest(sr_num, EVTCPServiceRequest::CLEANUP_REQUEST, en->getSockfd(), css);
 	sr->setConnSock(cn);
 	enqueueSR(en, sr);
+	//DEBUGPOINT("tn->newpendingCSEvents() = [%d]\n", ((EVAcceptedStreamSocket*)en)->newpendingCSEvents());
 
 	/* And then wake up the loop calls process_service_request */
 	ev_async_send(this->_loop, this->_stop_watcher_ptr2);

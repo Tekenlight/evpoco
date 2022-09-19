@@ -41,8 +41,32 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_rcv_memory_stream = new chunked_memory_stream();
 }
 
+void EVConnectedStreamSocket::cleanupSocket()
+{
+	this->invalidateSocket();
+	if (this->_socket_watcher) {
+		ev_io_stop(this->_loop, this->_socket_watcher);
+		if ((void*)(this->_socket_watcher->data)) {
+			free((void*)(this->_socket_watcher->data));
+			this->_socket_watcher->data = NULL;
+		}
+		free(this->_socket_watcher);
+		this->_socket_watcher = NULL;
+	}
+	if (this->_timer) {
+		ev_timer_stop(this->_loop, this->_timer);
+		if ((void*)(this->_timer->data)) {
+			free((void*)(this->_timer->data));
+			this->_timer->data = NULL;
+		}
+		free(this->_timer);
+		this->_timer = NULL;
+	}
+}
+
 EVConnectedStreamSocket::~EVConnectedStreamSocket()
 {
+	//DEBUGPOINT("Cleaning up [%d]\n", this->getSockfd());
 	this->invalidateSocket();
 	if (this->_socket_watcher) {
 		ev_io_stop(this->_loop, this->_socket_watcher);

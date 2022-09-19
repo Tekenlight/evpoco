@@ -292,9 +292,9 @@ inline bool EVAcceptedStreamSocket::srInSession(unsigned long sr_srl_num)
 {
 	//DEBUGPOINT("BASE SR SRL NUM = %ld\n", _base_sr_srl_num);
 	//DEBUGPOINT("SR SRL NUM = %ld\n", sr_srl_num);
-	//return (sr_srl_num > _base_sr_srl_num);
-	return ((this->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSOCKET) ||
-			((this->getSockUpgradeTo() == EVAcceptedStreamSocket::NONE) && (sr_srl_num > _base_sr_srl_num)));
+	return (sr_srl_num > _base_sr_srl_num);
+	//return ((this->getSockUpgradeTo() == EVAcceptedStreamSocket::WEBSOCKET) ||
+			//((this->getSockUpgradeTo() == EVAcceptedStreamSocket::NONE) && (sr_srl_num > _base_sr_srl_num)));
 }
 
 inline void EVAcceptedStreamSocket::setBaseSRSrlNum(unsigned long sr_srl_num)

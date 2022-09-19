@@ -141,9 +141,24 @@ long EVHTTPRequestHandler::makeNewSocketConnection(TCallback cb,
 
 long EVHTTPRequestHandler::closeHTTPSession(EVHTTPClientSession& sess)
 {
+	Poco::evnet::EVServer & server = getServer();
+	long sr_num = 0;
+
 	sess.setState(EVHTTPClientSession::CLOSED);
-	getServer().submitRequestForClose(getAcceptedSocket(), sess.getSS(), sess.getConnSock());
-	return 0;
+	sess.setAccfd(getAccSockfd());
+
+	SRData * srdata = new SRData();
+	srdata->session_ptr = &sess;
+	srdata->cb_evid_num = HTTPRH_CALL_CB_HANDLER;
+	srdata->cb = NULL;
+
+	sr_num = getServer().submitRequestForClose(getAcceptedSocket(), sess.getSS(), sess.getConnSock());
+
+	srdata->ref_sr_num = sr_num;
+	_srColl[sr_num] = srdata;
+
+	//DEBUGPOINT("Service Request Number = %ld\n", sr_num);
+	return sr_num;
 }
 
 long EVHTTPRequestHandler::makeNewHTTPConnection(TCallback cb, EVHTTPClientSession& sess, int timeout)
@@ -682,8 +697,9 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 			break;
 	}
 
-	//DEBUGPOINT("Here\n")
+	//DEBUGPOINT("Here for [%d]\n", getAcceptedSocket()->getSockfd())
 	if (continue_event_loop) {
+		//DEBUGPOINT("Here\n")
 		ret = PROCESSING;
 	}
 	else {
@@ -699,7 +715,7 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 				ret = (it->second)->cb();
 			}
 			else {
-				//DEBUGPOINT("Here\n")
+				//DEBUGPOINT("Here for [%d]\n", getAcceptedSocket()->getSockfd())
 				ret = handleRequest();
 			}
 		}

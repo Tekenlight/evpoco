@@ -118,6 +118,7 @@ public:
 
 	void invalidateSocket();
 	void makeSSCopy();
+	void cleanupSocket();
 
 private:
 	poco_socket_t				_sock_fd;
