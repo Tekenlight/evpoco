@@ -104,7 +104,8 @@ public:
 	struct SRData {
 		SRData(): cb_evid_num(0), session_ptr(0), response(0), cb_handler(0), cb(0), addr_info_ptr_ptr(0),
 				  domain_name(0), serv_name(0), port_num(0), ref_sr_num(-1), ss_ptr(0), timeout(-1) {}
-		~SRData() { if (ss_ptr) {
+		~SRData() {
+			if (ss_ptr) {
 			ss_ptr->impl()->setFd(POCO_INVALID_SOCKET);
 			delete ss_ptr;
 		}}

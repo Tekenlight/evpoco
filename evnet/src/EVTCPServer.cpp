@@ -849,6 +849,10 @@ ssize_t EVTCPServer::handleConnSocketConnected(strms_io_cb_ptr_type cb_ptr, cons
 												optval);
 		usN->setRecvStream(cn->getRcvMemStream());
 		usN->setSendStream(cn->getSendMemStream());
+		/* Here we are making a SS copy such that
+		 * the caller thread who is holding the instance of cn
+		 * will have a valid SS whenever required.
+		 */
 		usN->setConnSock(cn);
 		enqueue(tn->getIoEventQueue(), (void*)usN);
 		tn->newdecrNumCSEvents();
@@ -3467,6 +3471,10 @@ int EVTCPServer::pollSocketForReadOrWrite(EVTCPServiceRequest * sr)
 		ss.setFd(sr->getPollForFd());
 
 		connectedSock = new EVConnectedStreamSocket(sr->accSockfd(), ss);
+		/* Here we are making a copy such that
+		 * when this function gets over the caller thread
+		 * will be at liberty to gc the ss value
+		 */
 		connectedSock->makeSSCopy();
 
 		connectedSock->setState(EVConnectedStreamSocket::BEFORE_CONNECT);

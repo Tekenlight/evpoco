@@ -1297,6 +1297,10 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
 		return 2;
 	}
 
+	/*
+	 * Since this Socket can be pooled etc...
+	 * It should have a standalone existence
+	 */
 	Poco::Net::StreamSocket * ss_ptr = new StreamSocket();
 	ss_ptr->setFd(usN.sockfd());
 	ss_ptr->setBlocking(false);
