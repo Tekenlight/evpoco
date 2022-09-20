@@ -2599,22 +2599,16 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 								}
 							}
 						}
-						else if (tn->getSockMode() == EVAcceptedStreamSocket::WEBSOCKET_MODE) {
-							/* We do not want fresh data to be read from WEBSOCKET until
-							 * the current session of frame data processing is complete
-							 */
-							//DEBUGPOINT("tn->newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
-							if (!tn->newpendingCSEvents()) {
-								//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
-								monitorDataOnAccSocket(tn);
-							}
-						}
-						else {
+						else { /* EXECUTABLE HAS COME UP AS EVLUA :
+								  This includes protoclos HTTP, COMMANDLINE, WEBSOCKET and HTTP2 */
 							//DEBUGPOINT("Here fd = [%d]\n", tn->getSockfd());
-							//monitorDataOnCLFd(tn);
 							if (tn->getTaskType() != EVAcceptedStreamSocket::ASYNC_TASK) {
 								//DEBUGPOINT("Here for [%d] upgraded_to = [%d]\n", tn->getSockfd(), tn->getSockUpgradeTo());
-								monitorDataOnAccSocket(tn);
+								//DEBUGPOINT("tn->newpendingCSEvents() for [%d] = [%d]\n", tn->getSockfd(), tn->newpendingCSEvents());
+								//DEBUGPOINT("Here for [%d]\n", tn->getSockfd());
+								if (!tn->newpendingCSEvents()) {
+									monitorDataOnAccSocket(tn);
+								}
 							}
 							else {
 								/* In case of async task there is not much to do
