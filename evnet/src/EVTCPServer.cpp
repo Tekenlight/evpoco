@@ -4895,8 +4895,6 @@ long EVTCPServer::sendRawDataOnAccSocket(int cb_evid_num, EVAcceptedSocket *en, 
 	return sr_num;
 }
 
-extern "C" int socket_live(int fd);
-
 int EVTCPServer::stopTrackingConnSockProcess(EVTCPServiceRequest * sr)
 {
 
