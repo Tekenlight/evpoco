@@ -1462,7 +1462,7 @@ static int recv_data_from_socket_complete(lua_State* L, int status, lua_KContext
 
 	long ret = EVTCPServer::receiveData(*(rp->_ss_ptr), rp->_buf, rp->_size, &wait_mode);
 	if (ret < 0) {
-		//DEBUGPOINT("Here %ld {%d:%s} fd=%d\n", ret, errno, strerror(errno), rp->_ss_ptr);
+		DEBUGPOINT("Here fd=[%d] ret=[%ld] {%d:%s}\n", rp->_ss_ptr->impl()->sockfd(), ret, errno, strerror(errno));
 		free(rp);
 		return luaL_error(L, "recv_data_from_socket: Failed to receive data from socket : %s", strerror(errno));
 	}
@@ -1505,7 +1505,7 @@ static int recv_data_from_socket_initiate(lua_State* L)
 	//DEBUGPOINT("Here ss_ptr->fd = [%d]\n", ss_ptr->impl()->sockfd());
 	long ret = EVTCPServer::receiveData(*(ss_ptr), buf, size, &wait_mode);
 	if (ret < 0) {
-		DEBUGPOINT("Here %ld {%d:%s}\n", ret, errno, strerror(errno));
+		DEBUGPOINT("Here fd=[%d] ret=[%ld] {%d:%s}\n", ss_ptr->impl()->sockfd(), ret, errno, strerror(errno));
 		return luaL_error(L, "recv_data_from_socket: Failed to receive data from socket: %s", strerror(errno));
 	}
 	else if (ret == 0) {
