@@ -326,13 +326,13 @@ RSACipherImpl::~RSACipherImpl()
 }
 
 
-CryptoTransform* RSACipherImpl::createEncryptor()
+CryptoTransform::Ptr RSACipherImpl::createEncryptor()
 {
 	return new RSAEncryptImpl(_key.impl()->getRSA(), _paddingMode);
 }
 
 
-CryptoTransform* RSACipherImpl::createDecryptor()
+CryptoTransform::Ptr RSACipherImpl::createDecryptor()
 {
 	return new RSADecryptImpl(_key.impl()->getRSA(), _paddingMode);
 }

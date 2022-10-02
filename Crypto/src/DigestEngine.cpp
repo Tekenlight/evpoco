@@ -22,22 +22,26 @@ namespace Crypto {
 
 DigestEngine::DigestEngine(const std::string& name):
 	_name(name),
-	_pContext(EVP_MD_CTX_new())
+	_pContext(EVP_MD_CTX_create())
 {
 	const EVP_MD* md = EVP_get_digestbyname(_name.c_str());
 	if (!md) throw Poco::NotFoundException(_name);
-	EVP_DigestInit_ex(_pContext, md, NULL);	
+	EVP_DigestInit_ex(_pContext, md, NULL);
 }
 
-	
+
 DigestEngine::~DigestEngine()
 {
-	EVP_MD_CTX_free(_pContext);
+	EVP_MD_CTX_destroy(_pContext);
 }
 
 int DigestEngine::nid() const
 {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	return EVP_MD_nid(EVP_MD_CTX_get0_md(_pContext));
+#else
 	return EVP_MD_nid(EVP_MD_CTX_md(_pContext));
+#endif
 }
 
 std::size_t DigestEngine::digestLength() const
@@ -50,7 +54,7 @@ void DigestEngine::reset()
 {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX_free(_pContext);
-	_pContext = EVP_MD_CTX_new();
+	_pContext = EVP_MD_CTX_create();
 #else
 	EVP_MD_CTX_cleanup(_pContext);
 #endif

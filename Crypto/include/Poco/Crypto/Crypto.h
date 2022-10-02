@@ -20,30 +20,54 @@
 #define Crypto_Crypto_INCLUDED
 
 
-#if defined(__APPLE__)
-// OS X 10.7 deprecates some OpenSSL functions
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations" 
+#define POCO_EXTERNAL_OPENSSL_DEFAULT 1
+#define POCO_EXTERNAL_OPENSSL_SLPRO 2
+
+
+//
+// Temporarily suppress deprecation warnings coming
+// from OpenSSL 3.0, until we have updated our code.
+//
+#if !defined(POCO_DONT_SUPPRESS_OPENSSL_DEPRECATED)
+#define OPENSSL_SUPPRESS_DEPRECATED
 #endif
 
 
 #include "Poco/Foundation.h"
 #include <openssl/opensslv.h>
+#include <openssl/err.h>
+
+
+#ifndef OPENSSL_VERSION_PREREQ
+	#if defined(OPENSSL_VERSION_MAJOR) && defined(OPENSSL_VERSION_MINOR)
+		#define OPENSSL_VERSION_PREREQ(maj, min) \
+			((OPENSSL_VERSION_MAJOR << 16) + OPENSSL_VERSION_MINOR >= ((maj) << 16) + (min))
+	#else
+		#define OPENSSL_VERSION_PREREQ(maj, min) \
+			(OPENSSL_VERSION_NUMBER >= (((maj) << 28) | ((min) << 20)))
+	#endif
+#endif
+
+
+#if OPENSSL_VERSION_NUMBER < 0x10000000L
+#error "OpenSSL version too old. At least OpenSSL 1.0.0 is required."
+#endif
 
 
 enum RSAPaddingMode
 	/// The padding mode used for RSA public key encryption.
 {
 	RSA_PADDING_PKCS1,
-		/// PKCS #1 v1.5 padding. This currently is the most widely used mode. 
-		
+		/// PKCS #1 v1.5 padding. This currently is the most widely used mode.
+
 	RSA_PADDING_PKCS1_OAEP,
-		/// EME-OAEP as defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty 
+		/// EME-OAEP as defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty
 		/// encoding parameter. This mode is recommended for all new applications.
-		
+
 	RSA_PADDING_NONE
-		/// Raw RSA encryption. This mode should only be used to implement cryptographically 
-		/// sound padding modes in the application code. Encrypting user data directly with RSA 
-		/// is insecure. 
+		/// Raw RSA encryption. This mode should only be used to implement cryptographically
+		/// sound padding modes in the application code. Encrypting user data directly with RSA
+		/// is insecure.
 };
 
 
@@ -82,7 +106,7 @@ enum RSAPaddingMode
 	#if !defined(POCO_NO_AUTOMATIC_LIBS)
 		#if defined(POCO_INTERNAL_OPENSSL_MSVC_VER)
 			#if defined(POCO_EXTERNAL_OPENSSL)
-				#pragma warning "External OpenSSL defined but internal headers used - possible mismatch!"
+				#pragma message("External OpenSSL defined but internal headers used - possible mismatch!")
 			#endif // POCO_EXTERNAL_OPENSSL
 			#if !defined(_DEBUG)
 				#define POCO_DEBUG_SUFFIX ""
@@ -110,6 +134,39 @@ enum RSAPaddingMode
 				#pragma comment(lib, "legacy_stdio_definitions.lib")
 				#pragma comment(lib, "legacy_stdio_wide_specifiers.lib")
 			#endif
+		#elif defined(POCO_EXTERNAL_OPENSSL)
+			#if POCO_EXTERNAL_OPENSSL == POCO_EXTERNAL_OPENSSL_SLPRO
+				#if defined(POCO_DLL)
+					#if OPENSSL_VERSION_PREREQ(1,1)
+						#pragma comment(lib, "libcrypto.lib")
+						#pragma comment(lib, "libssl.lib")
+					#else
+						#pragma comment(lib, "libeay32.lib")
+						#pragma comment(lib, "ssleay32.lib")
+					#endif
+			  	#else
+					#if OPENSSL_VERSION_PREREQ(1,1)
+						#if defined(_WIN64)
+							#pragma comment(lib, "libcrypto64" POCO_LIB_SUFFIX)
+							#pragma comment(lib, "libssl64" POCO_LIB_SUFFIX)
+						#else
+							#pragma comment(lib, "libcrypto32" POCO_LIB_SUFFIX)
+							#pragma comment(lib, "libssl32" POCO_LIB_SUFFIX)
+						#endif
+					#else
+						#pragma comment(lib, "libeay32" POCO_LIB_SUFFIX)
+						#pragma comment(lib, "ssleay32" POCO_LIB_SUFFIX)
+					#endif
+				#endif
+			#elif POCO_EXTERNAL_OPENSSL == POCO_EXTERNAL_OPENSSL_DEFAULT
+				#if OPENSSL_VERSION_PREREQ(1,1)
+					#pragma comment(lib, "libcrypto.lib")
+					#pragma comment(lib, "libssl.lib")
+				#else
+					#pragma comment(lib, "libeay32.lib")
+					#pragma comment(lib, "ssleay32.lib")
+				#endif
+			#endif
 		#endif // POCO_INTERNAL_OPENSSL_MSVC_VER
 		#if !defined(Crypto_EXPORTS)
 			#pragma comment(lib, "PocoCrypto" POCO_LIB_SUFFIX)
@@ -122,12 +179,26 @@ namespace Poco {
 namespace Crypto {
 
 
+inline std::string& getError(std::string& msg)
+	/// Appends OpenSSL error(s) to msg and
+	/// returns the augmented error description.
+{
+	unsigned long err;
+	while ((err = ERR_get_error()))
+	{
+		if (!msg.empty()) msg.append(1, '\n');
+		msg.append(ERR_error_string(err, 0));
+	}
+	return msg;
+}
+
+
 void Crypto_API initializeCrypto();
 	/// Initialize the Crypto library, as well as the underlying OpenSSL
 	/// libraries, by calling OpenSSLInitializer::initialize().
 	///
 	/// Should be called before using any class from the Crypto library.
-	/// The Crypto library will be initialized automatically, through  
+	/// The Crypto library will be initialized automatically, through
 	/// OpenSSLInitializer instances held by various Crypto classes
 	/// (Cipher, CipherKey, RSAKey, X509Certificate).
 	/// However, it is recommended to call initializeCrypto()
@@ -136,10 +207,10 @@ void Crypto_API initializeCrypto();
 	/// Can be called multiple times; however, for every call to
 	/// initializeCrypto(), a matching call to uninitializeCrypto()
 	/// must be performed.
-	
+
 
 void Crypto_API uninitializeCrypto();
-	/// Uninitializes the Crypto library by calling 
+	/// Uninitializes the Crypto library by calling
 	/// OpenSSLInitializer::uninitialize().
 
 
