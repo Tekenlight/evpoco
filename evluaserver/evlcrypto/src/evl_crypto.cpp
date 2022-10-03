@@ -263,11 +263,10 @@ static int encrypt_text(lua_State *L)
 	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 2, _cipher_key_name));
 
 
-	size_t textlen = strlen(text);
 	size_t keylen = key->keySize();
 	size_t ivlen = key->ivSize();
-	size_t bufferlen = ivlen;
-	while (bufferlen < textlen) bufferlen += ivlen;
+	size_t bufferlen = strlen(text);
+	while (bufferlen % ivlen) bufferlen++;
 
 	char ** buffer_ptr = (char **)lua_newuserdata(L, sizeof(char*));
 	*(char**)buffer_ptr = (char*)malloc(bufferlen);
