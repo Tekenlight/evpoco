@@ -25,6 +25,12 @@ extern "C" {
 #endif
 
 #if defined __linux__
+#ifdef ntohll
+#undef ntohll
+#endif
+#ifdef htonll
+#undef htonll
+#endif
 #include <endian.h>
 #define ntohll be64toh
 #define htonll htobe64
