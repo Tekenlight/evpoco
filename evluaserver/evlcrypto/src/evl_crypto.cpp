@@ -21,12 +21,13 @@ extern "C" {
 #include <sstream>
 
 #include <ev_buffered_stream.h>
+#include "Poco/MemoryStream.h"
 
 #include "Poco/Crypto/DigestEngine.h"
 #include "Poco/Crypto/CipherFactory.h"
 #include "Poco/Crypto/Cipher.h"
 #include "Poco/Crypto/CipherKey.h"
-#include "Poco/MemoryStream.h"
+#include "Poco/Crypto/RSAKey.h"
 
 #ifdef DEBUGPOINT
 #undef DEBUGPOINT
@@ -242,9 +243,85 @@ static int generate_aes_key(lua_State *L)
 	return 1;
 }
 
+const static char *_rsa_key_name = "rsa_key";
+static int rsa_key__gc(lua_State *L)
+{
+	RSAKey * ptr = *(RSAKey **)luaL_checkudata(L, 1, _rsa_key_name);
+	delete ptr;
+	return 0;
+}
+
+static int rsa_key__tostring(lua_State *L)
+{
+	RSAKey * ptr = *(RSAKey **)luaL_checkudata(L, 1, _rsa_key_name);
+	lua_pushfstring(L, "%s:%p", _rsa_key_name, ptr);
+	return 1;
+}
+
+static int get_rsa_public_key(lua_State *L)
+{
+	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 1, _rsa_key_name);
+
+	char * buffer_ptr = (char*)malloc(8192);
+	memset(buffer_ptr, 0, 8192);
+	Poco::MemoryOutputStream   ostream(buffer_ptr, 8192);
+
+	rsa_key->impl()->save(&ostream);
+
+	lua_pushstring(L, buffer_ptr);
+	free(buffer_ptr);
+
+	return 1;
+}
+
+static int get_rsa_private_key(lua_State *L)
+{
+	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 1, _rsa_key_name);
+
+	char * buffer_ptr = (char*)malloc(8192);
+	memset(buffer_ptr, 0, 8192);
+	Poco::MemoryOutputStream   ostream(buffer_ptr, 8192);
+
+	rsa_key->impl()->save(NULL, &ostream);
+
+	lua_pushstring(L, buffer_ptr);
+	free(buffer_ptr);
+
+	return 1;
+}
+
 static int generate_rsa_key_pair(lua_State *L)
 {
-	return 0;
+	int key_length = luaL_checkinteger(L, 1);
+	switch(key_length) {
+		case 512:
+		case 1024:
+		case 2048:
+		case 4096:
+			break;
+		default:
+			luaL_error(L, "Invalid key length, must be one of (512, 1024, 2048 or 4096)");
+			return 0;
+	}
+	RSAKey::KeyLength kl = (RSAKey::KeyLength)key_length;;
+	RSAKey * rsa_key = NULL;
+	try {
+		rsa_key = new RSAKey(kl, RSAKey::EXP_LARGE);
+	}
+	catch (Poco::Exception e) {
+		//DEBUGPOINT("RSA KEY FORMATION FAILED [%s]\n", e.message().c_str());
+		luaL_error(L, "RSA KEY FORMATION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		//DEBUGPOINT("RSA KEY FORMATION FAILED [%s]\n", e.what());
+		luaL_error(L, e.what());
+	}
+
+	void * ptr = lua_newuserdata(L, sizeof(RSAKey *));
+	*((RSAKey **)ptr) = rsa_key;
+	luaL_setmetatable(L, _rsa_key_name);
+
+	return 1;
 }
 
 static int encrypt_symm_key(lua_State *L)
@@ -316,6 +393,8 @@ static int decrypt_text(lua_State *L)
 	catch (std::exception e) {
 		luaL_error(L, e.what());
 	}
+	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
+	plain_text[ostream.charsWritten()] = '\0';
 
 	lua_pushstring(L, plain_text);
 
@@ -333,6 +412,8 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"hmac_digest", hmac_fdigest}
 		,{"generate_aes_key", generate_aes_key}
 		,{"generate_rsa_key_pair", generate_rsa_key_pair}
+		,{"get_rsa_public_key", get_rsa_public_key}
+		,{"get_rsa_private_key", get_rsa_private_key}
 		,{"encrypt_symm_key", encrypt_symm_key}
 		,{"decrypt_symm_key", decrypt_symm_key}
 		,{"encrypt_text", encrypt_text}
@@ -349,6 +430,19 @@ int luaopen_libevlcrypto(lua_State *L)
 		lua_pushcfunction(L, cipher_key__gc); // Stack: meta "__gc" fptr
 		lua_settable(L, -3); // Stack: meta
 		lua_pushcfunction(L, cipher_key__tostring); // Stack: context meta fptr
+		lua_setfield(L, -2, "__tostring"); // Stack: context meta
+		lua_pop(L, 1);
+		// Stack: 
+	}
+	{
+		// Stack:
+		luaL_newmetatable(L, _rsa_key_name); // Stack: meta
+		luaL_newlib(L, _lib); // Stack: meta _lib
+		lua_setfield(L, -2, "__index"); // Stack: meta
+		lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+		lua_pushcfunction(L, rsa_key__gc); // Stack: meta "__gc" fptr
+		lua_settable(L, -3); // Stack: meta
+		lua_pushcfunction(L, rsa_key__tostring); // Stack: context meta fptr
 		lua_setfield(L, -2, "__tostring"); // Stack: context meta
 		lua_pop(L, 1);
 		// Stack: 
