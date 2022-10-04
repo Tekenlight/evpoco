@@ -183,26 +183,22 @@ static const luaL_Reg _lib[] = {
 };
 
 struct cipher_text_s {
-	void * buffer;
+	unsigned char * buffer;
 	size_t len;
 };
 
 const static char *_cipher_text_name = "cipher_text";
 static int cipher_text__gc(lua_State *L)
 {
-	//struct cipher_text_s * ptr = (cipher_text_s *)luaL_checkudata(L, 1, _cipher_text_name);
-	//free(ptr->buffer);
-	char * ptr = *(char **)luaL_checkudata(L, 1, _cipher_text_name);
-	if (!ptr) DEBUGPOINT("ptr = [%p]\n", ptr);
-	if (ptr) free(ptr);
+	struct cipher_text_s * ptr = (cipher_text_s *)luaL_checkudata(L, 1, _cipher_text_name);
+	if(ptr) free(ptr->buffer);
 	return 0;
 }
 
 static int cipher_text__tostring(lua_State *L)
 {
-	//struct cipher_text_s * ptr = (cipher_text_s *)luaL_checkudata(L, 1, _cipher_text_name);
-	char * ptr = *(char **)luaL_checkudata(L, 1, _cipher_text_name);
-	lua_pushfstring(L, "%s:%p", _cipher_text_name, ptr);
+	struct cipher_text_s * ptr = (cipher_text_s *)luaL_checkudata(L, 1, _cipher_text_name);
+	lua_pushfstring(L, "%s:%p", _cipher_text_name, ptr->buffer);
 	return 1;
 }
 
@@ -462,18 +458,26 @@ static int encrypt_symm_key(lua_State *L)
 	}
 	free(buffer);
 
+	/*
 	char ** buffer_ptr = (char **)lua_newuserdata(L, sizeof(char*));
 	*(char**)buffer_ptr = (char*)crypto_buffer;
 	luaL_setmetatable(L, _cipher_text_name);
+	*/
+	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
+	cs_p->buffer = crypto_buffer;
+	cs_p->len = ostream.charsWritten();
+	luaL_setmetatable(L, _cipher_text_name);
+
 
 	lua_pushinteger(L, ostream.charsWritten());
 
 	return 2;
 }
 
-static int decrypt_symm_key(lua_State *L)
+static int decrypt_enc_symm_key(lua_State *L)
 {
-	char * cipher_text = *(char**)luaL_checkudata(L, 1, _cipher_text_name);
+	cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
+
 	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 2, _rsa_key_name);
 
 	Cipher* pRSACipher = NULL;
@@ -490,11 +494,91 @@ static int decrypt_symm_key(lua_State *L)
 
 	unsigned char * data = (unsigned char*)malloc(rsa_key->impl()->size());
 	memset(data, 0, rsa_key->impl()->size());
-	Poco::MemoryInputStream istream((char *)cipher_text, rsa_key->impl()->size());
+	Poco::MemoryInputStream istream((char *)cipher_text->buffer, rsa_key->impl()->size());
 	Poco::MemoryOutputStream ostream((char *)data, rsa_key->impl()->size());
 
 	try {
 		pRSACipher->decrypt(istream, ostream);
+	}
+	catch (Poco::Exception e) {
+		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		luaL_error(L, e.what());
+	}
+
+	size_t data_len = ostream.charsWritten();
+
+	unsigned int name_len = 0;
+	unsigned int key_len = 0;
+	unsigned int iv_len = 0;
+	std::string name;
+	std::vector<unsigned char> symm_key;
+	std::vector<unsigned char> iv;
+
+	unsigned int be_name_len = 0;
+	unsigned int be_key_len = 0;
+	unsigned int be_iv_len = 0;
+
+	unsigned char * ptr = data;
+
+	{
+		memcpy(&be_name_len, ptr, sizeof(unsigned int)); /* name len -> 4 bytes */
+		name_len = ntohl(be_name_len);
+		ptr += sizeof(unsigned int);
+		name = std::string((const char*)ptr, name_len); /* name -> variable bytes */
+		ptr += name_len;
+		memcpy(&be_key_len, ptr, sizeof(unsigned int)); /* key_len len -> 4 bytes */
+		key_len = ntohl(be_key_len);
+		ptr += sizeof(unsigned int);
+		for (int i = 0; i < key_len; i++) /* key -> vaiable bytes */ {
+			symm_key.push_back(ptr[i]);
+		}
+		ptr += key_len;
+		memcpy(&be_iv_len, ptr, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
+		iv_len = ntohl(be_iv_len);
+		ptr += sizeof(unsigned int);
+		for (int i = 0; i < iv_len; i++) /* iv -> vaiable bytes */ {
+			iv.push_back(ptr[i]);
+		}
+		ptr += iv_len;
+	}
+
+	{
+		CipherKey * cipher_key = new CipherKey(name, symm_key, iv);
+		void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
+		*((CipherKey **)ptr) = cipher_key;
+		luaL_setmetatable(L, _cipher_key_name);
+	}
+
+	return 1;
+}
+
+static int decrypt_b64_enc_symm_key(lua_State *L)
+{
+	char * b64_cipher_text = (char*)luaL_checkstring(L, 1);
+
+	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 2, _rsa_key_name);
+
+	Cipher* pRSACipher = NULL;
+	try {
+		CipherFactory& factory = CipherFactory::defaultFactory();
+		pRSACipher = factory.createCipher(*rsa_key, RSA_PADDING_PKCS1_OAEP);
+	}
+	catch (Poco::Exception e) {
+		luaL_error(L, "RSA CIPHER FORMATION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		luaL_error(L, e.what());
+	}
+
+	unsigned char * data = (unsigned char*)malloc(rsa_key->impl()->size());
+	memset(data, 0, rsa_key->impl()->size());
+	Poco::MemoryInputStream istream((char *)b64_cipher_text, strlen(b64_cipher_text));
+	Poco::MemoryOutputStream ostream((char *)data, rsa_key->impl()->size());
+
+	try {
+		pRSACipher->decrypt(istream, ostream, Cipher::ENC_BASE64);
 	}
 	catch (Poco::Exception e) {
 		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
@@ -561,11 +645,17 @@ static int encrypt_text(lua_State *L)
 	size_t bufferlen = strlen(text);
 	while (bufferlen % ivlen) bufferlen++;
 
+	/*
 	char ** buffer_ptr = (char **)lua_newuserdata(L, sizeof(char*));
 	*(char**)buffer_ptr = (char*)malloc(bufferlen);
 	luaL_setmetatable(L, _cipher_text_name);
+	*/
+	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
+	cs_p->buffer = (unsigned char*)malloc(bufferlen);
+	cs_p->len = bufferlen;
+	luaL_setmetatable(L, _cipher_text_name);
 
-	Poco::MemoryOutputStream   ostream(*buffer_ptr, bufferlen);
+	Poco::MemoryOutputStream   ostream((char*)(cs_p->buffer), bufferlen);
 	std::istringstream source(text);
 
 	std::string s;
@@ -582,17 +672,19 @@ static int encrypt_text(lua_State *L)
 	}
 
 	lua_pushinteger(L, bufferlen);
+	lua_pushlightuserdata(L, (cs_p->buffer));
 
-	return 2;
+	return 3;
 }
 
-static int decrypt_text(lua_State *L)
+static int decrypt_cipher_text(lua_State *L)
 {
-	char * cipher_text = *(char**)luaL_checkudata(L, 1, _cipher_text_name);
+	cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
+
 	size_t bufferlen = luaL_checkinteger(L, 2);
 	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 3, _cipher_key_name));
 
-	Poco::MemoryInputStream source(cipher_text, bufferlen);
+	Poco::MemoryInputStream source((const char*)(cipher_text->buffer), bufferlen);
 
 	char * plain_text = (char*)malloc(bufferlen + 1);
 	memset(plain_text, 0, bufferlen+1);
@@ -602,6 +694,38 @@ static int decrypt_text(lua_State *L)
 		CipherFactory& factory = CipherFactory::defaultFactory();
 		Cipher* pCipher = factory.createCipher(*key);
 		pCipher->decrypt(source, ostream);
+	}
+	catch (Poco::Exception e) {
+		luaL_error(L, "DECRYPTION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		luaL_error(L, e.what());
+	}
+	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
+	plain_text[ostream.charsWritten()] = '\0';
+
+	lua_pushstring(L, plain_text);
+
+	return 1;
+}
+
+static int decrypt_b64_cipher_text(lua_State *L)
+{
+	char * b64_cipher_text = (char*)luaL_checkstring(L, 1);
+
+	size_t bufferlen = luaL_checkinteger(L, 2);
+	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 3, _cipher_key_name));
+
+	Poco::MemoryInputStream source((const char*)(b64_cipher_text), strlen(b64_cipher_text));
+
+	char * plain_text = (char*)malloc(bufferlen + 1);
+	memset(plain_text, 0, bufferlen+1);
+	Poco::MemoryOutputStream   ostream(plain_text, bufferlen);
+
+	try {
+		CipherFactory& factory = CipherFactory::defaultFactory();
+		Cipher* pCipher = factory.createCipher(*key);
+		pCipher->decrypt(source, ostream, Cipher::ENC_BASE64);
 	}
 	catch (Poco::Exception e) {
 		luaL_error(L, "DECRYPTION FAILED [%s]\n", e.message().c_str());
@@ -633,9 +757,11 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"load_rsa_public_key", load_rsa_public_key}
 		,{"load_rsa_private_key", load_rsa_private_key}
 		,{"encrypt_symm_key", encrypt_symm_key}
-		,{"decrypt_symm_key", decrypt_symm_key}
+		,{"decrypt_enc_symm_key", decrypt_enc_symm_key}
+		,{"decrypt_b64_enc_symm_key", decrypt_b64_enc_symm_key}
 		,{"encrypt_text", encrypt_text}
-		,{"decrypt_text", decrypt_text}
+		,{"decrypt_cipher_text", decrypt_cipher_text}
+		,{"decrypt_b64_cipher_text", decrypt_b64_cipher_text}
 		,{NULL, NULL}
 	};
 
