@@ -87,17 +87,7 @@ static int hmac_fdigest(lua_State *L)
     k = luaL_checklstring(L, 3, &klen);
 
 
-	/*
-    //HMAC_CTX_init(&c);
-    HMAC_CTX * c = HMAC_CTX_new();
-	HMAC_CTX_reset(c);
-    HMAC_Init_ex(c, k, klen, type, NULL);
-    HMAC_Update(c, (unsigned char *)s, slen);
-    HMAC_Final(c, digest, &written);
-    //HMAC_CTX_cleanup(c);
-	HMAC_CTX_free(c);
-	*/
-
+#if ((defined OPENSSL_VERSION_MAJOR) && (OPENSSL_VERSION_MAJOR >=3))
 	/*
 	 * Reference for the below code is 
 	 * man EVP_MAC_CTX_new, example in the end of the man page
@@ -115,6 +105,18 @@ static int hmac_fdigest(lua_State *L)
 	EVP_MAC_final(ctx, (unsigned char*)digest, (unsigned long *)(&written), EVP_MAX_MD_SIZE);
 	EVP_MAC_CTX_free(ctx);
 	EVP_MAC_free(mac);
+#else
+	/*
+	*/
+    //HMAC_CTX_init(&c);
+    HMAC_CTX * c = HMAC_CTX_new();
+	HMAC_CTX_reset(c);
+    HMAC_Init_ex(c, k, klen, type, NULL);
+    HMAC_Update(c, (unsigned char *)s, slen);
+    HMAC_Final(c, digest, &written);
+    //HMAC_CTX_cleanup(c);
+	HMAC_CTX_free(c);
+#endif
 
     if (lua_toboolean(L, 4)) {
         lua_pushlstring(L, (char *)digest, written);
@@ -797,16 +799,25 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"s_sha384_hash", generate_hash_from_string_sha384}
 		,{"s_sha512_hash", generate_hash_from_string_sha512}
 		,{"hmac_digest", hmac_fdigest}
+
 		,{"generate_aes_key", generate_aes_key}
 		,{"generate_rsa_key_pair", generate_rsa_key_pair}
+
 		,{"get_rsa_public_key", get_rsa_public_key}
 		,{"get_rsa_private_key", get_rsa_private_key}
+
 		,{"load_rsa_public_key", load_rsa_public_key}
 		,{"load_rsa_private_key", load_rsa_private_key}
+
+
 		,{"rsa_encrypt_symm_key", rsa_encrypt_symm_key}
+
 		,{"rsa_decrypt_enc_symm_key", rsa_decrypt_enc_symm_key}
 		,{"rsa_decrypt_b64_enc_symm_key", rsa_decrypt_b64_enc_symm_key}
+
+
 		,{"encrypt_text", encrypt_text}
+
 		,{"decrypt_cipher_text", decrypt_cipher_text}
 		,{"decrypt_b64_cipher_text", decrypt_b64_cipher_text}
 		,{NULL, NULL}
