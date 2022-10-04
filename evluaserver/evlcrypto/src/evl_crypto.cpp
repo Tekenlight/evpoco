@@ -279,9 +279,11 @@ static int get_rsa_public_key(lua_State *L)
 		rsa_key->impl()->save(&ostream);
 	}
 	catch (Poco::Exception e) {
+		free(buffer_ptr);
 		luaL_error(L, "SAVING RSA PUBLIC KEY FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(buffer_ptr);
 		luaL_error(L, e.what());
 	}
 
@@ -326,9 +328,11 @@ static int get_rsa_private_key(lua_State *L)
 		rsa_key->impl()->save(NULL, &ostream);
 	}
 	catch (Poco::Exception e) {
+		free(buffer_ptr);
 		luaL_error(L, "SAVING RSA PRIVATE KEY FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(buffer_ptr);
 		luaL_error(L, e.what());
 	}
 
@@ -395,7 +399,7 @@ static int generate_rsa_key_pair(lua_State *L)
 	return 1;
 }
 
-static int encrypt_symm_key(lua_State *L)
+static int rsa_encrypt_symm_key(lua_State *L)
 {
 	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 1, _cipher_key_name));
 	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 2, _rsa_key_name);
@@ -422,7 +426,13 @@ static int encrypt_symm_key(lua_State *L)
 	unsigned int be_key_len = htonl(key_len);
 	unsigned int be_iv_len = htonl(iv_len);
 
-	size_t buffer_size = sizeof(unsigned int) + name_len + sizeof(unsigned int) + key_len + sizeof(unsigned int) + iv_len;
+	size_t buffer_size = sizeof(unsigned int) + name_len +
+					sizeof(unsigned int) + key_len + sizeof(unsigned int) + iv_len;
+	if (rsa_key->impl()->size()  <= (buffer_size+42)) {
+		luaL_error(L, 
+			"RSA modulus length [%d] is not enought to handle encryption of data of length [%d]\n",
+			8*(rsa_key->impl()->size()), buffer_size);
+	}
 	unsigned char * buffer = (unsigned char*)malloc(buffer_size);
 	unsigned char * ptr = buffer;
 
@@ -450,10 +460,12 @@ static int encrypt_symm_key(lua_State *L)
 	}
 	catch (Poco::Exception e) {
 		free(buffer);
+		free(crypto_buffer);
 		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
 		free(buffer);
+		free(crypto_buffer);
 		luaL_error(L, e.what());
 	}
 	free(buffer);
@@ -474,7 +486,7 @@ static int encrypt_symm_key(lua_State *L)
 	return 2;
 }
 
-static int decrypt_enc_symm_key(lua_State *L)
+static int rsa_decrypt_enc_symm_key(lua_State *L)
 {
 	cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
 
@@ -501,9 +513,11 @@ static int decrypt_enc_symm_key(lua_State *L)
 		pRSACipher->decrypt(istream, ostream);
 	}
 	catch (Poco::Exception e) {
+		free(data);
 		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(data);
 		luaL_error(L, e.what());
 	}
 
@@ -543,6 +557,7 @@ static int decrypt_enc_symm_key(lua_State *L)
 		}
 		ptr += iv_len;
 	}
+	free(data);
 
 	{
 		CipherKey * cipher_key = new CipherKey(name, symm_key, iv);
@@ -554,7 +569,7 @@ static int decrypt_enc_symm_key(lua_State *L)
 	return 1;
 }
 
-static int decrypt_b64_enc_symm_key(lua_State *L)
+static int rsa_decrypt_b64_enc_symm_key(lua_State *L)
 {
 	char * b64_cipher_text = (char*)luaL_checkstring(L, 1);
 
@@ -581,10 +596,19 @@ static int decrypt_b64_enc_symm_key(lua_State *L)
 		pRSACipher->decrypt(istream, ostream, Cipher::ENC_BASE64);
 	}
 	catch (Poco::Exception e) {
-		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
+		free(data);
+		DEBUGPOINT("RSA DECRYPTION FAILED\n");
+		luaL_error(L, "RSA DECRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(data);
+		DEBUGPOINT("RSA DECRYPTION FAILED\n");
 		luaL_error(L, e.what());
+	}
+	catch (...) {
+		free(data);
+		DEBUGPOINT("RSA ENCRYPTION FAILED\n");
+		luaL_error(L, "RSA ENCRYPTION FAILED");
 	}
 
 	size_t data_len = ostream.charsWritten();
@@ -624,8 +648,25 @@ static int decrypt_b64_enc_symm_key(lua_State *L)
 		ptr += iv_len;
 	}
 
+	free(data);
+
 	{
-		CipherKey * cipher_key = new CipherKey(name, symm_key, iv);
+		CipherKey * cipher_key = NULL;
+		try {
+			cipher_key = new CipherKey(name, symm_key, iv);
+		}
+		catch (Poco::Exception e) {
+			//DEBUGPOINT("CIPHER FORMATION FAILED\n");
+			luaL_error(L, "CIPHER FORMATION FAILED :%s\n", e.message().c_str());
+		}
+		catch (std::exception e) {
+			//DEBUGPOINT("CIPHER FORMATION FAILED : %s\n", e.what());
+			luaL_error(L, "CIPHER FORMATION FAILED\n");
+		}
+		catch (...) {
+			//DEBUGPOINT("CIPHER FORMATION FAILED\n");
+			luaL_error(L, "CIPHER FORMATION FAILED\n");
+		}
 		void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
 		*((CipherKey **)ptr) = cipher_key;
 		luaL_setmetatable(L, _cipher_key_name);
@@ -696,15 +737,18 @@ static int decrypt_cipher_text(lua_State *L)
 		pCipher->decrypt(source, ostream);
 	}
 	catch (Poco::Exception e) {
+		free(plain_text);
 		luaL_error(L, "DECRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(plain_text);
 		luaL_error(L, e.what());
 	}
 	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
 	plain_text[ostream.charsWritten()] = '\0';
 
 	lua_pushstring(L, plain_text);
+	free(plain_text);
 
 	return 1;
 }
@@ -728,15 +772,18 @@ static int decrypt_b64_cipher_text(lua_State *L)
 		pCipher->decrypt(source, ostream, Cipher::ENC_BASE64);
 	}
 	catch (Poco::Exception e) {
+		free(plain_text);
 		luaL_error(L, "DECRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(plain_text);
 		luaL_error(L, e.what());
 	}
 	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
 	plain_text[ostream.charsWritten()] = '\0';
 
 	lua_pushstring(L, plain_text);
+	free(plain_text);
 
 	return 1;
 }
@@ -756,9 +803,9 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"get_rsa_private_key", get_rsa_private_key}
 		,{"load_rsa_public_key", load_rsa_public_key}
 		,{"load_rsa_private_key", load_rsa_private_key}
-		,{"encrypt_symm_key", encrypt_symm_key}
-		,{"decrypt_enc_symm_key", decrypt_enc_symm_key}
-		,{"decrypt_b64_enc_symm_key", decrypt_b64_enc_symm_key}
+		,{"rsa_encrypt_symm_key", rsa_encrypt_symm_key}
+		,{"rsa_decrypt_enc_symm_key", rsa_decrypt_enc_symm_key}
+		,{"rsa_decrypt_b64_enc_symm_key", rsa_decrypt_b64_enc_symm_key}
 		,{"encrypt_text", encrypt_text}
 		,{"decrypt_cipher_text", decrypt_cipher_text}
 		,{"decrypt_b64_cipher_text", decrypt_b64_cipher_text}
