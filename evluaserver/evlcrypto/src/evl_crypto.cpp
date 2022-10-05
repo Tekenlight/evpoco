@@ -723,9 +723,9 @@ static int encrypt_text(lua_State *L)
 static int decrypt_cipher_text(lua_State *L)
 {
 	cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
+	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 2, _cipher_key_name));
 
-	size_t bufferlen = luaL_checkinteger(L, 2);
-	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 3, _cipher_key_name));
+	size_t bufferlen = cipher_text->len;
 
 	Poco::MemoryInputStream source((const char*)(cipher_text->buffer), bufferlen);
 
@@ -746,7 +746,7 @@ static int decrypt_cipher_text(lua_State *L)
 		free(plain_text);
 		luaL_error(L, e.what());
 	}
-	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
+
 	plain_text[ostream.charsWritten()] = '\0';
 
 	lua_pushstring(L, plain_text);
@@ -790,6 +790,44 @@ static int decrypt_b64_cipher_text(lua_State *L)
 	return 1;
 }
 
+static int decrypt_udata_cipher_text(lua_State *L)
+{
+	char * cipher_text = (char*)lua_touserdata(L, 1);
+	if (cipher_text == NULL) {
+		luaL_error(L, "Expect userdata as argument 1 got [%s]", lua_typename(L, lua_type(L, 1)));
+	}
+
+	size_t bufferlen = luaL_checkinteger(L, 2);
+	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 3, _cipher_key_name));
+
+	Poco::MemoryInputStream source((const char*)(cipher_text), bufferlen);
+
+	char * plain_text = (char*)malloc(bufferlen + 1);
+	memset(plain_text, 0, bufferlen+1);
+	Poco::MemoryOutputStream   ostream(plain_text, bufferlen);
+
+	try {
+		CipherFactory& factory = CipherFactory::defaultFactory();
+		Cipher* pCipher = factory.createCipher(*key);
+		pCipher->decrypt(source, ostream);
+	}
+	catch (Poco::Exception e) {
+		free(plain_text);
+		luaL_error(L, "DECRYPTION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		free(plain_text);
+		luaL_error(L, e.what());
+	}
+
+	plain_text[ostream.charsWritten()] = '\0';
+
+	lua_pushstring(L, plain_text);
+	free(plain_text);
+
+	return 1;
+}
+
 extern "C" int luaopen_libevlcrypto(lua_State *L);
 int luaopen_libevlcrypto(lua_State *L)
 {
@@ -819,6 +857,7 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"encrypt_text", encrypt_text}
 
 		,{"decrypt_cipher_text", decrypt_cipher_text}
+		,{"decrypt_udata_cipher_text", decrypt_udata_cipher_text}
 		,{"decrypt_b64_cipher_text", decrypt_b64_cipher_text}
 		,{NULL, NULL}
 	};
