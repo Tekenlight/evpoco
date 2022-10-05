@@ -401,6 +401,103 @@ static int generate_rsa_key_pair(lua_State *L)
 	return 1;
 }
 
+static CipherKey * deserialize_symmetric_key(lua_State *L, unsigned char * data)
+{
+	unsigned int name_len = 0;
+	unsigned int key_len = 0;
+	unsigned int iv_len = 0;
+	std::string name;
+	std::vector<unsigned char> symm_key;
+	std::vector<unsigned char> iv;
+
+	unsigned int be_name_len = 0;
+	unsigned int be_key_len = 0;
+	unsigned int be_iv_len = 0;
+
+	unsigned char * ptr = data;
+
+	{
+		memcpy(&be_name_len, ptr, sizeof(unsigned int)); /* name len -> 4 bytes */
+		name_len = ntohl(be_name_len);
+		ptr += sizeof(unsigned int);
+		name = std::string((const char*)ptr, name_len); /* name -> variable bytes */
+		ptr += name_len;
+		memcpy(&be_key_len, ptr, sizeof(unsigned int)); /* key_len len -> 4 bytes */
+		key_len = ntohl(be_key_len);
+		ptr += sizeof(unsigned int);
+		for (int i = 0; i < key_len; i++) /* key -> vaiable bytes */ {
+			symm_key.push_back(ptr[i]);
+		}
+		ptr += key_len;
+		memcpy(&be_iv_len, ptr, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
+		iv_len = ntohl(be_iv_len);
+		ptr += sizeof(unsigned int);
+		for (int i = 0; i < iv_len; i++) /* iv -> vaiable bytes */ {
+			iv.push_back(ptr[i]);
+		}
+		ptr += iv_len;
+	}
+
+	CipherKey * cipher_key = NULL;
+	try {
+		cipher_key = new CipherKey(name, symm_key, iv);
+	}
+	catch (Poco::Exception e) {
+		//DEBUGPOINT("CIPHER FORMATION FAILED\n");
+		luaL_error(L, "CIPHER FORMATION FAILED :%s\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		//DEBUGPOINT("CIPHER FORMATION FAILED : %s\n", e.what());
+		luaL_error(L, "CIPHER FORMATION FAILED\n");
+	}
+	catch (...) {
+		//DEBUGPOINT("CIPHER FORMATION FAILED\n");
+		luaL_error(L, "CIPHER FORMATION FAILED\n");
+	}
+
+	return cipher_key;
+}
+
+struct serialized_cipher_key_s {
+	unsigned char * buffer;
+	size_t buffer_size;
+};
+
+static void serialize_symmetric_key(lua_State *L, CipherKey * key, struct serialized_cipher_key_s * s_cipher_key_p)
+{
+	unsigned int name_len = strlen(key->name().c_str());
+	unsigned int key_len = key->keySize();
+	unsigned int iv_len = key->ivSize();
+	std::vector<unsigned char> symm_key = key->getKey();
+	std::vector<unsigned char> iv = key->getIV();
+
+	unsigned int be_name_len = htonl(name_len);
+	unsigned int be_key_len = htonl(key_len);
+	unsigned int be_iv_len = htonl(iv_len);
+
+	s_cipher_key_p->buffer_size = sizeof(unsigned int) + name_len +
+					sizeof(unsigned int) + key_len + sizeof(unsigned int) + iv_len;
+	s_cipher_key_p->buffer = (unsigned char *)malloc(s_cipher_key_p->buffer_size);
+	unsigned char * ptr = s_cipher_key_p->buffer;
+
+	{
+		memcpy(ptr, &be_name_len, sizeof(unsigned int)); /* name len -> 4 bytes */
+		ptr += sizeof(unsigned int);
+		memcpy(ptr, key->name().c_str(), name_len); /* name -> variable bytes */
+		ptr += name_len;
+		memcpy(ptr, &be_key_len, sizeof(unsigned int)); /* key_len len -> 4 bytes */
+		ptr += sizeof(unsigned int);
+		memcpy(ptr, &symm_key[0], key_len); /* key -> vaiable bytes */
+		ptr += key_len;
+		memcpy(ptr, &be_iv_len, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
+		ptr += sizeof(unsigned int);
+		memcpy(ptr, &iv[0], iv_len); /* iv -> vaiable bytes */
+		ptr += iv_len;
+	}
+
+	return ;
+}
+
 static int rsa_encrypt_symm_key(lua_State *L)
 {
 	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 1, _cipher_key_name));
@@ -418,65 +515,36 @@ static int rsa_encrypt_symm_key(lua_State *L)
 		luaL_error(L, e.what());
 	}
 
-	unsigned int name_len = strlen(key->name().c_str());
-	unsigned int key_len = key->keySize();
-	unsigned int iv_len = key->ivSize();
-	std::vector<unsigned char> symm_key = key->getKey();
-	std::vector<unsigned char> iv = key->getIV();
+	struct serialized_cipher_key_s s_cipher_key;
+	serialize_symmetric_key(L, key, &s_cipher_key);
 
-	unsigned int be_name_len = htonl(name_len);
-	unsigned int be_key_len = htonl(key_len);
-	unsigned int be_iv_len = htonl(iv_len);
-
-	size_t buffer_size = sizeof(unsigned int) + name_len +
-					sizeof(unsigned int) + key_len + sizeof(unsigned int) + iv_len;
-	if (rsa_key->impl()->size()  <= (buffer_size+42)) {
+	if (rsa_key->impl()->size()  <= (s_cipher_key.buffer_size+42)) {
 		luaL_error(L, 
 			"RSA modulus length [%d] is not enought to handle encryption of data of length [%d]\n",
-			8*(rsa_key->impl()->size()), buffer_size);
-	}
-	unsigned char * buffer = (unsigned char*)malloc(buffer_size);
-	unsigned char * ptr = buffer;
-
-	{
-		memcpy(ptr, &be_name_len, sizeof(unsigned int)); /* name len -> 4 bytes */
-		ptr += sizeof(unsigned int);
-		memcpy(ptr, key->name().c_str(), name_len); /* name -> variable bytes */
-		ptr += name_len;
-		memcpy(ptr, &be_key_len, sizeof(unsigned int)); /* key_len len -> 4 bytes */
-		ptr += sizeof(unsigned int);
-		memcpy(ptr, &symm_key[0], key_len); /* key -> vaiable bytes */
-		ptr += key_len;
-		memcpy(ptr, &be_iv_len, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
-		ptr += sizeof(unsigned int);
-		memcpy(ptr, &iv[0], iv_len); /* iv -> vaiable bytes */
-		ptr += iv_len;
+			8*(rsa_key->impl()->size()), s_cipher_key.buffer_size);
 	}
 
 	unsigned char * crypto_buffer = (unsigned char *)malloc(rsa_key->impl()->size());
-	Poco::MemoryInputStream istream((const char *)buffer, buffer_size);
+	Poco::MemoryInputStream istream((const char *)s_cipher_key.buffer, s_cipher_key.buffer_size);
 	Poco::MemoryOutputStream ostream((char *)crypto_buffer, rsa_key->impl()->size());
 
 	try {
 		pRSACipher->encrypt(istream, ostream);
 	}
 	catch (Poco::Exception e) {
-		free(buffer);
+		//DEBUGPOINT("RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
+		free(s_cipher_key.buffer);
 		free(crypto_buffer);
 		luaL_error(L, "RSA ENCRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
-		free(buffer);
+		//DEBUGPOINT("RSA ENCRYPTION FAILED [%s]\n", e.what());
+		free(s_cipher_key.buffer);
 		free(crypto_buffer);
-		luaL_error(L, e.what());
+		luaL_error(L, "RSA ENCRYPTION FAILED [%s]", e.what());
 	}
-	free(buffer);
+	free(s_cipher_key.buffer);
 
-	/*
-	char ** buffer_ptr = (char **)lua_newuserdata(L, sizeof(char*));
-	*(char**)buffer_ptr = (char*)crypto_buffer;
-	luaL_setmetatable(L, _cipher_text_name);
-	*/
 	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
 	cs_p->buffer = crypto_buffer;
 	cs_p->len = ostream.charsWritten();
@@ -523,50 +591,13 @@ static int rsa_decrypt_enc_symm_key(lua_State *L)
 		luaL_error(L, e.what());
 	}
 
-	size_t data_len = ostream.charsWritten();
-
-	unsigned int name_len = 0;
-	unsigned int key_len = 0;
-	unsigned int iv_len = 0;
-	std::string name;
-	std::vector<unsigned char> symm_key;
-	std::vector<unsigned char> iv;
-
-	unsigned int be_name_len = 0;
-	unsigned int be_key_len = 0;
-	unsigned int be_iv_len = 0;
-
-	unsigned char * ptr = data;
-
-	{
-		memcpy(&be_name_len, ptr, sizeof(unsigned int)); /* name len -> 4 bytes */
-		name_len = ntohl(be_name_len);
-		ptr += sizeof(unsigned int);
-		name = std::string((const char*)ptr, name_len); /* name -> variable bytes */
-		ptr += name_len;
-		memcpy(&be_key_len, ptr, sizeof(unsigned int)); /* key_len len -> 4 bytes */
-		key_len = ntohl(be_key_len);
-		ptr += sizeof(unsigned int);
-		for (int i = 0; i < key_len; i++) /* key -> vaiable bytes */ {
-			symm_key.push_back(ptr[i]);
-		}
-		ptr += key_len;
-		memcpy(&be_iv_len, ptr, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
-		iv_len = ntohl(be_iv_len);
-		ptr += sizeof(unsigned int);
-		for (int i = 0; i < iv_len; i++) /* iv -> vaiable bytes */ {
-			iv.push_back(ptr[i]);
-		}
-		ptr += iv_len;
-	}
+	CipherKey* cipher_key = deserialize_symmetric_key(L, data);
 	free(data);
 
-	{
-		CipherKey * cipher_key = new CipherKey(name, symm_key, iv);
-		void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
-		*((CipherKey **)ptr) = cipher_key;
-		luaL_setmetatable(L, _cipher_key_name);
-	}
+	void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
+	*((CipherKey **)ptr) = cipher_key;
+	luaL_setmetatable(L, _cipher_key_name);
+
 
 	return 1;
 }
@@ -613,66 +644,12 @@ static int rsa_decrypt_b64_enc_symm_key(lua_State *L)
 		luaL_error(L, "RSA ENCRYPTION FAILED");
 	}
 
-	size_t data_len = ostream.charsWritten();
-
-	unsigned int name_len = 0;
-	unsigned int key_len = 0;
-	unsigned int iv_len = 0;
-	std::string name;
-	std::vector<unsigned char> symm_key;
-	std::vector<unsigned char> iv;
-
-	unsigned int be_name_len = 0;
-	unsigned int be_key_len = 0;
-	unsigned int be_iv_len = 0;
-
-	unsigned char * ptr = data;
-
-	{
-		memcpy(&be_name_len, ptr, sizeof(unsigned int)); /* name len -> 4 bytes */
-		name_len = ntohl(be_name_len);
-		ptr += sizeof(unsigned int);
-		name = std::string((const char*)ptr, name_len); /* name -> variable bytes */
-		ptr += name_len;
-		memcpy(&be_key_len, ptr, sizeof(unsigned int)); /* key_len len -> 4 bytes */
-		key_len = ntohl(be_key_len);
-		ptr += sizeof(unsigned int);
-		for (int i = 0; i < key_len; i++) /* key -> vaiable bytes */ {
-			symm_key.push_back(ptr[i]);
-		}
-		ptr += key_len;
-		memcpy(&be_iv_len, ptr, sizeof(unsigned int)); /* iv_len len -> 4 bytes */
-		iv_len = ntohl(be_iv_len);
-		ptr += sizeof(unsigned int);
-		for (int i = 0; i < iv_len; i++) /* iv -> vaiable bytes */ {
-			iv.push_back(ptr[i]);
-		}
-		ptr += iv_len;
-	}
-
+	CipherKey* cipher_key = deserialize_symmetric_key(L, data);
 	free(data);
 
-	{
-		CipherKey * cipher_key = NULL;
-		try {
-			cipher_key = new CipherKey(name, symm_key, iv);
-		}
-		catch (Poco::Exception e) {
-			//DEBUGPOINT("CIPHER FORMATION FAILED\n");
-			luaL_error(L, "CIPHER FORMATION FAILED :%s\n", e.message().c_str());
-		}
-		catch (std::exception e) {
-			//DEBUGPOINT("CIPHER FORMATION FAILED : %s\n", e.what());
-			luaL_error(L, "CIPHER FORMATION FAILED\n");
-		}
-		catch (...) {
-			//DEBUGPOINT("CIPHER FORMATION FAILED\n");
-			luaL_error(L, "CIPHER FORMATION FAILED\n");
-		}
-		void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
-		*((CipherKey **)ptr) = cipher_key;
-		luaL_setmetatable(L, _cipher_key_name);
-	}
+	void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
+	*((CipherKey **)ptr) = cipher_key;
+	luaL_setmetatable(L, _cipher_key_name);
 
 	return 1;
 }
@@ -688,11 +665,6 @@ static int encrypt_text(lua_State *L)
 	size_t bufferlen = strlen(text);
 	while (bufferlen % ivlen) bufferlen++;
 
-	/*
-	char ** buffer_ptr = (char **)lua_newuserdata(L, sizeof(char*));
-	*(char**)buffer_ptr = (char*)malloc(bufferlen);
-	luaL_setmetatable(L, _cipher_text_name);
-	*/
 	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
 	cs_p->buffer = (unsigned char*)malloc(bufferlen);
 	cs_p->len = bufferlen;
@@ -781,7 +753,7 @@ static int decrypt_b64_cipher_text(lua_State *L)
 		free(plain_text);
 		luaL_error(L, e.what());
 	}
-	//DEBUGPOINT("Size of plain_text = [%ld]\n", ostream.charsWritten());
+
 	plain_text[ostream.charsWritten()] = '\0';
 
 	lua_pushstring(L, plain_text);
