@@ -219,6 +219,30 @@ static int cipher_key__tostring(lua_State *L)
 	return 1;
 }
 
+static int generate_symmetric_key(lua_State *L)
+{
+	const char * name = luaL_checkstring(L, 1);
+	CipherKey *key = NULL;
+
+	try {
+		key = new CipherKey(std::string(name));
+	}
+	catch (Poco::Exception e) {
+		//DEBUGPOINT("KEY FORMATION FAILED [%s]\n", e.message().c_str());
+		luaL_error(L, "KEY FORMATION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		//DEBUGPOINT("KEY FORMATION FAILED [%s]\n", e.what());
+		luaL_error(L, e.what());
+	}
+
+	void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
+	*((CipherKey **)ptr) = key;
+	luaL_setmetatable(L, _cipher_key_name);
+
+	return 1;
+}
+
 static int generate_aes_key(lua_State *L)
 {
 	int key_length = luaL_checkinteger(L, 1);
@@ -810,6 +834,7 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"s_sha512_hash", generate_hash_from_string_sha512}
 		,{"hmac_digest", hmac_fdigest}
 
+		,{"generate_symmetric_key", generate_symmetric_key}
 		,{"generate_aes_key", generate_aes_key}
 		,{"generate_rsa_key_pair", generate_rsa_key_pair}
 
