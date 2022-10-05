@@ -236,6 +236,14 @@ static int generate_symmetric_key(lua_State *L)
 		luaL_error(L, e.what());
 	}
 
+	size_t keylen = key->keySize();
+	size_t ivlen = key->ivSize();
+	size_t block_size = key->blockSize();
+
+	//DEBUGPOINT("Here block_size = [%zu]\n", block_size);
+	//DEBUGPOINT("Here ivlen = [%zu]\n", ivlen);
+	//DEBUGPOINT("Here keylen = [%zu]\n", keylen);
+
 	void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
 	*((CipherKey **)ptr) = key;
 	luaL_setmetatable(L, _cipher_key_name);
@@ -686,8 +694,16 @@ static int encrypt_text(lua_State *L)
 
 	size_t keylen = key->keySize();
 	size_t ivlen = key->ivSize();
+	size_t block_size = key->blockSize();
+
+	//DEBUGPOINT("Here block_size = [%zu]\n", block_size);
+
 	size_t bufferlen = strlen(text);
-	while (bufferlen % ivlen) bufferlen++;
+	while (bufferlen % block_size) bufferlen++;
+
+	//DEBUGPOINT("Here bufferlen = [%zu]\n", bufferlen);
+	//DEBUGPOINT("Here ivlen = [%zu]\n", ivlen);
+	//DEBUGPOINT("Here keylen = [%zu]\n", keylen);
 
 	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
 	cs_p->buffer = (unsigned char*)malloc(bufferlen);
@@ -722,6 +738,7 @@ static int decrypt_cipher_text(lua_State *L)
 	CipherKey * key = *((CipherKey **)luaL_checkudata(L, 2, _cipher_key_name));
 
 	size_t bufferlen = cipher_text->len;
+	//DEBUGPOINT("Here bufferlen = [%zu]\n", bufferlen);
 
 	Poco::MemoryInputStream source((const char*)(cipher_text->buffer), bufferlen);
 
