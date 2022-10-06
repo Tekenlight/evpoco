@@ -29,13 +29,16 @@ local b64_e_symm_key = crypto_utils.rsa_b64_encrypt_symmetric_key(symmetric_key,
 
 --===============================================================================--
 
-local o_symm_key = crypto_utils.rsa_decrypt_b64_enc_symmetric_key(b64_e_symm_key, rsa_prv_key);
+local tc1_o_symm_key = crypto_utils.rsa_decrypt_b64_enc_symmetric_key(b64_e_symm_key, rsa_prv_key);
 
-local o_symm_key = crypto_utils.rsa_decrypt_enc_symmetric_key(e_symm_key, rsa_prv_key);
+local tc2_o_symm_key = crypto_utils.rsa_decrypt_enc_symmetric_key(e_symm_key, rsa_prv_key);
 
-local pt = crypto_utils.decrypt_b64_cipher_text(b64_ct, o_symm_key);
+local pt = crypto_utils.decrypt_b64_cipher_text(b64_ct, tc1_o_symm_key);
+print(pt);
+print(pt == plain_text);
 
-local pt = crypto_utils.decrypt_cipher_text(ct, o_symm_key);
+
+local pt = crypto_utils.decrypt_cipher_text(ct, tc2_o_symm_key);
 
 print(pt);
 print(pt == plain_text);
