@@ -584,8 +584,9 @@ static int rsa_encrypt_symm_key(lua_State *L)
 
 
 	lua_pushinteger(L, ostream.charsWritten());
+	lua_pushlightuserdata(L, crypto_buffer);
 
-	return 2;
+	return 3;
 }
 
 static int rsa_decrypt_enc_symm_key(lua_State *L)
@@ -720,9 +721,11 @@ static int encrypt_text(lua_State *L)
 		pCipher->encrypt(source, ostream);
 	}
 	catch (Poco::Exception e) {
+		free(cs_p->buffer);
 		luaL_error(L, "ENCRYPTION FAILED [%s]\n", e.message().c_str());
 	}
 	catch (std::exception e) {
+		free(cs_p->buffer);
 		luaL_error(L, e.what());
 	}
 

@@ -13,7 +13,10 @@ local rsa_prv_key = crypto_utils.form_rsa_key_from_private_key(prv_key);
 print(pub_key == crypto_utils.get_rsa_public_key(rsa_pub_key));
 print(prv_key == crypto_utils.get_rsa_private_key(rsa_prv_key));
 
-local plain_text = "Hello World";
+local plain_text = [[<?xml version="1.0" encoding="UTF-8"?>
+<ns1:test_message xmlns:ns1="http://xchange_messages.biop.com">
+  <greeting>Hello World</greeting>
+</ns1:test_message>]]
 
 --local symmetric_key = crypto_utils.generate_aes_key(256);
 local symmetric_key = crypto_utils.generate_symmetric_key("aes-256-cbc");
