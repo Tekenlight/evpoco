@@ -589,6 +589,56 @@ static int rsa_encrypt_symm_key(lua_State *L)
 	return 3;
 }
 
+static int rsa_decrypt_udata_enc_symm_key(lua_State *L)
+{
+	//cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
+	char * cipher_text = (char*)lua_touserdata(L, 1);
+	if (cipher_text == NULL) {
+		luaL_error(L, "Expect userdata as argument 1 got [%s]", lua_typename(L, lua_type(L, 1)));
+	}
+	size_t bufferlen = luaL_checkinteger(L, 2);
+
+	RSAKey * rsa_key = *(RSAKey **)luaL_checkudata(L, 3, _rsa_key_name);
+
+	Cipher* pRSACipher = NULL;
+	try {
+		CipherFactory& factory = CipherFactory::defaultFactory();
+		pRSACipher = factory.createCipher(*rsa_key, RSA_PADDING_PKCS1_OAEP);
+	}
+	catch (Poco::Exception e) {
+		luaL_error(L, "RSA CIPHER FORMATION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		luaL_error(L, e.what());
+	}
+
+	unsigned char * data = (unsigned char*)malloc(rsa_key->impl()->size());
+	memset(data, 0, rsa_key->impl()->size());
+	Poco::MemoryInputStream istream((char *)cipher_text, rsa_key->impl()->size());
+	Poco::MemoryOutputStream ostream((char *)data, rsa_key->impl()->size());
+
+	try {
+		pRSACipher->decrypt(istream, ostream);
+	}
+	catch (Poco::Exception e) {
+		free(data);
+		luaL_error(L, "RSA DECRYPTION FAILED [%s]\n", e.message().c_str());
+	}
+	catch (std::exception e) {
+		free(data);
+		luaL_error(L, e.what());
+	}
+
+	CipherKey* cipher_key = deserialize_symmetric_key(L, data);
+	free(data);
+
+	void * ptr = lua_newuserdata(L, sizeof(CipherKey *));
+	*((CipherKey **)ptr) = cipher_key;
+	luaL_setmetatable(L, _cipher_key_name);
+
+	return 1;
+}
+
 static int rsa_decrypt_enc_symm_key(lua_State *L)
 {
 	cipher_text_s * cipher_text = (cipher_text_s*)luaL_checkudata(L, 1, _cipher_text_name);
@@ -868,6 +918,7 @@ int luaopen_libevlcrypto(lua_State *L)
 		,{"rsa_encrypt_symm_key", rsa_encrypt_symm_key}
 
 		,{"rsa_decrypt_enc_symm_key", rsa_decrypt_enc_symm_key}
+		,{"rsa_decrypt_udata_enc_symm_key", rsa_decrypt_udata_enc_symm_key}
 		,{"rsa_decrypt_b64_enc_symm_key", rsa_decrypt_b64_enc_symm_key}
 
 
