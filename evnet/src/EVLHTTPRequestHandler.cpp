@@ -3146,7 +3146,7 @@ static int set_keep_alive(lua_State* L)
 	}
 	else {
 		Net::HTTPMessage& message = *(*(Net::HTTPMessage**)lua_touserdata(L, -2));
-		const int value = lua_tointeger(L, -1);
+		const bool value = lua_toboolean(L, -1);
 		message.setKeepAlive(value);
 	}
 

@@ -479,7 +479,7 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 
 						std::string access_control_request_hdrs = request->get("Access-Control-Request-Headers", "");
 						std::string access_control_request_mthd = request->get("Access-Control-Request-Method", "");
-						if (!(request->getMethod().compare("OPTIONS")) &&
+						if ((1 != 1) && !(request->getMethod().compare("OPTIONS")) &&
 							(access_control_request_hdrs.compare("") || access_control_request_mthd.compare(""))) {
 							response->sendPreFlightResponse();
 							reqProcState->setState(PROCESS_COMPLETE);
