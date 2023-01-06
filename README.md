@@ -35,4 +35,4 @@ POCO is best thought of as a Boost complement (rather than replacement).
 Side-by-side use of Boost and POCO is a very common occurrence.
 
 [overview]: doc/images/overview.png "Poco Overview"
-[logo]: doc/images/logotk.png "Tekenlight Logo" = 100x20
+[logo]: doc/images/logotk.png "Tekenlight Logo"
