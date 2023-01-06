@@ -4,12 +4,12 @@
 EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ---------------------------------------------
 
-- A collection of C++ class libraries and C functions, built on top of [Poco library](https://github.com/pocoproject/poco)
+- A collection of C++ class libraries and C functions, built by enahancing [Poco library](https://github.com/pocoproject/poco)
+- Exposes a set of platform functions to lua programming language, making it easy to develop web applications in lua
+- Implements event driven IO through coroutines, i.e. threads initiating IO do not block and continue with other taks, and once the IO is complete any free thread continue the task from where it was left of
+- The IO-event driven task handling is achieved via coroutines in lua, which accomplishes cooperative multi-tasking and provides the programmer an interface of sequential code vis-a-vis an event driven code with promises etc...
 - Focused on solutions to frequently-encountered practical problems.
 - Focused on ‘internet-age’ network-centric applications.
-- Written in efficient, modern, 100% ANSI/ISO Standard C++.
-- Based on and complementing the C++ Standard Library/STL.
-- Highly portable and available on many different platforms, from embedded to server.
 - Open Source, licensed under the [Boost Software License](https://spdx.org/licenses/BSL-1.0).
 
 ![alt text][overview]
