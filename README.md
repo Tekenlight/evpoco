@@ -1,4 +1,4 @@
-<img src="doc/images/logotk.png" width="300"/>
+<img src="doc/images/logotk.png" width="250"/>
 
 
 EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
