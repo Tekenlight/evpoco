@@ -1,15 +1,10 @@
 <img src="doc/images/logotk.png" width="300"/>
 
 
-[![Travis Build Status](https://travis-ci.org/pocoproject/poco.png?branch=master)](https://travis-ci.org/pocoproject/poco)
-[![Build status](https://ci.appveyor.com/api/projects/status/7iyrx3f233s3akae/branch/master?svg=true)](https://ci.appveyor.com/project/obiltschnig/poco/branch/master)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/370/badge)](https://bestpractices.coreinfrastructure.org/projects/370)
-
-
-POCO (Portable Components) C++ Libraries are:
+EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ---------------------------------------------
 
-- A collection of C++ class libraries, conceptually similar to the Java Class Library, the .NET Framework or Apple’s Cocoa.
+- A collection of C++ class libraries and C functions, conceptually similar to the Java Class Library, the .NET Framework or Apple’s Cocoa.
 - Focused on solutions to frequently-encountered practical problems.
 - Focused on ‘internet-age’ network-centric applications.
 - Written in efficient, modern, 100% ANSI/ISO Standard C++.
