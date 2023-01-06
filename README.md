@@ -4,7 +4,7 @@
 EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ---------------------------------------------
 
-- A collection of C++ class libraries and C functions, conceptually similar to the Java Class Library, the .NET Framework or Apple’s Cocoa.
+- A collection of C++ class libraries and C functions, built on top of [Poco library](https://github.com/pocoproject/poco)
 - Focused on solutions to frequently-encountered practical problems.
 - Focused on ‘internet-age’ network-centric applications.
 - Written in efficient, modern, 100% ANSI/ISO Standard C++.
