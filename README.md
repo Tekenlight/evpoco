@@ -1,4 +1,6 @@
+<div>
 ![alt text][logo]
+</div>
 
 
 [![Travis Build Status](https://travis-ci.org/pocoproject/poco.png?branch=master)](https://travis-ci.org/pocoproject/poco)
