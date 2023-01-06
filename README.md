@@ -1,4 +1,4 @@
-<img src="doc/images/logotk.png" width="500"/>
+<img src="doc/images/logotk.png" width="300"/>
 
 
 [![Travis Build Status](https://travis-ci.org/pocoproject/poco.png?branch=master)](https://travis-ci.org/pocoproject/poco)
