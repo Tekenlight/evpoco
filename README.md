@@ -1,4 +1,4 @@
-![alt text][logo = 100x20]
+![alt text][logo]
 
 
 [![Travis Build Status](https://travis-ci.org/pocoproject/poco.png?branch=master)](https://travis-ci.org/pocoproject/poco)
@@ -35,4 +35,4 @@ POCO is best thought of as a Boost complement (rather than replacement).
 Side-by-side use of Boost and POCO is a very common occurrence.
 
 [overview]: doc/images/overview.png "Poco Overview"
-[logo]: doc/images/logotk.png "Tekenlight Logo"
+[logo]: (doc/images/logotk.png "Tekenlight Logo" = 100x20)
