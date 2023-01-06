@@ -1,4 +1,4 @@
-![alt text](doc/images/logotk.png)
+![alt text](doc/images/logotk.png == 100x20)
 
 
 [![Travis Build Status](https://travis-ci.org/pocoproject/poco.png?branch=master)](https://travis-ci.org/pocoproject/poco)
