@@ -42,14 +42,11 @@ Building with CMake (linux and MacOS):
 $ git clone -b master https://github.com/Tekenlight/evpoco  
 $ cd evpoco  
 $ mkdir cmake-build  
-$ cmake -DPG_VERSION="<Postgresql version 12 or 4>" ..  
+$ cmake -DPG_VERSION="<Postgresql version 12 or 14>" ..  
 $ cmake --build . --config Release  
 ```
 
 ----
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for submitting contributions, bugs reports, feature requests or security issues.
-
 
 [overview]: doc/images/Overview.png "evpoco Overview"
