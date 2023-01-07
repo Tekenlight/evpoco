@@ -28,7 +28,16 @@ Dependencies maintained in Tekenlight
 - [Customized lua 5.3.5](https://github.com/Tekenlight/lua)
 - [efio event driven file-io and lockfree data structures](https://github.com/Tekenlight/efio)
 
+Currently the dependencies maintained in Tekenlight have to be built first and installed before building evpoco.
 (TDB) Customized libev, Customized lua 5.3.5 and efio are to be merged into the evpoco repository
+
+Building with CMake (linux and MacOS):
+-------
+``
+$ git clone -b master https://github.com/Tekenlight/evpoco
+cd 
+``
+
 
 ----
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
