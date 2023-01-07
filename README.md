@@ -32,6 +32,7 @@ Dependencies maintained in Tekenlight
 - [Customized libev](https://github.com/Tekenlight/libev)
 - [Customized lua 5.3.5](https://github.com/Tekenlight/lua)
 - [efio event driven file-io and lockfree data structures](https://github.com/Tekenlight/efio)
+- [Customized redis client](https://github.com/Tekenlight/hiredis)
 
 Currently the dependencies maintained in Tekenlight have to be built first and installed before building evpoco.
 (TDB) Customized libev, Customized lua 5.3.5 and efio are to be merged into the evpoco repository
