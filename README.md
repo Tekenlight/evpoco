@@ -15,13 +15,13 @@ EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ![alt text][overview]
 
 Build and dependencies:
---------------
+---------------------------------------------
 
 - CMake 3.5 or newer
 - A C++14 compiler (GCC 5.0, Clang 3.4, or newer)
 - OpenSSL headers and libraries
 - PostgreSQL client libraries  
-  
+
 - openssl and libssl-dev
 - [Customized libev](https://github.com/Tekenlight/libev)
 - [Customized lua 5.3.5](https://github.com/Tekenlight/lua)
@@ -29,6 +29,7 @@ Build and dependencies:
 
 (TDB) Customized libev, Customized lua 5.3.5 and efio are to be merged into the evpoco repository
 
+![alt text][overview]
 ----
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
 
