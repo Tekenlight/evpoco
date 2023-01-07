@@ -22,7 +22,7 @@ Build and dependencies:
 - OpenSSL headers and libraries
 - PostgreSQL client libraries  
 - openssl and libssl-dev
-&nbsp  
+
 - [Customized libev](https://github.com/Tekenlight/libev)
 - [Customized lua 5.3.5](https://github.com/Tekenlight/lua)
 - [efio event driven file-io and lockfree data structures](https://github.com/Tekenlight/efio)
