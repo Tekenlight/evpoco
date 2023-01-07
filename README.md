@@ -21,7 +21,7 @@ Build and dependencies:
 - A C++14 compiler (GCC 5.0, Clang 3.4, or newer)
 - OpenSSL headers and libraries
 - PostgreSQL client libraries  
-
+  
 - openssl and libssl-dev
 - [Customized libev](https://github.com/Tekenlight/libev)
 - [Customized lua 5.3.5](https://github.com/Tekenlight/lua)
