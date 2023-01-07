@@ -553,6 +553,7 @@ private:
 	char hostIPAddress[INET_ADDRSTRLEN+1];
 };
 
+/*
 int func(int argc, char ** argv)
 {
 	int ret = 0;
@@ -569,3 +570,6 @@ int main(int argc, char** argv)
 
 	return ret;
 }
+*/
+
+POCO_SERVER_MAIN(evluaserver)
