@@ -16,7 +16,7 @@ EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 
 The library essentially genetates two outputs evluaserver and evlua
 - **evluaserver**: A HTTP server that listens on a port for HTTP requests. Upon arrival of a new HTTP request a lua file main.lua is run. The file should be present in the directory where from where the executable is run or present in path as specified by the environmental variable EVLUA_PATH
-- The global lua module **platform** is avaialble to the lua file using which other aspects of HTTP processing such as request, response etc... can be accessed. The [documentation](https://github.com/Tekenlight/evpoco/wiki) has complete datails of various services available to the lua environment.
+	- The global lua module **platform** is avaialble to the lua file using which other aspects of HTTP processing such as request, response etc... can be accessed. The [documentation](https://github.com/Tekenlight/evpoco/wiki) has complete datails of various services available to the lua environment.
 - **evlua**: A standalone component which can run a lua script from the commandline. A lua file when run from evlua can access **platform** and achieve event driven IO.
 
 Build and dependencies:
@@ -39,11 +39,11 @@ Currently the dependencies maintained in Tekenlight have to be built first and i
 Building with CMake (linux and MacOS):
 -------
 ``
-$ git clone -b master https://github.com/Tekenlight/evpoco
-$ cd evpoco
-$ mkdir cmake-build
-$ cmake -DPG_VERSION="<Postgresql version 12 or 4>"..
-$ cmake --build . --config Release
+$ git clone -b master https://github.com/Tekenlight/evpoco 
+$ cd evpoco 
+$ mkdir cmake-build 
+$ cmake -DPG_VERSION="<Postgresql version 12 or 4>".. 
+$ cmake --build . --config Release 
 ``
 
 ----
