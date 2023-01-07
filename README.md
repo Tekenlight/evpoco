@@ -15,7 +15,7 @@ EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ![alt text][overview]
 
 Build and dependencies:
-----------------------------
+--------------
 
 - CMake 3.5 or newer
 - A C++14 compiler (GCC 5.0, Clang 3.4, or newer)
