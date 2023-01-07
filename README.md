@@ -47,6 +47,8 @@ $ cmake -DPG_VERSION="<Postgresql version 12 or 14>" ..
 $ cmake --build . --config Release  
 ```
 
+Usage [examples](https://github.com/Tekenlight/evpoco/tree/master/evluaserver/samples/LUA/src) of evluaserver are provided
+
 ----
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
 
