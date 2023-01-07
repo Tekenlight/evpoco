@@ -14,6 +14,7 @@ EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 
 ![alt text][overview]
 
+------
 Build and dependencies:
 --------------
 
