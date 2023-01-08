@@ -89,3 +89,30 @@ target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 POCO_INSTALL("${LIBNAME}")
 POCO_GENERATE_PACKAGE("${LIBNAME}")
 
+
+# from https://discourse.cmake.org/t/how-to-generate-pc-pkg-config-file-supporting-prefix-of-the-cmake-install/4109
+#set (CMAKE_PROJECT_DESCRIPTION "Set of lua hooks exposed to evlua environment")
+#set(target "${LIBNAME}")
+
+#set(pc_libs_private)
+#set(pc_req_private)
+#set(pc_req_public)
+
+#configure_file(evlcrypto_package.pc.in evlcrypto.pc @ONLY)
+
+# https://chromium.googlesource.com/external/github.com/g-truc/glm/+/0.9.5/cmake/GNUInstallDirs.cmake
+# include(GNUInstallDirs.cmake)
+
+#message(STATUS "===========")
+#message(STATUS "===========")
+#message(STATUS ${CMAKE_INSTALL_LIBDIR})
+#message(STATUS ${CMAKE_INSTALL_DATAROOTDIR})
+#message(STATUS ${CMAKE_INSTALL_FULL_LIBDIR})
+#message(STATUS ${CMAKE_INSTALL_PREFIX})
+#message(STATUS "===========")
+#message(STATUS "===========")
+# 
+#install(
+#     FILES ${CMAKE_CURRENT_BINARY_DIR}/evlcrypto.pc
+#    DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig
+#)
