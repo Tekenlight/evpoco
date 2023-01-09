@@ -57,5 +57,5 @@ Usage [examples](https://github.com/Tekenlight/evpoco/tree/master/evluaserver/sa
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
 
 [overview]: doc/images/Overview.png "evpoco Overview"
-[thread]: doc/images/LUA_THREADS.png "Thread model"
+[thread]: doc/images/lua_threads.png "Thread model"
 
