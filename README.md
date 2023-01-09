@@ -4,6 +4,10 @@
 EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ---------------------------------------------
 
+Provides a cooperative multitasking platform fr LUA
+
+<img src="doc/images/LUA_THREADS.png" width="200"/>
+
 - A collection of C++ class libraries and C functions, built by enahancing a fork from [Poco library](https://github.com/pocoproject/poco)
 - Exposes a set of platform functions to lua programming language, making it easy to develop web applications in lua
 - Implements event driven IO through coroutines, i.e. threads initiating IO do not block and continue with other taks, and once the IO is complete any available thread continues the task from where the task was left of
