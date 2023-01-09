@@ -16,7 +16,7 @@ Provides a cooperative multitasking platform for LUA
 - Focused on ‘internet-age’ network-centric applications.
 - Open Source, licensed under the [Boost Software License](https://spdx.org/licenses/BSL-1.0).
 
-![alt text][overview]
+![alt text][thread_model]
 
 The library essentially genetates two outputs evluaserver and evlua
 - **evluaserver**: A HTTP server that listens on a port for HTTP requests. Upon arrival of a new HTTP request a lua file main.lua is run. The file should be present in the directory where from where the executable is run or present in path as specified by the environmental variable EVLUA_PATH
@@ -57,4 +57,4 @@ Usage [examples](https://github.com/Tekenlight/evpoco/tree/master/evluaserver/sa
 See the [documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
 
 [overview]: doc/images/Overview.png "evpoco Overview"
-[thread_model]: /doc/images/LUA_THREADS.png "Thread model"
+[thread_model]: doc/images/LUA_THREADS.png "Thread model"
