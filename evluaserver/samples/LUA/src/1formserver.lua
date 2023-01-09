@@ -5,7 +5,7 @@ function handle_request()
 	local response = platform.get_http_response();
 
 
-	local addresses = platform.resolve_host_address('localhost', 'https');
+	local addresses = platform.resolve_host_address('localhost', 'ftp');
 	response:set_chunked_trfencoding(true);
 	response:set_content_type("text/html");
 	response:send();
