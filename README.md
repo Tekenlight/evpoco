@@ -1,6 +1,5 @@
 <img src="doc/images/logotk.png" width="200"/>
 
-
 EVPOCO (EVENT DRIVEN Portable Components) C/C++ Libraries are:
 ---------------------------------------------
 
@@ -41,7 +40,7 @@ Dependencies maintained in Tekenlight
 - [Customized redis client](https://github.com/Tekenlight/hiredis)
 
 Currently the dependencies maintained in Tekenlight have to be built first and installed before building evpoco.
-(TDB) Customized libev, Customized lua 5.3.5 and efio are to be merged into the evpoco repository
+(TDB) Customized libev, Customized lua 5.3.5 and evpoco, efio, redis client, postgresql client  are to be merged into single repository evpoco 
 
 Building with CMake (linux and MacOS):
 -------
