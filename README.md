@@ -54,9 +54,9 @@ $ cmake --build . --config Release
 Usage [examples](https://github.com/Tekenlight/evpoco/tree/master/evluaserver/samples/LUA/src) of evlua and evluaserver are provided
 
 ----
-See the [Usage documentation](https://github.com/Tekenlight/evpoco/wiki) for usage
+See the [Usage documentation](https://github.com/Tekenlight/evpoco/wiki) for usage<br/>
 Other links: [evlua documentation](https://github.com/Tekenlight/.github/wiki)
 
-[overview]: doc/images/Overview.png "evpoco Overview"<br/>
+[overview]: doc/images/Overview.png "evpoco Overview"
 [thread]: doc/images/lua_threads.png "Thread model"
 
