@@ -14,8 +14,6 @@ POCO_SOURCES_AUTO( SRCS ${SRCS_H})
 file(GLOB_RECURSE HDRS_H "include/*.h" )
 POCO_HEADERS_AUTO( SRCS ${HDRS_H})
 
-set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
-set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 # Windows and WindowsCE need additional libraries
@@ -34,15 +32,6 @@ else(APPLE)
 add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 endif(APPLE)
 
-#set_target_properties( "${LIBNAME}"
-#    PROPERTIES
-#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
-#    OUTPUT_NAME ${POCO_LIBNAME}
-#    DEFINE_SYMBOL evpostgres_EXPORTS
-#    )
-
-#VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
-#These flags are not supported in .so mode MODULE instead of SHARED (for .dylib files on macosx)
 
 if(APPLE)
 set_target_properties( "${LIBNAME}"
@@ -61,19 +50,10 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-string(APPEND LINK_TIME_FLAGS " ")
-foreach(lib ${ADD_LIBRARY_PATH})
-string(APPEND LINK_TIME_FLAGS " ")
-string(APPEND LINK_TIME_FLAGS "-L${lib}")
-string(APPEND LINK_TIME_FLAGS " ")
-endforeach(lib)
-string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
-set(LTF ${LINK_TIME_FLAGS})
-
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${LIBNAME}" PRIVATE ${dir} )
 endforeach(dir)
-target_link_libraries( "${LIBNAME}" "${LTF}" lualib NetSSL)
+target_link_libraries( "${LIBNAME}" lualib NetSSL)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

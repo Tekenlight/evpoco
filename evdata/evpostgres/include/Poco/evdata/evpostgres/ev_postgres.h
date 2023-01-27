@@ -1,7 +1,9 @@
 extern "C" {
 #ifdef LOCAL_DEVELOPMENT
-#include "libpq-fe.h"
-#include "catalog/pg_type_d.h"
+//#include "libpq-fe.h"
+//#include "catalog/pg_type_d.h"
+#include "postgresql13/libpq-fe.h"
+#include "postgresql13/server/catalog/pg_type_d.h"
 #else
 #if defined (PG_VERSION) && (PG_VERSION == 12) 
 #include "postgresql/libpq-fe.h"

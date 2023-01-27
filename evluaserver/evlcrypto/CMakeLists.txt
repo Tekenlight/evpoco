@@ -14,8 +14,6 @@ POCO_SOURCES_AUTO( SRCS ${SRCS_H})
 file(GLOB_RECURSE HDRS_H "include/*.h" )
 POCO_HEADERS_AUTO( SRCS ${HDRS_H})
 
-set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
-set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 # Windows and WindowsCE need additional libraries
@@ -61,19 +59,10 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-string(APPEND LINK_TIME_FLAGS " ")
-foreach(lib ${ADD_LIBRARY_PATH})
-string(APPEND LINK_TIME_FLAGS " ")
-string(APPEND LINK_TIME_FLAGS "-L${lib}")
-string(APPEND LINK_TIME_FLAGS " ")
-endforeach(lib)
-string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
-set(LTF ${LINK_TIME_FLAGS})
-
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${LIBNAME}" PRIVATE ${dir} )
 endforeach(dir)
-target_link_libraries( "${LIBNAME}" "${LTF}" lualib Crypto)
+target_link_libraries( "${LIBNAME}" lualib Crypto)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

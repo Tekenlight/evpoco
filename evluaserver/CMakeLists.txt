@@ -6,7 +6,6 @@ set(SAMPLE_NAME2 "evlua")
 set(LOCAL_SRCS "")
 aux_source_directory(src LOCAL_SRCS)
 
-set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 add_executable( ${SAMPLE_NAME1} "src/evluaserver.cpp" "src/evlua_util.cpp" )

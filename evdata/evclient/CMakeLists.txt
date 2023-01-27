@@ -14,8 +14,6 @@ POCO_SOURCES_AUTO( SRCS ${SRCS_H})
 file(GLOB_RECURSE HDRS_H "include/*.h" )
 POCO_HEADERS_AUTO( SRCS ${HDRS_H})
 
-set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
-set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 # Windows and WindowsCE need additional libraries
@@ -29,21 +27,10 @@ endif(WIN32)
 
 #message(STATUS "${LIBNAME} " " ${SHARED_LIBRARY_VERSION}" " ${POCO_LIBNAME}" )
 if(APPLE)
-add_library( "${LIBNAME}" MODULE ${SRCS} ) #This is needed to creare .so file
-#add_library( "${LIBNAME}" "${LIB_MODE}" "${SRCS}" ) #This is needed to creare .so file
+	add_library( "${LIBNAME}" MODULE ${SRCS} ) #This is needed to creare .so file
 else(APPLE)
-add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
+	add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 endif(APPLE)
-#add_library( "${POCO_LIBNAME}" ALIAS "${LIBNAME}")
-#set_target_properties( "${LIBNAME}"
-#    PROPERTIES
-#    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
-#    OUTPUT_NAME ${POCO_LIBNAME}
-#    DEFINE_SYMBOL evclient_EXPORTS
-#    )
-
-#VERSION AND SOVERSION set -compatibility_version 60.0.0 and -current_version 60.0.0 flags at linker stage.
-#These flags are not supported in .so mode MODULE instead of SHARED (for .dylib files on macosx)
 
 if(APPLE)
 set_target_properties( "${LIBNAME}"
@@ -62,15 +49,7 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-string(APPEND LINK_TIME_FLAGS " ")
-foreach(lib ${ADD_LIBRARY_PATH})
-string(APPEND LINK_TIME_FLAGS " ")
-string(APPEND LINK_TIME_FLAGS "-L${lib}")
-string(APPEND LINK_TIME_FLAGS " ")
-endforeach(lib)
-string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
-set(LTF ${LINK_TIME_FLAGS})
-target_link_libraries( "${LIBNAME}" "${LTF}" lualib evnet evdata)
+target_link_libraries( "${LIBNAME}" lualib evnet evdata)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -78,9 +57,8 @@ target_include_directories( "${LIBNAME}"
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
-	string(APPEND INC_DIRS "-I${dir} ")
+	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
 endforeach(dir)
-set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
 
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 
