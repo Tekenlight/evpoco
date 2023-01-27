@@ -12,7 +12,6 @@ file(GLOB_RECURSE HDRS_G "include/*.h" )
 POCO_HEADERS_AUTO( SRCS ${HDRS_G})
 
 set(ADD_LIBRARY_PATH "$ENV{ADD_LIB}")
-set(ADD_INCLUDE_DIRECTORIES $ENV{ADD_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
 # Windows and WindowsCE need additional libraries
@@ -41,6 +40,7 @@ set_target_properties( "${LIBNAME}"
     DEFINE_SYMBOL lualib_EXPORTS
     )
 else(APPLE)
+
 set_target_properties( "${LIBNAME}"
     PROPERTIES
 	LINK_FLAGS "-fpic"
@@ -50,31 +50,23 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-string(APPEND LINK_TIME_FLAGS " ")
-foreach(lib ${ADD_LIBRARY_PATH})
-string(APPEND LINK_TIME_FLAGS "-L${lib}")
-string(APPEND LINK_TIME_FLAGS " ")
-endforeach(lib)
-string(STRIP ${LINK_TIME_FLAGS} LINK_TIME_FLAGS)
-set(LTF ${LINK_TIME_FLAGS})
-foreach(dir ${ADD_INCLUDE_DIRECTORIES})
-	include_directories(SYSTEM ${dir})
-	#string(APPEND INC_DIRS "-I${dir} ")
-endforeach(dir)
-
+find_library(LIBLUA NAMES lua REQUIRED)
 if(APPLE)
-target_link_libraries( "${LIBNAME}" "${LTF}" lua )
+	target_link_libraries( "${LIBNAME}" ${LIBLUA} )
 else(APPLE)
-target_link_libraries( "${LIBNAME}" "${LTF}" "-Wl,--whole-archive,--no-whole-archive" lua )
+	target_link_libraries( "${LIBNAME}" "-Wl,--whole-archive,--no-whole-archive" )
+	target_link_libraries( "${LIBNAME}" ${LIBLUA} )
 endif(APPLE)
+
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
-
-#set_target_properties("${LIBNAME}" PROPERTIES APPEND PROPERTY COMPILE_FLAGS "${INC_DIRS}")
+foreach(dir ${ADD_INCLUDE_DIRECTORIES})
+	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
+endforeach(dir)
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
 
 POCO_INSTALL("${LIBNAME}")
