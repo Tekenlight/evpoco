@@ -1,6 +1,21 @@
 #ifndef EV_SQL_ACCESS_H_INCLUDED
 #define EV_SQL_ACCESS_H_INCLUDED
 
+#ifdef TARGET_OS_OSX
+#undef TARGET_OS_OSX
+#endif 
+
+#if defined __APPLE__ && defined __MACH__
+
+#define TARGET_OS_OSX 1
+
+#ifndef TARGET_OS_OSX
+#error
+#endif 
+
+#endif
+
+
 #include <string>
 
 #include <sys/cdefs.h>

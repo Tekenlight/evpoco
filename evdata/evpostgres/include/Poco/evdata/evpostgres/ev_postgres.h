@@ -1,29 +1,71 @@
-extern "C" {
-#ifdef LOCAL_DEVELOPMENT
-//#include "libpq-fe.h"
-//#include "catalog/pg_type_d.h"
-#include "postgresql13/libpq-fe.h"
-#include "postgresql13/server/catalog/pg_type_d.h"
-#else
-#if defined (PG_VERSION) && (PG_VERSION == 12) 
-#include "postgresql/libpq-fe.h"
-#include "postgresql/12/server/catalog/pg_type_d.h"
-#else
-#if defined (PG_VERSION) && (PG_VERSION == 14)
-#include "postgresql/libpq-fe.h"
-#include "postgresql/14/server/catalog/pg_type_d.h"
-#else
-#error
-#endif
-#endif
-#endif
-}
-#include <Poco/evdata/ev_sql_access.h>
-#include <Poco/evnet/EVLHTTPRequestHandler.h>
-
-
 #ifndef EV_POSTGRES_H_INCLUDED
 #define EV_POSTGRES_H_INCLUDED
+
+#include <Poco/evdata/ev_sql_access.h>
+
+extern "C" {
+
+#ifdef TARGET_OS_OSX // {
+
+#if defined (PG_VERSION) && (PG_VERSION == 12)  // {
+
+#include "postgresql12/libpq-fe.h"
+#include "postgresql12/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 13) // } {
+
+#include "postgresql13/libpq-fe.h"
+#include "postgresql13/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 14) // } {
+
+#include "postgresql14/libpq-fe.h"
+#include "postgresql14/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 15) // } {
+
+#include "postgresql15/libpq-fe.h"
+#include "postgresql15/server/catalog/pg_type_d.h"
+
+#else // } {
+
+#error
+
+#endif // }
+
+#else // } {
+
+#if defined (PG_VERSION) && (PG_VERSION == 12)  // {
+
+#include "postgresql/libpq-fe.h"
+#include "postgresql/12/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 13) // } {
+
+#include "postgresql/libpq-fe.h"
+#include "postgresql/13/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 14) // } {
+
+#include "postgresql/libpq-fe.h"
+#include "postgresql/14/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 15) // } {
+
+#include "postgresql/libpq-fe.h"
+#include "postgresql/15/server/catalog/pg_type_d.h"
+
+#else // } {
+
+#error
+
+#endif // }
+
+
+#endif // }
+
+}
+#include <Poco/evnet/EVLHTTPRequestHandler.h>
 
 
 #define EV_POSTGRES_CONNECTION	"POSTGRES_CONNECTION"

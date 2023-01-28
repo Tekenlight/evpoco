@@ -9,7 +9,8 @@
 # on M1 OSX in order to install on local directories and to enable dual build and to futher picup postgresql libraris from macport related directories,
 # ADD_INCLUDE_DIR="$HOME/usr/local/include;$HOME/usr/include";export ADD_INCLUDE_DIR 
 # ADD_LIB="$HOME/usr/local/lib;$HOME/usr/lib"; export ADD_LIB
-# cmake -DLOCAL_DEVELOPMENT=1 -DCMAKE_INSTALL_PREFIX=$HOME/usr/local -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/lib" ..
+
+# cmake -DPG_VERSION=13 -DCMAKE_INSTALL_PREFIX=$HOME/usr/local -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/lib" ..
 
 # on ubuntu in order to install on system directories,
 # cmake -DPG_VERSION=14 .. 
