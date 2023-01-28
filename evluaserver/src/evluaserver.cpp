@@ -30,7 +30,7 @@
 #include "Poco/Util/HelpFormatter.h"
 #include <iostream>
 #include <algorithm>
-#include <hiredis/hiredis.h>
+#include <evlua/hiredis/hiredis.h>
 #include <sys/time.h>
 
 #include <sys/types.h>

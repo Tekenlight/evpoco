@@ -13,7 +13,7 @@
 //
 #include <string>
 #include <chunked_memory_stream.h>
-#include <http_parser.h>
+#include <evlua/http_parser.h>
 
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"

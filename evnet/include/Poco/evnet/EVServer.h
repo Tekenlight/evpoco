@@ -1,9 +1,9 @@
 #ifndef EVNet_EVServer_INCLUDED
 #define EVNet_EVServer_INCLUDED
 
-#include <hiredis/hiredis.h>
-#include <hiredis/async.h>
-#include <hiredis/adapters/libev.h>
+#include <evlua/hiredis/hiredis.h>
+#include <evlua/hiredis/async.h>
+#include <evlua/hiredis/adapters/libev.h>
 
 #include "Poco/Net/Net.h"
 #include "Poco/evnet/evnet.h"

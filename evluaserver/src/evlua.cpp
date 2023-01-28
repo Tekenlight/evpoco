@@ -113,7 +113,7 @@ public:
 #include <sys/select.h>
 #include <pthread.h>
 
-#include <ev.h>
+//#include <ev.h>
 
 class evlua: public Poco::Util::ServerApplication
 	/// The main application class to start a LUA

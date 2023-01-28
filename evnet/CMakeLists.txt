@@ -30,13 +30,13 @@ set_target_properties( "${LIBNAME}"
     )
 
 target_link_libraries( "${LIBNAME}" Foundation Net Util lualib)
-find_library(LIBEV NAMES ev REQUIRED)
+find_library(LIBEV NAMES ev REQUIRED PATH_SUFFIXES "evlua")
 find_library(LIBEVDS NAMES evds REQUIRED)
 find_library(LIBEVSYNC NAMES evsync REQUIRED)
 find_library(LIBEVIO NAMES evio REQUIRED)
 find_library(LIBEVTHRPOOL NAMES evthrpool REQUIRED)
-find_library(LIBHTTP_PARSER NAMES http_parser REQUIRED)
-find_library(LIBHIREDIS NAMES hiredis REQUIRED)
+find_library(LIBHTTP_PARSER NAMES http_parser REQUIRED PATH_SUFFIXES "evlua")
+find_library(LIBHIREDIS NAMES hiredis REQUIRED PATH_SUFFIXES "evlua")
 target_link_libraries( "${LIBNAME}" ${LIBEV} ${LIBEVDS} ${LIBEVSYNC} ${LIBEVIO} ${LIBEVTHRPOOL} ${LIBHTTP_PARSER} ${LIBHIREDIS} )
 
 target_include_directories( "${LIBNAME}"

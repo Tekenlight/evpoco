@@ -19,7 +19,7 @@
 
 #include <atomic>
 
-#include <ev.h>
+#include <evlua/ev.h>
 #include <map>
 
 #include <ev_queue.h>

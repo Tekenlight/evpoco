@@ -71,11 +71,15 @@ elseif(PG_VERSION EQUAL 15)
 	find_library(LIBPQ NAMES pq REQUIRED PATH_SUFFIXES "postgresql14" "postgresql/14" )
 endif()
 
+# The additional includes are to take hiredis into consideration
+foreach(dir ${ADD_INCLUDE_DIRECTORIES})
+	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
+endforeach(dir)
+target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" )
+
 if (APPLE)
 	target_include_directories( "${LIBNAME}" PUBLIC "/opt/local/include/")
 endif ()
-
-target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" )
 
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})

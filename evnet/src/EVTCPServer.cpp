@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
-#include <ev.h>
+#include <evlua/ev.h>
 #include <ef_io.h>
 
 #include "Poco/evnet/evnet.h"
