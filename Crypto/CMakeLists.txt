@@ -6,6 +6,14 @@ POCO_SOURCES_AUTO(SRCS ${SRCS_G})
 file(GLOB_RECURSE HDRS_G "include/*.h")
 POCO_HEADERS_AUTO(SRCS ${HDRS_G})
 
+if(APPLE)
+	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
+elseif(LINUX)
+	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling -fPIC")
+else()
+	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
+endif()
+
 # Version Resource
 if(MSVC AND BUILD_SHARED_LIBS)
 	source_group("Resources" FILES ${PROJECT_SOURCE_DIR}/DLLVersion.rc)
