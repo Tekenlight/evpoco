@@ -11,7 +11,7 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
-#include <evlua/ev.h>
+#include <evpoco/ev.h>
 #include <sys/time.h>
 #include "Poco/evnet/evnet.h"
 #include "Poco/evnet/EVAcceptedStreamSocket.h"

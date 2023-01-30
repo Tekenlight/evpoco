@@ -60,7 +60,7 @@ STATICOPT_CXX   =
 STATICOPT_LINK  =
 SHAREDOPT_CC    = -fPIC 
 SHAREDOPT_CXX   = -fPIC
-SHAREDOPT_LINK  = 
+SHAREDOPT_LINK  = -Wl,-rpath,$(LIBPATH)
 DEBUGOPT_CC     = -O0 -g -gdwarf-2 -fasm-blocks -D_DEBUG=$(DEBUGLEVEL)
 DEBUGOPT_CXX    = -O0 -g -gdwarf-2 -fasm-blocks -D_DEBUG=$(DEBUGLEVEL) 
 DEBUGOPT_LINK   =

@@ -36,7 +36,7 @@
 #include "Poco/Ascii.h"
 #include "Poco/String.h"
 
-#include <evlua/http_parser.h>
+#include <evpoco/http_parser.h>
 
 //extern int global_debugging_i;
 

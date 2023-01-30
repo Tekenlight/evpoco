@@ -27,7 +27,7 @@
 #include <string>
 
 #include <chunked_memory_stream.h>
-#include <evlua/http_parser.h>
+#include <evpoco/http_parser.h>
 
 #ifndef EVNet_EVCommandLineProcessingState_INCLUDED
 #define EVNet_EVCommandLineProcessingState_INCLUDED
