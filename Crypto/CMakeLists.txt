@@ -8,7 +8,7 @@ POCO_HEADERS_AUTO(SRCS ${HDRS_G})
 
 if(APPLE)
 	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
-elseif(LINUX)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling -fPIC")
 else()
 	set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
