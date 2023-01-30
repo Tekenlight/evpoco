@@ -37,9 +37,6 @@ find_library(LIBEVIO NAMES evio REQUIRED)
 find_library(LIBEVTHRPOOL NAMES evthrpool REQUIRED)
 find_library(LIBHTTP_PARSER NAMES http_parser REQUIRED PATH_SUFFIXES "evpoco")
 find_library(LIBHIREDIS NAMES hiredis REQUIRED PATH_SUFFIXES "evpoco")
-message(STATUS "======")
-message(STATUS ${LIBHTTP_PARSER})
-message(STATUS "======")
 target_link_libraries( "${LIBNAME}" ${LIBEV} ${LIBEVDS} ${LIBEVSYNC} ${LIBEVIO} ${LIBEVTHRPOOL} ${LIBHTTP_PARSER} ${LIBHIREDIS} )
 
 target_include_directories( "${LIBNAME}"
