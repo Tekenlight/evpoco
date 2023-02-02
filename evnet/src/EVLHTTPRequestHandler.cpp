@@ -4166,6 +4166,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		lua_setglobal(_L, S_CURRENT_ALLOC_SIZE);
 
 		if (enable_lua_cache) {
+//#ifdef LUA_FILE_CACHING
 			lua_pushlightuserdata(_L, (void*)luaL_loadcachedbufferx);
 			lua_setglobal(_L, LUA_CACHED_FILE_LOADER_FUNCTION);
 
@@ -4180,6 +4181,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 
 			lua_pushlightuserdata(_L, (void*)luaL_addfilepathtocache);
 			lua_setglobal(_L, LUA_ADDTO_CACHED_PATH_FUNCTION);
+//#endif
 		}
 	}
 }
@@ -4205,6 +4207,7 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 	}
 	else {
 		//if (!getServer().aborting()) lua_close(_L);
+		//DEBUGPOINT("CLOSING [%p] \n", _L);
 		lua_close(_L);
 	}
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
@@ -4566,8 +4569,25 @@ int EVLHTTPRequestHandler::handleRequest()
 		}
 	}
 
+#ifdef DEBUG_NEVER
+	{
+		Net::HTTPServerResponse* responsePtr = getHTTPResponsePtr();
+		Net::HTTPServerResponse& response = *responsePtr;
+		response.setChunkedTransferEncoding(true);
+		response.setStatusAndReason(Net::HTTPResponse::HTTP_OK);
+		response.setContentType("text/html");
+		std::ostream& ostr = response.send();
+		ostr << "{\"name\":\"His name\", \"age\": 5\"}\n";
+		ostr.flush();
+		return PROCESSING_COMPLETE;
+	}
+#endif
+
+
 	//DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n",
-			//(void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
+	//		(void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
+	int nres = 0;
+	//status = lua_resume(_L, NULL, nargs, &nres); for lua 5.4.4
 	status = lua_resume(_L, NULL, nargs);
 	if ((LUA_OK != status) && (LUA_YIELD != status)) {
 		//DEBUGPOINT("Here _L = [%p]\n", (void*)_L);

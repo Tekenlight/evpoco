@@ -3078,6 +3078,7 @@ void EVTCPServer::run()
 	ev_async file_evt_watcher;
 	ev_timer timeout_watcher;
 	double timeout = 0.00001;
+	//DEBUGPOINT("NUM THREADS = [%d]\n", _numThreads,_numThreads);
 
 	this->_thread_pool = create_thread_pool(DEFAULT_NUM_AUXJOB_THREADS);
 	//this->_thread_pool = create_thread_pool(1);

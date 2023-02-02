@@ -1,5 +1,5 @@
 #ifndef EV_TYPEUTILS_H_INCLUDED
-#define TYPEUTILS_H_INCLUDED
+#define EV_TYPEUTILS_H_INCLUDED
 
 #include <Poco/evdata/ev_sql_access.h>
 
