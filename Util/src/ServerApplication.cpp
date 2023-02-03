@@ -581,6 +581,7 @@ void ServerApplication::waitForTerminationRequest()
 	sigprocmask(SIG_BLOCK, &sset, NULL);
 	int sig;
 	sigwait(&sset, &sig);
+	//printf("got signal [%d]\n", sig);
 #else // POCO_OS != POCO_OS_ANDROID
 	_terminate.wait();
 #endif
