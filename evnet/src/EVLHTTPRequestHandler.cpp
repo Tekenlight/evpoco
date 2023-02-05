@@ -4575,7 +4575,7 @@ int EVLHTTPRequestHandler::handleRequest()
 		Net::HTTPServerResponse& response = *responsePtr;
 		response.setChunkedTransferEncoding(true);
 		response.setStatusAndReason(Net::HTTPResponse::HTTP_OK);
-		response.setContentType("text/html");
+		response.setContentType("application/json");
 		std::ostream& ostr = response.send();
 		ostr << "{\"name\":\"His name\", \"age\": 5\"}\n";
 		ostr.flush();
