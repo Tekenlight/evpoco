@@ -3068,28 +3068,6 @@ static void fatal_error (const char *msg) noexcept
 	std::abort ();
 }
 
-static void sigpipe_handler(int signal)
-{
-	DEBUGPOINT("HERE SIGPIPE HANDLER\n");
-	return;
-}
-
-static void handle_fork(EV_P_ ev_fork *w, int revents)
-{
-	DEBUGPOINT("HERE FORK HANDLER\n");
-	return;
-}
-
-/*
-static struct ev_loop * lp;
-
-static void prepare_for_fork()
-{
-	ev_loop_fork(lp);
-}
-*/
-
-
 void EVTCPServer::run()
 {
 	ev_io socket_watcher;
@@ -3111,8 +3089,19 @@ void EVTCPServer::run()
 	ef_init();
 	ef_set_cb_func(file_operation_completion, (void *)this);
 
-	this->_loop = EV_DEFAULT;
-	//lp = this->_loop;
+	/*
+	 * With EV_DEFAULT, the event loop tries to manage SIGCHLD, through a signal handler
+	 * EVTCPServer being a multi-threaded server, and the caller of this
+	 * server will be in another thread, it is possible that the signal can
+	 * get delivered in the caller thread, which interrupts (interferes) the wait for 
+	 * SIGINT in the caller thread.
+	 *
+	 * Thus it is decided to have this event loop run without child process handling
+	 * capability
+	 *
+	 * this->_loop = EV_DEFAULT;
+	 */
+	this->_loop = ev_loop_new(0);
 
 	memset(&(socket_watcher), 0, sizeof(ev_io));	// Sinvle channel to monitor incoming
 													// connection requests and 
@@ -3269,13 +3258,6 @@ void EVTCPServer::run()
 		ev_timer_start(this->_loop, &timeout_watcher);
 	}
 
-	/*
-	{
-		ev_fork_init(&fork_watcher, handle_fork);
-		ev_fork_start(this->_loop,  &fork_watcher);
-	}
-	*/
-
 	// now wait for events to arrive
 	errno = 0;
 	ev_set_syserr_cb(fatal_error);
@@ -3306,6 +3288,8 @@ void EVTCPServer::run()
 			tn = _ssLRUList.getFirst();
 		}
 	}
+
+	ev_loop_destroy(this->_loop);
 
 	return;
 }
