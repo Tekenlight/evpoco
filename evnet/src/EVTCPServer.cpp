@@ -3263,12 +3263,8 @@ void EVTCPServer::run()
 	ev_set_syserr_cb(fatal_error);
 	_loop_active = true;
 	atomic_thread_fence(std::memory_order_release);
-	//DEBUGPOINT("WE KNOW WHY IT IS HERE\n");
-	int flags = 0;
-	//flags = flags | EVFLAG_FORKCHECK;
-	//pthread_atfork(prepare_for_fork, 0, 0);
-	ev_run (this->_loop, flags);
-	//DEBUGPOINT("BUT WHY IS IT HERE\n");
+
+	ev_run (this->_loop, 0);
 
 	free(stop_watcher_1.data);
 	free(stop_watcher_2.data);
