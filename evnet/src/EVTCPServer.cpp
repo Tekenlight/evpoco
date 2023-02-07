@@ -1,13 +1,13 @@
-	//
-	// Library: evnet
-	// Package: EVTCPServer
-	// Module:  EVTCPServer
-	//
-	// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
-	// and Contributors.
-	//
-	// SPDX-License-Identifier:	BSL-1.0
-	//
+//
+// Library: evnet
+// Package: EVTCPServer
+// Module:  EVTCPServer
+//
+// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
+// and Contributors.
+//
+// SPDX-License-Identifier:	BSL-1.0
+//
 
 
 #include <sys/time.h>
@@ -29,141 +29,166 @@
 #include "Poco/ErrorHandler.h"
 #include "Poco/evnet/EVTCPServerNotification.h"
 
-	using Poco::ErrorHandler;
+using Poco::ErrorHandler;
 
-	extern "C" {
-	void debug_io_watcher(const char * file, const int lineno, const ev_io * w);
-	void debug_io_watchers(const char * file, const  int lineno, EV_P);
+extern "C" {
+void debug_io_watcher(const char * file, const int lineno, const ev_io * w);
+void debug_io_watchers(const char * file, const  int lineno, EV_P);
+}
+
+namespace Poco {
+namespace evnet {
+
+typedef struct _raw_data_s {
+	_raw_data_s() {
+		this->data = NULL;
+		this->size = 0;
 	}
-
-	namespace Poco {
-	namespace evnet {
-
-	typedef struct _raw_data_s {
-		_raw_data_s() {
-			this->data = NULL;
-			this->size = 0;
-		}
-		~_raw_data_s() {
-			if (this->data) free(this->data);
-		}
-		void * data;
-		size_t size;
-	} raw_data_s_type, *raw_data_p_type;
+	~_raw_data_s() {
+		if (this->data) free(this->data);
+	}
+	void * data;
+	size_t size;
+} raw_data_s_type, *raw_data_p_type;
 #define RAW_DATA_S_SIZE sizeof(raw_data_s_type)
 
-	typedef struct _sock_and_data_s {
-		_sock_and_data_s() {}
-		~_sock_and_data_s() {
-		}
-		raw_data_s_type raw_data;
-		StreamSocket ss;
-	} sock_and_data_s_type, *sock_and_data_p_type;
+typedef struct _sock_and_data_s {
+	_sock_and_data_s() {}
+	~_sock_and_data_s() {
+	}
+	raw_data_s_type raw_data;
+	StreamSocket ss;
+} sock_and_data_s_type, *sock_and_data_p_type;
 #define SOCK_AND_DATA_S_SIZE sizeof(sock_and_data_s_type)
 
-	//const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
-	//const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
-	//const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
-	//const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
-	//const std::string EVTCPServer::USE_IPV6_FOR_CONN("useIpv6ForConn");
+//const std::string EVTCPServer::SERVER_PREFIX_CFG_NAME("EVTCPServer.");
+//const std::string EVTCPServer::NUM_THREADS_CFG_NAME("numThreads");
+//const std::string EVTCPServer::RECV_TIME_OUT_NAME("receiveTimeOut");
+//const std::string EVTCPServer::NUM_CONNECTIONS_CFG_NAME("numConnections");
+//const std::string EVTCPServer::USE_IPV6_FOR_CONN("useIpv6ForConn");
 
-	// this callback is called when a submitted generic task is complete
-	static void file_evt_occured (EV_P_ ev_async *w, int revents)
-	{
-		strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_pc_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleFileEvtOccured(const bool)
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->method))(true);
-
-		return;
-	}
-
-	static void file_operation_completion(int fd, int completed_oper, void * cb_data)
-	{
-		EVTCPServer * tcpserver = (EVTCPServer*) cb_data;
-		if (tcpserver == NULL) {
-			DEBUGPOINT("THIS MUST NOT HAPPEN\n");
-			std::abort();
-		}
-		tcpserver->pushFileEvent(fd, completed_oper);
+// this callback is called when a submitted generic task is complete
+static void file_evt_occured (EV_P_ ev_async *w, int revents)
+{
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
 		return ;
 	}
 
-	static void periodic_call_for_housekeeping(EV_P_ ev_timer *w, int revents)
-	{
-		bool ev_occurred = true;
-		strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleFileEvtOccured(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->method))(true);
 
-		if (!ev_is_active(w)) {
-			return ;
-		}
+	return;
+}
 
-		cb_ptr = (strms_pc_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handlePeriodicWakeup(const bool&)
-		 */
-		if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
-		return;
+static void file_operation_completion(int fd, int completed_oper, void * cb_data)
+{
+	EVTCPServer * tcpserver = (EVTCPServer*) cb_data;
+	if (tcpserver == NULL) {
+		DEBUGPOINT("THIS MUST NOT HAPPEN\n");
+		std::abort();
+	}
+	tcpserver->pushFileEvent(fd, completed_oper);
+	return ;
+}
+
+static void periodic_call_for_housekeeping(EV_P_ ev_timer *w, int revents)
+{
+	bool ev_occurred = true;
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+
+	if (!ev_is_active(w)) {
+		return ;
 	}
 
-	// this callback is called when data is readable on a socket
-	static void data_available_on_primary_inp_fd(EV_P_ ev_io *w, int revents)
-	{
-		bool ev_occurred = true;
-		srvrs_io_cb_ptr_type cb_ptr = (srvrs_io_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			debug_io_watcher(__FILE__,__LINE__,w);
-			return ;
-		}
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handlePeriodicWakeup(const bool&)
+	 */
+	if (cb_ptr) ((cb_ptr->objPtr)->*(cb_ptr->method))(ev_occurred);
+	return;
+}
 
-		cb_ptr = (srvrs_io_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleDataAvlblOnPrimaryInp(const bool)
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->connArrived))(ev_occurred);
-		return;
+// this callback is called when data is readable on a socket
+static void data_available_on_primary_inp_fd(EV_P_ ev_io *w, int revents)
+{
+	bool ev_occurred = true;
+	srvrs_io_cb_ptr_type cb_ptr = (srvrs_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		debug_io_watcher(__FILE__,__LINE__,w);
+		return ;
 	}
 
-	// this callback is called when a new connection request is available
-	static void new_connection(EV_P_ ev_io *w, int revents)
-	{
-		bool ev_occurred = true;
-		srvrs_io_cb_ptr_type cb_ptr = (srvrs_io_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			debug_io_watcher(__FILE__,__LINE__,w);
-			return ;
-		}
+	cb_ptr = (srvrs_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleDataAvlblOnPrimaryInp(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->connArrived))(ev_occurred);
+	return;
+}
 
-		cb_ptr = (srvrs_io_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleConnReq(const bool)
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->connArrived))(ev_occurred);
-		return;
+// this callback is called when a new connection request is available
+static void new_connection(EV_P_ ev_io *w, int revents)
+{
+	bool ev_occurred = true;
+	srvrs_io_cb_ptr_type cb_ptr = (srvrs_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		debug_io_watcher(__FILE__,__LINE__,w);
+		return ;
 	}
 
-	static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents);
-	// this callback is called when socket is writable
-	static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
-	{
+	cb_ptr = (srvrs_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnReq(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->connArrived))(ev_occurred);
+	return;
+}
+
+static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents);
+// this callback is called when socket is writable
+static void async_stream_socket_cb_2 (EV_P_ ev_io *w, int revents)
+{
+	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleAccSocketWritable(const bool)
+	 */
+	ssize_t ret = 0;
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->socketWritable))(*(cb_ptr->ssPtr) , true);
+
+	return;
+}
+
+// this callback is called when data is readable on a socket
+static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
+{
+	if (revents & EV_WRITE) async_stream_socket_cb_2(loop, w, revents);
+
+	if (revents & EV_READ) {
 		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
 		/* for one-shot events, one must manually stop the watcher
 		 * with its corresponding stop function.
@@ -175,195 +200,170 @@
 
 		cb_ptr = (strms_io_cb_ptr_type)w->data;
 		/* The below line of code essentially calls
-		 * EVTCPServer::handleAccSocketWritable(const bool)
+		 * EVTCPServer::handleAccSocketReadable(const bool) or
+		 * EVTCPServer::handleCLFdReadable(const bool)
 		 */
-		ssize_t ret = 0;
-		ret = ((cb_ptr->objPtr)->*(cb_ptr->socketWritable))(*(cb_ptr->ssPtr) , true);
-
-		return;
-	}
-
-	// this callback is called when data is readable on a socket
-	static void async_stream_socket_cb_1(EV_P_ ev_io *w, int revents)
-	{
-		if (revents & EV_WRITE) async_stream_socket_cb_2(loop, w, revents);
-
-		if (revents & EV_READ) {
-			strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
-			/* for one-shot events, one must manually stop the watcher
-			 * with its corresponding stop function.
-			 * ev_io_stop (loop, w);
-			 */
-			if (!ev_is_active(w)) {
-				return ;
-			}
-
-			cb_ptr = (strms_io_cb_ptr_type)w->data;
-			/* The below line of code essentially calls
-			 * EVTCPServer::handleAccSocketReadable(const bool) or
-			 * EVTCPServer::handleCLFdReadable(const bool)
-			 */
-			//DEBUGPOINT("errno = [%d]\n", errno);
-			//DEBUGPOINT("INVOKING handleAccSocketReadable for [%d]\n", cb_ptr->ssPtr->impl()->sockfd());
-			((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
-			// Suspending interest in events of this fd until one request is processed
-			//ev_io_stop(loop, w);
-			//ev_clear_pending(loop, w);
-		}
-
-		return;
-	}
-
-	// this callback is called when a submitted generic task is complete
-	static void generic_task_complete (EV_P_ ev_async *w, int revents)
-	{
-		strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_pc_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleGenericTaskComplete(const bool)
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->method))(true);
-
-		return;
-	}
-
-	// this callback is called when a passed domain name is resolved
-	static void host_addr_resolved (EV_P_ ev_async *w, int revents)
-	{
-		strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_pc_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleHostResolved(const bool)
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->method))(true);
-
-		return;
-	}
-
-	// this callback is called when connected socket is writable
-	static void async_stream_socket_cb_5 (EV_P_ ev_io *w, int revents)
-	{
-		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_io_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleConnSocketWriteable(const bool) or
-		 * EVTCPServer::handleConnSocketWriteReady(const bool)
-		 */
-		ssize_t ret = 0;
-		ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
-
-		return;
-	}
-
-	// this callback is called when connected socket is writable
-	static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
-	{
-		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_io_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleConnSocketWriteable(const bool) or
-		 * EVTCPServer::handleConnSocketWriteReady(const bool)
-		 */
-		ssize_t ret = 0;
-		ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
-
-		return;
-	}
-
-	// this callback is called when data is readable on a connected socket
-	static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
-	{
-		if ((revents & EV_READ) && (revents & EV_WRITE)) {
-			async_stream_socket_cb_5(loop, w, revents);
-		}
-		else if (revents & EV_WRITE) {
-			//DEBUGPOINT("HERE\n");
-			async_stream_socket_cb_4(loop, w, revents);
-		} 
-		else if (revents & EV_READ) {
-			strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
-			/* for one-shot events, one must manually stop the watcher
-			 * with its corresponding stop function.
-			 * ev_io_stop (loop, w);
-			 */
-			if (!ev_is_active(w)) {
-				return ;
-			}
-
-			cb_ptr = (strms_io_cb_ptr_type)w->data;
-			/* The below line of code essentially calls
-			 * EVTCPServer::handleConnSocketReadable(const bool)
-			 * EVTCPServer::handleConnSocketReadReady(const bool) or
-			 */
-			((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))(cb_ptr , true);
-			// Suspending interest in events of this fd until one request is processed
-			//ev_io_stop(loop, w);
-			//ev_clear_pending(loop, w);
-		}
-
-		return;
-	}
-
-	// this callback is called when data is readable on a connected socket
-	static void async_stream_socket_timeout_cb(EV_P_ ev_timer *w, int revents)
-	{
-		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
-		/* for one-shot events, one must manually stop the watcher
-		 * with its corresponding stop function.
-		 * ev_io_stop (loop, w);
-		 */
-		if (!ev_is_active(w)) {
-			return ;
-		}
-
-		cb_ptr = (strms_io_cb_ptr_type)w->data;
-		/* The below line of code essentially calls
-		 * EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type, const bool) or
-		 * EVTCPServer::handleManagedConnSockTimeOut(strms_io_cb_ptr_type, const bool) or
-		 */
-		((cb_ptr->objPtr)->*(cb_ptr->connSocketTimeOut))(cb_ptr , true);
+		//DEBUGPOINT("errno = [%d]\n", errno);
+		//DEBUGPOINT("INVOKING handleAccSocketReadable for [%d]\n", cb_ptr->ssPtr->impl()->sockfd());
+		((cb_ptr->objPtr)->*(cb_ptr->dataAvailable))(*(cb_ptr->ssPtr) , true);
 		// Suspending interest in events of this fd until one request is processed
 		//ev_io_stop(loop, w);
 		//ev_clear_pending(loop, w);
-
-		return;
 	}
 
-	/* This callback is to break all watchers and stop the loop. */
-	static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
-	{
+	return;
+}
+
+// this callback is called when a submitted generic task is complete
+static void generic_task_complete (EV_P_ ev_async *w, int revents)
+{
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleGenericTaskComplete(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->method))(true);
+
+	return;
+}
+
+// this callback is called when a passed domain name is resolved
+static void host_addr_resolved (EV_P_ ev_async *w, int revents)
+{
+	strms_pc_cb_ptr_type cb_ptr = (strms_pc_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_pc_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleHostResolved(const bool)
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->method))(true);
+
+	return;
+}
+
+// this callback is called when connected socket is writable
+static void async_stream_socket_cb_5 (EV_P_ ev_io *w, int revents)
+{
+	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnSocketWriteable(const bool) or
+	 * EVTCPServer::handleConnSocketWriteReady(const bool)
+	 */
+	ssize_t ret = 0;
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
+
+	return;
+}
+
+// this callback is called when connected socket is writable
+static void async_stream_socket_cb_4 (EV_P_ ev_io *w, int revents)
+{
+	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnSocketWriteable(const bool) or
+	 * EVTCPServer::handleConnSocketWriteReady(const bool)
+	 */
+	ssize_t ret = 0;
+	ret = ((cb_ptr->objPtr)->*(cb_ptr->connSocketWritable))(cb_ptr , true);
+
+	return;
+}
+
+// this callback is called when data is readable on a connected socket
+static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
+{
+	if ((revents & EV_READ) && (revents & EV_WRITE)) {
+		async_stream_socket_cb_5(loop, w, revents);
+	}
+	else if (revents & EV_WRITE) {
+		//DEBUGPOINT("HERE\n");
+		async_stream_socket_cb_4(loop, w, revents);
+	} 
+	else if (revents & EV_READ) {
+		strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+		/* for one-shot events, one must manually stop the watcher
+		 * with its corresponding stop function.
+		 * ev_io_stop (loop, w);
+		 */
+		if (!ev_is_active(w)) {
+			return ;
+		}
+
+		cb_ptr = (strms_io_cb_ptr_type)w->data;
+		/* The below line of code essentially calls
+		 * EVTCPServer::handleConnSocketReadable(const bool)
+		 * EVTCPServer::handleConnSocketReadReady(const bool) or
+		 */
+		((cb_ptr->objPtr)->*(cb_ptr->connSocketReadable))(cb_ptr , true);
+		// Suspending interest in events of this fd until one request is processed
+		//ev_io_stop(loop, w);
+		//ev_clear_pending(loop, w);
+	}
+
+	return;
+}
+
+// this callback is called when data is readable on a connected socket
+static void async_stream_socket_timeout_cb(EV_P_ ev_timer *w, int revents)
+{
+	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
+	/* for one-shot events, one must manually stop the watcher
+	 * with its corresponding stop function.
+	 * ev_io_stop (loop, w);
+	 */
+	if (!ev_is_active(w)) {
+		return ;
+	}
+
+	cb_ptr = (strms_io_cb_ptr_type)w->data;
+	/* The below line of code essentially calls
+	 * EVTCPServer::handleConnSockTimeOut(strms_io_cb_ptr_type, const bool) or
+	 * EVTCPServer::handleManagedConnSockTimeOut(strms_io_cb_ptr_type, const bool) or
+	 */
+	((cb_ptr->objPtr)->*(cb_ptr->connSocketTimeOut))(cb_ptr , true);
+	// Suspending interest in events of this fd until one request is processed
+	//ev_io_stop(loop, w);
+	//ev_clear_pending(loop, w);
+
+	return;
+}
+
+/* This callback is to break all watchers and stop the loop. */
+static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
+{
 		//DEBUGPOINT("Here\n");
 		//STACK_TRACE();
 	bool ev_occurred = true;
