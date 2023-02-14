@@ -268,6 +268,7 @@ namespace evpoco {
 			static int get_expect_continue(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int read_buff(lua_State* L);
 			static int get_message_body_str(lua_State* L);
 			static int get_cookies(lua_State* L);
 			namespace htmlform {
@@ -288,6 +289,7 @@ namespace evpoco {
 			static int send(lua_State* L);
 			static int write(lua_State* L);
 			static int read(lua_State* L);
+			static int read_buff(lua_State* L);
 			static int get_message_body_str(lua_State* L);
 			static int get_cookies(lua_State* L);
 		}
@@ -354,6 +356,7 @@ static const luaL_Reg evpoco_httpreq_lib[] = {
 	{ "get_part", &evpoco::httpmessage::httpreq::get_part},
 	{ "write", &evpoco::httpmessage::httpreq::write},
 	{ "read", &evpoco::httpmessage::httpreq::read},
+	{ "read_buff", &evpoco::httpmessage::httpreq::read_buff},
 	{ "get_message_body_str", &evpoco::httpmessage::httpreq::get_message_body_str},
 	{ "get_cookies", &evpoco::httpmessage::httpreq::get_cookies},
 	{ NULL, NULL }
@@ -380,7 +383,7 @@ static const luaL_Reg evpoco_httpresp_lib[] = {
 	{ "set_date", &evpoco::httpmessage::httpresp::set_date },
 	{ "send", &evpoco::httpmessage::httpresp::send },
 	{ "write", &evpoco::httpmessage::httpresp::write },
-	{ "read", &evpoco::httpmessage::httpresp::read },
+	{ "read", &evpoco::httpmessage::httpresp::read_buff },
 	{ "get_message_body_str", &evpoco::httpmessage::httpresp::get_message_body_str},
 	{ "get_cookies", &evpoco::httpmessage::httpresp::get_cookies },
 	{ NULL, NULL }
@@ -2854,7 +2857,12 @@ static int ev_lua_file_write_binary(lua_State* L)
 	}
 
 	Poco::evnet::file_handle_p fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
-	void * buffer = luaL_checkudata(L, 2, _memory_buffer_name);
+	if (lua_isnil(L, 2) || !lua_isuserdata(L, 2)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+		luaL_error(L, "file:write_binary invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
+		lua_pushnil(L);
+	}
+	void * buffer = lua_touserdata(L, 2);
 	size_t size = luaL_checkinteger(L, 3);
 
 	//DEBUGPOINT("Here fd = %d\n", fh->get_fd());
@@ -3563,22 +3571,54 @@ static int get_expect_continue(lua_State* L)
 static int write(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
-	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
-		luaL_error(L, "ostream:write: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
-		return 0;
-	}
-	else if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-		luaL_error(L, "ostream:write: invalid third argumet %s", lua_typename(L, lua_type(L, 2)));
-	}
-	else {
-		EVHTTPRequest& request = *(*(EVHTTPRequest**)lua_touserdata(L, 1));
-		std::ostream& ostr = *(request.getRequestStream());
-		ostr << lua_tostring(L, 2);
+	int n = lua_gettop(L);
+	EVHTTPRequest& request = *(*(EVHTTPRequest**)luaL_checkudata(L, 1, _http_creq_type_name));
+	std::ostream& ostr = *(request.getRequestStream());
+	if (n==2) {
+		ostr << luaL_checkstring(L, 2);
 		ostr << std::flush;
 	}
+	else if (n== 3) {
+		if (lua_isnil(L, 2) || !lua_isuserdata(L, 2)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+			luaL_error(L, "request:write invalid first argumet %s", lua_typename(L, lua_type(L, 2)));
+			lua_pushnil(L);
+		}
+		void * buf = lua_touserdata(L, 2);
+		int size = luaL_checkinteger(L, 3);
+		ostr.write((const char *)buf, size);
+		ostr << std::flush;
+	}
+	else {
+		return luaL_error(L, "ostream:write: invalid number of argumets %d", n);
+	}
+
 	return 0;
+}
+
+static int read_buff(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+		luaL_error(L, "istream:read: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+		return 0;
+	}
+	else {
+		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, 1));
+		std::istream& istr = request.stream();
+		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
+		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
+		size_t size = istr.gcount();
+		if (size) {
+			lua_pushlightuserdata(L, reqHandler->getEphemeralBuf());
+			lua_pushinteger(L, size);
+		}
+		else {
+			lua_pushnil(L);
+		}
+	}
+	return 1;
 }
 
 static int read(lua_State* L)
@@ -3868,25 +3908,19 @@ static int write(lua_State* L)
 {
 	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
 	int n = lua_gettop(L);
-	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
-		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
-		luaL_error(L, "ostream:write: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
-		return 0;
-	}
 
+	Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)luaL_checkudata(L, 1, _http_sresp_type_name));
+	std::ostream& ostr = response.getOStream();
 	if (n==2) {
-		if (lua_isnil(L, 2) || !lua_isstring(L, 2)) {
-			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
-			luaL_error(L, "ostream:write: invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
-		}
-		Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
-		std::ostream& ostr = response.getOStream();
-		ostr << lua_tostring(L, 2);
+		ostr << luaL_checkstring(L, 2);
 	}
 	else if (n== 3) {
-		Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, 1));
-		std::ostream& ostr = response.getOStream();
-		void * buf = luaL_checkudata(L, 2, _memory_buffer_name);
+		if (lua_isnil(L, 2) || !lua_isuserdata(L, 2)) {
+			DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 2)));
+			luaL_error(L, "response:write invalid second argumet %s", lua_typename(L, lua_type(L, 2)));
+			lua_pushnil(L);
+		}
+		void * buf = lua_touserdata(L, 2);
 		int size = luaL_checkinteger(L, 3);
 		ostr.write((const char *)buf, size);
 	}
@@ -3895,6 +3929,31 @@ static int write(lua_State* L)
 	}
 
 	return 0;
+}
+
+static int read_buff(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	if (lua_isnil(L, 1) || !lua_isuserdata(L, 1)) {
+		DEBUGPOINT("Here %s\n", lua_typename(L, lua_type(L, 1)));
+		luaL_error(L, "istream:read: invalid first argumet %s", lua_typename(L, lua_type(L, 1)));
+		return 0;
+	}
+	else {
+		EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
+		std::istream& istr = *(response.getStream());
+		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
+		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
+		size_t size = istr.gcount();
+		if (size) {
+			lua_pushlightuserdata(L, reqHandler->getEphemeralBuf());
+			lua_pushinteger(L, size);
+		}
+		else {
+			lua_pushnil(L);
+		}
+	}
+	return 1;
 }
 
 static int read(lua_State* L)
