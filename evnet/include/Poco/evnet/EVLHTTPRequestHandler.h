@@ -263,7 +263,7 @@ public:
 	EVHTTPClientSession* getHTTPConnection(int i);
 	void removeHTTPConnection(EVHTTPClientSession* p);
 	std::string getDynamicMetaName();
-	char* getEphemeralBuf();
+	unsigned char* getEphemeralBuf();
 
 	static const std::string SERVER_PREFIX_CFG_NAME;
 	static const std::string ENABLE_CACHE;
@@ -309,7 +309,7 @@ private:
 	std::list<std::string>						_url_parts;
 	int											_http_connection_count;
 	int											_variable_instance_count;;
-	char										_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
+	unsigned char								_ephemeral_buffer[EVL_EPH_BUFFER_SIZE];
 	async_tasks_t								_async_tasks;
 	bool										_async_tasks_status_awaited;
 	static evl_pool								_pool;
@@ -333,7 +333,7 @@ inline EVLHTTPRequestHandler::async_tasks_t& EVLHTTPRequestHandler::getAsyncTask
 	return _async_tasks;
 }
 
-inline char* EVLHTTPRequestHandler::getEphemeralBuf()
+inline unsigned char* EVLHTTPRequestHandler::getEphemeralBuf()
 {
 	return _ephemeral_buffer;
 }

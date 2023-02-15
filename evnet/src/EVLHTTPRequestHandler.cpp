@@ -3609,7 +3609,7 @@ static int read_buff(lua_State* L)
 		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, 1));
 		std::istream& istr = request.stream();
 		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
-		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
+		istr.read((char*)reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
 		size_t size = istr.gcount();
 		if (size) {
 			lua_pushlightuserdata(L, reqHandler->getEphemeralBuf());
@@ -3634,9 +3634,9 @@ static int read(lua_State* L)
 		Net::HTTPServerRequest& request = *(*(Net::HTTPServerRequest**)lua_touserdata(L, 1));
 		std::istream& istr = request.stream();
 		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
-		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE-1);
+		istr.read((char*)reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE-1);
 		size_t size = istr.gcount();
-		if (size) lua_pushstring(L, reqHandler->getEphemeralBuf());
+		if (size) lua_pushstring(L, (char*)reqHandler->getEphemeralBuf());
 		else lua_pushnil(L);
 	}
 	return 1;
@@ -3946,10 +3946,10 @@ static int read_buff(lua_State* L)
 		EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
 		std::istream& istr = *(response.getStream());
 		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
-		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
+		istr.read((char*)reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE);
 		size_t size = istr.gcount();
 		if (size) {
-			lua_pushlightuserdata(L, reqHandler->getEphemeralBuf());
+			lua_pushlightuserdata(L, (char*)reqHandler->getEphemeralBuf());
 			lua_pushinteger(L, size);
 		}
 		else {
@@ -3971,9 +3971,9 @@ static int read(lua_State* L)
 		EVHTTPResponse& response = *(*(EVHTTPResponse**)lua_touserdata(L, 1));
 		std::istream& istr = *(response.getStream());
 		memset(reqHandler->getEphemeralBuf(), 0, EVL_EPH_BUFFER_SIZE);
-		istr.read(reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE-1);
+		istr.read((char*)reqHandler->getEphemeralBuf(), EVL_EPH_BUFFER_SIZE-1);
 		size_t size = istr.gcount();
-		if (size) lua_pushstring(L, reqHandler->getEphemeralBuf());
+		if (size) lua_pushstring(L, (char*)reqHandler->getEphemeralBuf());
 		else lua_pushnil(L);
 	}
 	return 1;
