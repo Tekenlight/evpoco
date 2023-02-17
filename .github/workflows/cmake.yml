@@ -27,7 +27,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: Tekenlight/lua
-        path: lua-5-3-5-/lua
+        path: lua-5-3-5/src
     - name: check lua-5-3-5
       run: |
         pwd
@@ -36,7 +36,15 @@ jobs:
     - name : check lua
       run: |
         pwd
-        ls -l lua-5-3-5/lua
+        ls -l lua-5-3-5/src
+      
+    - name: Run lua build
+      run: |
+        cd lua-5-3-5
+        sudo apt-get update
+        sudo apt-get install build-essential libreadline-dev
+        make linux
+        sudo make install
       
     - uses: actions/checkout@v3
     - name : Install Postgresql
