@@ -74,9 +74,9 @@ jobs:
     - name : Build and install efio
       run: |
         cd efio
-        cmake -B ${{github.workspace}}/cmake-build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-        cmake --build ${{github.workspace}}/cmake-build --config ${{env.BUILD_TYPE}}
-        sudo cmake --install ${{github.workspace}}/cmake-build
+        cmake -B ${{github.workspace}}/efio/cmake-build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        cmake --build ${{github.workspace}}/efio/cmake-build --config ${{env.BUILD_TYPE}}
+        sudo cmake --install ${{github.workspace}}/efio/cmake-build
         
         
     - name: Configure CMake
