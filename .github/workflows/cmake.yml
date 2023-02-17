@@ -29,10 +29,14 @@ jobs:
         repository: Tekenlight/lua
         path: lua-5-3-5-/lua
     - name: check lua-5-3-5
-      run: ls -l lua-5-3-5
+      run: |
+        pwd
+        ls -l lua-5-3-5
     
     - name : check lua
-      run: ls -l lua-5-3-5/lua
+      run: |
+        pwd
+        ls -l lua-5-3-5/lua
       
     - uses: actions/checkout@v3
     - name : Install Postgresql
