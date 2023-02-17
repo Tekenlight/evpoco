@@ -18,6 +18,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name : Install lua-5-3-5-build
+      uses : actions/checkout@v3
+      with :
+        repository: Tekenlight/lua-5-3-5-build
+        path: lua-5-3-5
+    - name : Install lua
+      uses: actions/checkout@v3
+      with:
+        repository: Tekenlight/lua
+        path: lua-5-3-5-/lua
+    - name: check lua-5-3-5
+      run: ls -l lua-5-3-5
+    
+    - name : check lua
+      run: ls -l lua-5-3-5/lua
+      
     - uses: actions/checkout@v3
     - name : Install Postgresql
       run : |
@@ -25,7 +41,7 @@ jobs:
         #wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
         sudo apt-get update
         sudo apt-get -y install postgresql-14 postgresql-client-14
-
+   
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
