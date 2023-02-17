@@ -20,7 +20,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name : Install Postgresql
-      run : sudo apt-get -y install postgresql-server-dev-12
+      run : |
+        sudo apt-get -y install wget ca-certificates bash-completion
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+        sudo apt-get update
+        sudo apt-get -y install postgresql-server-dev-12 postgresql-client-12
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
