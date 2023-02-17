@@ -53,19 +53,31 @@ jobs:
         #wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
         sudo apt-get update
         sudo apt-get -y install postgresql-14 postgresql-client-14
-   
+    - name : Fetch customized libev
+      uses: actions/checkout@v3
+      with:
+        repository: Tekenlight/libev
+        path: libev
+    - name : Build and install libev
+      run: |
+        cd libev
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
+        
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake -B ${{github.workspace}}/cmake-build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DPG_VERSION=14
 
     - name: Build
       # Build your program with the given configuration
-      #run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      #run: cmake --build ${{github.workspace}}/cmake-build --config ${{env.BUILD_TYPE}}
       run: echo HI
 
     - name: Test
-      working-directory: ${{github.workspace}}/build
+      working-directory: ${{github.workspace}}/cmake-build
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       #run: ctest -C ${{env.BUILD_TYPE}}
