@@ -77,8 +77,30 @@ jobs:
         cmake -B ${{github.workspace}}/efio/cmake-build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         cmake --build ${{github.workspace}}/efio/cmake-build --config ${{env.BUILD_TYPE}}
         sudo cmake --install ${{github.workspace}}/efio/cmake-build
+
+    - name : Fetch customized http-parser
+      uses: actions/checkout@v3
+      with:
+         repository: Tekenlight/http-parser
+         path: http-parser
+    - name : Build and install http-parser
+      run: |
+        cd http-parser
+        make
+        sudo make install   
         
-        
+    - name : Fetch hiredis
+      uses: actions/checkout@v3
+      with:
+        repository: Tekenlight/hiredis
+        path: efio
+    - name : Build and install hiredis
+      run: |
+        cd hiredis
+        cmake -B ${{github.workspace}}/hiredis/cmake-build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        cmake --build ${{github.workspace}}/hiredis/cmake-build --config ${{env.BUILD_TYPE}}
+        sudo cmake --install ${{github.workspace}}/hiredis/cmake-build
+ 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -86,8 +108,8 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      #run: cmake --build ${{github.workspace}}/cmake-build --config ${{env.BUILD_TYPE}}
-      run: echo HI
+      run: cmake --build ${{github.workspace}}/cmake-build --config ${{env.BUILD_TYPE}}
+      #run: echo HI
 
     - name: Test
       working-directory: ${{github.workspace}}/cmake-build
