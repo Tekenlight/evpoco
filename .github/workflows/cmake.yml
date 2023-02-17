@@ -52,7 +52,7 @@ jobs:
         #sudo apt-get -y install wget ca-certificates bash-completion
         #wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
         sudo apt-get update
-        sudo apt-get -y install postgresql-dev-14 postgresql-client-14
+        sudo apt-get -y install postgresql-14-dev postgresql-client-14
     - name : Fetch customized libev
       uses: actions/checkout@v3
       with:
