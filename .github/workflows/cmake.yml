@@ -23,6 +23,8 @@ jobs:
       with :
         repository: Tekenlight/lua-5-3-5-build
         path: lua-5-3-5
+    - name : Install SSL
+      run: sudo apt-get -y install libssl-dev
     - name : Install lua
       uses: actions/checkout@v3
       with:
@@ -115,6 +117,5 @@ jobs:
       working-directory: ${{github.workspace}}/cmake-build
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      #run: ctest -C ${{env.BUILD_TYPE}}
-      run: echo HI
+      run: ctest -C ${{env.BUILD_TYPE}}
 
