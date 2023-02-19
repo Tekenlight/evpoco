@@ -4221,6 +4221,9 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		lua_pushlightuserdata(_L, (void*) this);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 
+		lua_pushinteger(_L, getEVRHMode());
+		lua_setglobal(_L, "EVR_MODE");
+
 		lua_pushinteger(_L, MAX_MEMORY_ALLOC_LIMIT);
 		lua_setglobal(_L, S_MAX_MEMORY_ALLOC_LIMIT);
 
@@ -4255,12 +4258,14 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 
 	//DEBUGPOINT("ELC = [%d]\n", enable_lua_cache);
 	if (enable_lua_cache) {
-		lua_pushlightuserdata(_L, (void*) NULL);
-		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 		lua_gc(_L, LUA_GCCOLLECT, 0);
 		lua_settop(_L, 0);
 		//DEBUGPOINT("Here _L=[%p] status = [%d]\n", _L);
-		if (lua_status(_L) == LUA_OK) enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+		if (lua_status(_L) == LUA_OK) {
+			lua_pushlightuserdata(_L, (void*) NULL);
+			lua_setglobal(_L, "EVLHTTPRequestHandler*");
+			enqueue(sg_lua_state_cache._queue, _L); // Cache the lua state so that it can be reused.
+		}
 		else {
 			if (_L) {
 				lua_close(_L);
