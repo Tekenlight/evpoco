@@ -21,7 +21,6 @@ extern "C" {
 
 #include <sstream>
 
-#include <ev_buffered_stream.h>
 #include "Poco/MemoryStream.h"
 
 #include "Poco/Crypto/DigestEngine.h"
