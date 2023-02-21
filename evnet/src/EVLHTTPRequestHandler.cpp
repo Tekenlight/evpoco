@@ -3620,12 +3620,13 @@ static int read_buff(lua_State* L)
 		if (size) {
 			lua_pushlightuserdata(L, reqHandler->getEphemeralBuf());
 			lua_pushinteger(L, size);
+			return 2;
 		}
 		else {
 			lua_pushnil(L);
+			return 1;
 		}
 	}
-	return 1;
 }
 
 static int read(lua_State* L)
@@ -3957,12 +3958,13 @@ static int read_buff(lua_State* L)
 		if (size) {
 			lua_pushlightuserdata(L, (char*)reqHandler->getEphemeralBuf());
 			lua_pushinteger(L, size);
+			return 2;
 		}
 		else {
 			lua_pushnil(L);
+			return 1;
 		}
 	}
-	return 1;
 }
 
 static int read(lua_State* L)
