@@ -210,6 +210,7 @@ static void add_ref_range(Poco::Util::AbstractConfiguration& config, modules_lis
 			reply = NULL;
 		}
 	}
+	redisFree(c);
 
 	return;
 }
@@ -282,6 +283,7 @@ static void * heart_beat(void * inputs)
 
 				redis_command =
 					std::string("ZADD ") + s + " " + std::to_string(get_score()) + " " + (char*)base64_encoded_arg;
+				free(base64_encoded_arg);
 
 				reply = (redisReply *)redisCommand(c, redis_command.c_str());
 				//DEBUGPOINT("command = [%s] reply_type = [%d] reply=[%lld]\n", redis_command.c_str(), reply->type, reply->integer);

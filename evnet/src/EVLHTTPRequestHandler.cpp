@@ -462,6 +462,10 @@ public:
 	~LUAFileCache() {
 		ev_rwlock_destroy(cached_files_lock);
 		ev_rwlock_destroy(cached_filepaths_lock);
+		for ( std::map<std::string, chunked_memory_stream*>::iterator it = cached_files.begin();
+					it != cached_files.end(); ++it ) {
+			delete it->second;
+		}
 	}
 };
 
@@ -500,6 +504,8 @@ public:
 		lua_State* l = NULL;
 		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
 			DEBUGPOINT("LUAStateCache Destructor\n");
+			lua_gc(l, LUA_GCCOLLECT, 0);
+			lua_gc(l, LUA_GCCOLLECT, 0);
 			lua_close(l);
 		}
 		destroy_ev_queue(_queue);

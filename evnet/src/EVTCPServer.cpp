@@ -646,6 +646,16 @@ EVTCPServer::~EVTCPServer()
 	}
 }
 
+typedef struct {
+	poco_socket_t _acc_fd;
+	EVEventNotification* _usN;
+} tc_enqueued_struct, * tc_enqueued_struct_ptr;
+
+typedef struct {
+	int _fd;
+	int _completed_oper;
+} file_evt_s, * file_evt_p;
+
 void EVTCPServer::freeClear()
 {
     for ( ASColMapType::iterator it = _accssColl.begin(); it != _accssColl.end(); ++it ) {
@@ -657,6 +667,33 @@ void EVTCPServer::freeClear()
 	ef_unset_cb_func();
 	for (FileEvtSubscrMap::iterator it = _file_evt_subscriptions.begin(); it != _file_evt_subscriptions.end(); ++it) {
 		delete it->second._usN;
+	}
+	if (_aux_tc_queue) {
+		void* pNf = 0;
+		for  (pNf = dequeue(_aux_tc_queue); pNf ; pNf = dequeue(_aux_tc_queue)) {
+			tc_enqueued_struct_ptr tc_ptr = ((tc_enqueued_struct_ptr)(pNf));
+			delete tc_ptr;
+		}
+		destroy_ev_queue(_aux_tc_queue);
+	}
+	if (_file_evt_queue) {
+		void* pNf = 0;
+		for  (pNf = dequeue(_file_evt_queue); pNf ; pNf = dequeue(_file_evt_queue)) {
+			file_evt_p fe_ptr = ((file_evt_p)(pNf));
+			delete fe_ptr;
+		}
+		destroy_ev_queue(_file_evt_queue);
+	}
+	if (_host_resolve_queue) {
+		void* pNf = 0;
+		cb_ref_data_ptr_type ref_data = 0;
+		for  (pNf = dequeue(_host_resolve_queue); pNf ; pNf = dequeue(_host_resolve_queue)) {
+			dns_io_ptr_type dio_ptr = ((dns_io_ptr_type)(pNf));
+			ref_data = (cb_ref_data_ptr_type)dio_ptr->_in._ref_data;
+			if (ref_data) delete ref_data;
+			delete dio_ptr;
+		}
+		destroy_ev_queue(_host_resolve_queue);
 	}
 	destroy_spin_lock(_loop_active_spin_lock);
 }
@@ -3766,11 +3803,6 @@ int EVTCPServer::resolveHost(EVAcceptedStreamSocket* tn, EVTCPServiceRequest* sr
 	return 0;
 }
 
-typedef struct {
-	int _fd;
-	int _completed_oper;
-} file_evt_s, * file_evt_p;
-
 void EVTCPServer::handleFileEvtOccured(const bool& ev_occured)
 {
 	void* pNf = 0;
@@ -3854,11 +3886,6 @@ void EVTCPServer::pushFileEvent(int fd, int completed_oper)
 	ev_spin_unlock(this->_loop_active_spin_lock);
 
 }
-
-typedef struct {
-	poco_socket_t _acc_fd;
-	EVEventNotification* _usN;
-} tc_enqueued_struct, * tc_enqueued_struct_ptr;
 
 /* This is handling of task completion within the event loop.
  * So that the event of task completion can be sent to the 
