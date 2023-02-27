@@ -62,6 +62,7 @@ struct _write_s {
 extern "C" int socket_live(int fd);
 extern int get_mail_message_funcs(lua_State *L);
 extern int get_properties_funcs(lua_State *L);
+void invoke_cleanup_funcs();
 
 namespace Poco {
 namespace evnet {

@@ -133,4 +133,42 @@ uint64_t network_to_host_byte_order_64(uint64_t n_ll, uint64_t *o_h_ll)
 	return out;
 }
 
+typedef void ((*cached_data_cleanup_func_type)());
+typedef struct _cleanup_func_node {
+	cached_data_cleanup_func_type f;
+	struct _cleanup_func_node * next;
+} cleanup_flist_node_type;
 
+static cleanup_flist_node_type * list = NULL;
+static cleanup_flist_node_type * list_end = NULL;
+
+void register_cleanup_func(void * f)
+{
+	cached_data_cleanup_func_type func = (cached_data_cleanup_func_type)f;
+
+	cleanup_flist_node_type * p = NULL;
+	
+	if (list == NULL) {
+		list_end = list = p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
+	}
+	else {
+		p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
+		list_end->next = p;
+	}
+
+	p->next = NULL;
+	p->f = func;
+
+}
+
+void invoke_cleanup_funcs()
+{
+	cleanup_flist_node_type * prev = NULL;
+	cleanup_flist_node_type * p = list;
+	while (p != NULL) {
+		p->f();
+		prev = p;
+		p = p->next;
+		free(prev);
+	}
+}
