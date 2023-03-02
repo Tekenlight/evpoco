@@ -75,7 +75,7 @@ endif()
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
 endforeach(dir)
-target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" evluautil )
+target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" )
 
 if (APPLE)
 	target_include_directories( "${LIBNAME}" PUBLIC "/opt/local/include/")

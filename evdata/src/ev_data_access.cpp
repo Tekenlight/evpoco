@@ -29,11 +29,17 @@ void sg_tmm_lock_wr_lock(int l);
 void sg_tmm_lock_rd_lock(int l);
 }
 
+
+extern "C" void register_stage2_cleanup_func(void * f);
+
 typedef std::map<std::string, evl_pool::queue_holder *> type_map_type;
 typedef std::map<std::string, const char*> statements_map_type;
 typedef std::map<std::string, void*> map_of_maps_type;
 
 static map_of_maps_type * sg_m_o_m = NULL;;
+
+static statements_map_type * get_statements_map();
+static type_map_type * get_type_map(map_of_maps_type* m_o_m);
 
 static std::string form_name_key(const char * host, const char * name)
 {
@@ -43,6 +49,47 @@ static std::string form_name_key(const char * host, const char * name)
 	return key;
 }
 
+#define get_map_of_maps() sg_m_o_m;
+
+void clear_statements_map()
+{
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	statements_map_type * sm = get_statements_map();
+	if (!sm) return;
+	for (auto it = sm->begin(); it != sm->end() ; ++it) {
+		free((void*)(it->second));
+	}
+	sm->clear();
+	delete sm;
+	(m_o_m)->erase(std::string(STATEMENTS_MAP));
+}
+
+void clear_types_map()
+{
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	auto it = m_o_m->find(TYPES_MAP);
+	if (m_o_m->end() == it) return;
+
+	type_map_type* tm = get_type_map(m_o_m);
+
+	if (!tm) return;
+	for (auto it = tm->begin(); it != tm->end() ; ++it) {
+		delete it->second;
+	}
+	tm->clear();
+	delete tm;
+	(m_o_m)->erase(std::string(TYPES_MAP));
+}
+
+void clear_maps()
+{
+	clear_statements_map();
+	clear_types_map();
+
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	m_o_m->clear();
+}
+
 #define init_m_o_m() {\
 	sg_m_o_m_lock_rd_lock(1); \
 	if (sg_m_o_m == NULL) { \
@@ -50,13 +97,13 @@ static std::string form_name_key(const char * host, const char * name)
 		sg_m_o_m_lock_wr_lock(1); \
 		if (sg_m_o_m == NULL) { \
 			sg_m_o_m = EVLHTTPRequestHandler::getMapOfMaps(); \
+			register_stage2_cleanup_func((void*)clear_maps); \
 		} \
 		sg_m_o_m_lock_wr_lock(0); \
 		sg_m_o_m_lock_rd_lock(1); \
 	} \
 	sg_m_o_m_lock_rd_lock(0); \
 }
-#define get_map_of_maps() sg_m_o_m;
 
 static type_map_type * add_and_get_type_map(map_of_maps_type* m_o_m)
 {
@@ -149,23 +196,6 @@ void init_pool_type(const char * type, evl_pool::queue_holder *qhf)
 	//DEBUGPOINT("Initialized type [%s]\n", type);
 }
 
-void clear_types_map()
-{
-	map_of_maps_type* m_o_m = get_map_of_maps();
-	auto it = m_o_m->find(TYPES_MAP);
-	if (m_o_m->end() == it) return;
-
-	type_map_type* tm = get_type_map(m_o_m);
-
-	if (!tm) return;
-	for (auto it = tm->begin(); it != tm->end() ; ++it) {
-		delete it->second;
-	}
-	tm->clear();
-	delete tm;
-	(m_o_m)->erase(std::string(TYPES_MAP));
-}
-
 static evl_pool::queue_holder *
 get_queue_holder(const char * type, const char * host, const char * name)
 {
@@ -236,19 +266,6 @@ static statements_map_type * get_statements_map()
 		}
 	}
 	return sm;
-}
-
-void clear_statements_map()
-{
-	map_of_maps_type* m_o_m = get_map_of_maps();
-	statements_map_type * sm = get_statements_map();
-	if (!sm) return;
-	for (auto it = sm->begin(); it != sm->end() ; ++it) {
-		free((void*)(it->second));
-	}
-	sm->clear();
-	delete sm;
-	(m_o_m)->erase(std::string(STATEMENTS_MAP));
 }
 
 static const char* core_get_stmt_id_from_cache(const char * statement)

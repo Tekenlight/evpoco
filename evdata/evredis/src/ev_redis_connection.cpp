@@ -6,11 +6,16 @@
 
 #include "Poco/evdata/evredis/ev_redis.h"
 
+#define DELIMITER "|||"
+
 
 int socket_live(int fd);
 void init_pool_type(const char * db_type, Poco::evnet::evl_pool::queue_holder *qhf);
 void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname);
 void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
+
+extern "C" void register_cleanup_func(void * f);
+extern "C" void redisAsyncFree(redisAsyncContext *ac);
 
 static redisAsyncContext * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);
@@ -21,6 +26,28 @@ static int connection_tostring(lua_State *L);
 static int orchestrate_connection_process(lua_State *L, int step_to_continue);
 static int orig_connection_close(lua_State *L);
 static int close_connection(lua_State * L, redis_connection_t *conn);
+
+static std::map<std::string, int > keys_map;
+
+static void concat_tokens(char * target, const char * host, const char * dbname)
+{
+	strcpy(target, host);
+	strcat(target, DELIMITER);
+	strcat(target, dbname);
+}
+
+static void split_tokens(char * tokens_str, char * host, char * dbname)
+{
+	char * tok = strtok(tokens_str, DELIMITER);
+	strcpy(host, tok);
+	tok = strtok(NULL, DELIMITER);
+	strcpy(dbname, tok);
+
+	tok = strtok(NULL, DELIMITER);
+	assert(tok == NULL);
+
+	return ;
+}
 
 static void dummy_free_reply(void * p)
 {
@@ -179,6 +206,22 @@ static int open_connection_initiate(lua_State *L)
 	}
 }
 
+static int sync_close_connection(redis_connection_t *conn)
+{
+    int disconnect = 0;   
+    if (conn->ac) {
+		//DEBUGPOINT("Here conn->ac = [%p]\n", conn->ac);
+		redisAsyncFree(conn->ac);
+		disconnect = 1;
+		conn->ac = NULL;
+    }
+
+	delete conn->s_host;
+	delete conn->s_dbname;
+
+	return disconnect;
+}
+
 static int close_connection(lua_State *L, redis_connection_t *conn)
 {
     int disconnect = 0;   
@@ -226,6 +269,12 @@ static int repurpose_connection(lua_State *L)
 		}
 		//DEBUGPOINT("REPURPOSING CONNECTION [%p][%p]\n", conn, conn->ac);
 		add_conn_to_pool(REDIS_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
+		{
+			char concat_str[1024];
+			concat_tokens(concat_str, n_conn->s_host->c_str(), n_conn->s_dbname->c_str());
+			std::string key(concat_str);
+			keys_map[key] = 1;
+		}
 	}
 	return 0;
 }
@@ -432,6 +481,30 @@ static int transceive(lua_State *L)
 	return lua_yieldk(L, 0, (lua_KContext)conn, transceive_complete);
 }
 
+static void cleanup_connections()
+{
+	char host[256];
+	char dbname[256];
+	char concat_str[1024];
+
+	/*
+	*/
+	for (auto it = keys_map.begin(); it != keys_map.end() ; ++it) {
+		strcpy(concat_str, it->first.c_str());
+		split_tokens(concat_str, host, dbname);
+
+		redis_connection_t * conn = (redis_connection_t *) get_conn_from_pool(REDIS_DB_TYPE_NAME, host, dbname);
+		while (conn) {
+			//DEBUGPOINT("CLOSING CONNECTION\n");
+			sync_close_connection(conn);
+			free(conn);
+			conn = (redis_connection_t *) get_conn_from_pool(REDIS_DB_TYPE_NAME, host, dbname);
+		}
+	}
+	keys_map.clear();
+	return;
+}
+
 static int ev_redis_connection(lua_State *L)
 {
 	redis_queue_holder qhf;
@@ -464,6 +537,8 @@ static int ev_redis_connection(lua_State *L)
 
 	if (!db_initialized) init_pool_type(REDIS_DB_TYPE_NAME, &qhf);
 	db_initialized = 1;
+
+	register_cleanup_func((void *)cleanup_connections);
 
 	return 1;    
 }

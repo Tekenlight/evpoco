@@ -514,7 +514,7 @@ public:
 	~LUAStateCache() {
 		lua_State* l = NULL;
 		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
-			DEBUGPOINT("LUAStateCache Destructor\n");
+			//DEBUGPOINT("LUAStateCache Destructor\n");
 			lua_gc(l, LUA_GCCOLLECT, 0);
 			lua_gc(l, LUA_GCCOLLECT, 0);
 			lua_close(l);

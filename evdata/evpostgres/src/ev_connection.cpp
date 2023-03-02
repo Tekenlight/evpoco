@@ -18,7 +18,6 @@ void * get_conn_from_pool(const char * db_type, const char * host, const char * 
 void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
 const std::string * get_stmt_id_from_cache(const char * statement);
 void clear_statements_map();
-void clear_types_map();
 extern "C" void register_cleanup_func(void * f);
 
 static PGconn * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
@@ -431,7 +430,6 @@ static void cleanup_connections()
 	}
 	keys_map.clear();
 	clear_statements_map();
-	clear_types_map();
 	return;
 }
 

@@ -139,8 +139,11 @@ typedef struct _cleanup_func_node {
 	struct _cleanup_func_node * next;
 } cleanup_flist_node_type;
 
-static cleanup_flist_node_type * list = NULL;
-static cleanup_flist_node_type * list_end = NULL;
+static cleanup_flist_node_type * stage1_list = NULL;
+static cleanup_flist_node_type * stage1_list_end = NULL;
+
+static cleanup_flist_node_type * stage2_list = NULL;
+static cleanup_flist_node_type * stage2_list_end = NULL;
 
 extern "C" void register_cleanup_func(void * f);
 void register_cleanup_func(void * f)
@@ -149,13 +152,34 @@ void register_cleanup_func(void * f)
 
 	cleanup_flist_node_type * p = NULL;
 	
-	if (list == NULL) {
-		list_end = list = p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
+	if (stage1_list == NULL) {
+		stage1_list_end = stage1_list = p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
 	}
 	else {
 		p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
-		list_end->next = p;
-		list_end = p;
+		stage1_list_end->next = p;
+		stage1_list_end = p;
+	}
+
+	p->next = NULL;
+	p->f = func;
+
+}
+
+extern "C" void register_stage2_cleanup_func(void * f);
+void register_stage2_cleanup_func(void * f)
+{
+	cached_data_cleanup_func_type func = (cached_data_cleanup_func_type)f;
+
+	cleanup_flist_node_type * p = NULL;
+	
+	if (stage2_list == NULL) {
+		stage2_list_end = stage2_list = p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
+	}
+	else {
+		p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
+		stage2_list_end->next = p;
+		stage2_list_end = p;
 	}
 
 	p->next = NULL;
@@ -165,14 +189,29 @@ void register_cleanup_func(void * f)
 
 void invoke_cleanup_funcs()
 {
-	cleanup_flist_node_type * prev = NULL;
-	cleanup_flist_node_type * p = list;
-	while (p != NULL) {
-		p->f();
-		prev = p;
-		p = p->next;
-		free(prev);
+	{
+		cleanup_flist_node_type * prev = NULL;
+		cleanup_flist_node_type * p = stage1_list;
+		while (p != NULL) {
+			p->f();
+			prev = p;
+			p = p->next;
+			free(prev);
+		}
+		stage1_list = NULL;
+		stage1_list_end = NULL;
 	}
-	list = NULL;
-	list_end = NULL;
+
+	{
+		cleanup_flist_node_type * prev = NULL;
+		cleanup_flist_node_type * p = stage2_list;
+		while (p != NULL) {
+			p->f();
+			prev = p;
+			p = p->next;
+			free(prev);
+		}
+		stage2_list = NULL;
+		stage2_list_end = NULL;
+	}
 }

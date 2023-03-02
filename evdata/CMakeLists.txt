@@ -47,7 +47,7 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-target_link_libraries( "${LIBNAME}" evnet )
+target_link_libraries( "${LIBNAME}" evnet evluautil )
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

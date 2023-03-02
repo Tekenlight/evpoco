@@ -22,6 +22,7 @@ extern "C" {
 #define EV_REDIS_CONNECTION	"REDIS_CONNECTION"
 
 typedef void (*free_reply_funcptr_type)(void * p);
+extern "C" void redisFree(redisContext *c);
 
 typedef struct _redis_connection {
 	int orig_fd;
