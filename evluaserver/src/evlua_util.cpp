@@ -142,6 +142,7 @@ typedef struct _cleanup_func_node {
 static cleanup_flist_node_type * list = NULL;
 static cleanup_flist_node_type * list_end = NULL;
 
+extern "C" void register_cleanup_func(void * f);
 void register_cleanup_func(void * f)
 {
 	cached_data_cleanup_func_type func = (cached_data_cleanup_func_type)f;

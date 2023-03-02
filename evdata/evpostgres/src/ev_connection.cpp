@@ -19,7 +19,7 @@ void add_conn_to_pool(const char * db_type, const char * host, const char * dbna
 const std::string * get_stmt_id_from_cache(const char * statement);
 void clear_statements_map();
 void clear_types_map();
-void register_cleanup_func(void * f);
+extern "C" void register_cleanup_func(void * f);
 
 static PGconn * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);

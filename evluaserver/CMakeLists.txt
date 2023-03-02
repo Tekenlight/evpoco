@@ -2,28 +2,44 @@ set(EXENAME1 "evluaserver")
 set(EXENAME2 "evlua")
 set(SAMPLE_NAME1 "evluaserver")
 set(SAMPLE_NAME2 "evlua")
+set(LIBNAME "evluautil")
+set(POCO_LIBNAME "${LIBNAME}")
 
 set(LOCAL_SRCS "")
 aux_source_directory(src LOCAL_SRCS)
 
 set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
 
-add_executable( ${SAMPLE_NAME1} "src/evluaserver.cpp" "src/evlua_util.cpp" )
-add_executable( ${SAMPLE_NAME2} "src/evlua.cpp" "src/evlua_util.cpp" )
-target_link_libraries( ${SAMPLE_NAME1} PocoNet evnet PocoUtil PocoFoundation )
-target_link_libraries( ${SAMPLE_NAME2} PocoNet evnet PocoUtil PocoFoundation )
+add_library( "${LIBNAME}" ${LIB_MODE} "src/evlua_util.cpp" )
+set_target_properties( "${LIBNAME}"
+    PROPERTIES
+    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
+    OUTPUT_NAME ${POCO_LIBNAME}
+    DEFINE_SYMBOL evluautil_EXPORTS
+    )
+
+add_executable( ${SAMPLE_NAME1} "src/evluaserver.cpp" )
+add_executable( ${SAMPLE_NAME2} "src/evlua.cpp" )
+target_link_libraries( ${SAMPLE_NAME1} ${LIBNAME} PocoNet evnet PocoUtil PocoFoundation )
+target_link_libraries( ${SAMPLE_NAME2} ${LIBNAME} PocoNet evnet PocoUtil PocoFoundation )
 
 find_library(LIBEVGLOBALS NAMES evglobals REQUIRED)
 find_library(LIBCORE_UTILS NAMES core_utils REQUIRED)
+find_library(LIBEVSYNC NAMES evsync REQUIRED)
 
-target_link_libraries( ${SAMPLE_NAME1} "${LIBEVGLOBALS}" )
-target_link_libraries( ${SAMPLE_NAME1} "${LIBCORE_UTILS}" )
-target_link_libraries( ${SAMPLE_NAME2} "${LIBEVGLOBALS}" )
-target_link_libraries( ${SAMPLE_NAME2} "${LIBCORE_UTILS}" )
+# target_link_libraries( ${SAMPLE_NAME1} "${LIBEVGLOBALS}" )
+# target_link_libraries( ${SAMPLE_NAME1} "${LIBCORE_UTILS}" )
+# target_link_libraries( ${SAMPLE_NAME2} "${LIBEVGLOBALS}" )
+# target_link_libraries( ${SAMPLE_NAME2} "${LIBCORE_UTILS}" )
+
+target_link_libraries( ${LIBNAME} "${LIBEVGLOBALS}" )
+target_link_libraries( ${LIBNAME} "${LIBCORE_UTILS}" )
+target_link_libraries( ${LIBNAME} "${LIBEVSYNC}" )
 
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${SAMPLE_NAME1}" PUBLIC "${dir}")
 	target_include_directories( "${SAMPLE_NAME2}" PUBLIC "${dir}")
+	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
 endforeach(dir)
 
 set_target_properties( "${EXENAME1}"
@@ -51,6 +67,9 @@ install(
     RUNTIME DESTINATION bin
     INCLUDES DESTINATION include
     )
+
+POCO_INSTALL("${LIBNAME}")
+POCO_GENERATE_PACKAGE("${LIBNAME}")
 
 if (ENABLE_CRYPTO)
     add_subdirectory(evlcrypto)
