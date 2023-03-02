@@ -1,4 +1,5 @@
 #include <execinfo.h>
+#include <assert.h>
 
 #include "Poco/evnet/evnet_lua.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
