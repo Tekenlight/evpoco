@@ -116,10 +116,16 @@ class pg_queue_holder : public Poco::evnet::evl_pool::queue_holder {
 		return (Poco::evnet::evl_pool::queue_holder*)(new pg_queue_holder());
 	}
 	virtual ~pg_queue_holder() {
-		PGconn * conn = (PGconn*)dequeue(_queue);
+		connection_t* conn = (connection_t *)dequeue(_queue);
 		while (conn) {
-			PQfinish(conn);
-			conn = (PGconn*)dequeue(_queue);
+			PQfinish(conn->pg_conn);
+			if (conn->cached_stmts) {
+				delete conn->cached_stmts;
+			}
+			delete conn->s_host;
+			delete conn->s_dbname;
+			free(conn);
+			conn = (connection_t *)dequeue(_queue);
 		}
 		wf_destroy_ev_queue(_queue);
 	}

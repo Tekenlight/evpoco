@@ -74,6 +74,9 @@ unsigned char *base64_encode(const unsigned char *data, size_t input_length,
 								size_t *output_length, int add_line_breaks);
 }
 
+extern "C" void clear_lua_state_cache();
+extern void invoke_cleanup_funcs();
+
 static int sg_heart_beat_running = 1;
 
 static void int_handler(int sig)
@@ -511,6 +514,9 @@ protected:
 			srv.stop();
 			// Stop the heart_beat
 			if (_config_req) stop_heart_beat(t);
+
+			//clear_lua_state_cache();
+			invoke_cleanup_funcs();
 
 			//delete p; How to arrange for freeing of memory
 		}

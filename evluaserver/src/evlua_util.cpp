@@ -154,6 +154,7 @@ void register_cleanup_func(void * f)
 	else {
 		p = (cleanup_flist_node_type*)malloc(sizeof(cleanup_flist_node_type));
 		list_end->next = p;
+		list_end = p;
 	}
 
 	p->next = NULL;
@@ -171,4 +172,6 @@ void invoke_cleanup_funcs()
 		p = p->next;
 		free(prev);
 	}
+	list = NULL;
+	list_end = NULL;
 }

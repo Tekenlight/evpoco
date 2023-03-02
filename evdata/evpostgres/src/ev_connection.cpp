@@ -1,3 +1,5 @@
+#include <string.h>
+#include <assert.h>
 #include "Poco/evdata/evpostgres/ev_postgres.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
 #include "Poco/evnet/EVEventNotification.h"
@@ -6,6 +8,8 @@
 
 #include <execinfo.h>
 
+#define DELIMITER "|||"
+
 int socket_live(int fd);
 int ev_postgres_statement_create(lua_State *L, connection_t *conn, const char *stmt_id, const char *sql_query);
 int dbd_postgresql_statement_create(lua_State *L, connection_t *conn, const char *sql_query);
@@ -13,6 +17,9 @@ void init_pool_type(const char * db_type, Poco::evnet::evl_pool::queue_holder *q
 void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname);
 void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
 const std::string * get_stmt_id_from_cache(const char * statement);
+void clear_statements_map();
+void clear_types_map();
+void register_cleanup_func(void * f);
 
 static PGconn * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);
@@ -23,6 +30,28 @@ static int connection_tostring(lua_State *L);
 static int orchestrate_connection_process(lua_State *L, int step_to_continue);
 static int orig_connection_close(lua_State *L);
 static int close_connection(connection_t *conn);
+
+static std::map<std::string, int > keys_map;
+
+static void concat_tokens(char * target, const char * host, const char * dbname)
+{
+	strcpy(target, host);
+	strcat(target, DELIMITER);
+	strcat(target, dbname);
+}
+
+static void split_tokens(char * tokens_str, char * host, char * dbname)
+{
+	char * tok = strtok(tokens_str, DELIMITER);
+	strcpy(host, tok);
+	tok = strtok(NULL, DELIMITER);
+	strcpy(dbname, tok);
+
+	tok = strtok(NULL, DELIMITER);
+	assert(tok == NULL);
+
+	return ;
+}
 
 /*
  * instance methods
@@ -121,6 +150,14 @@ static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx)
 		lua_pushnil(L);
 		return 1;
 	}
+	/*
+	if (CONNECTION_OK != PQstatus(p)) {
+		DEBUGPOINT("Could not establish Postgresql connection\n");
+		PQfinish(p);
+		lua_pushnil(L);
+		return 1;
+	}
+	*/
 
 	return return_opened_connection(L, p);
 }
@@ -264,6 +301,14 @@ static int connection_close(lua_State *L)
 			n_conn->conn_in_error = conn->conn_in_error;
 		}
 		add_conn_to_pool(POSTGRES_DB_TYPE_NAME, n_conn->s_host->c_str(), n_conn->s_dbname->c_str(), n_conn);
+		{
+			char concat_str[1024];
+			concat_tokens(concat_str, n_conn->s_host->c_str(), n_conn->s_dbname->c_str());
+			std::string key(concat_str);
+			keys_map[key] = 1;
+		}
+		/*
+		*/
 		lua_getglobal(L, "EVR_MODE");
 		int evr_mode = lua_tointeger(L, -1);
 		lua_pop(L, -1);
@@ -364,6 +409,32 @@ static int reset_connection_error(lua_State *L)
 	return 0;
 }
 
+static void cleanup_connections()
+{
+	char host[256];
+	char dbname[256];
+	char concat_str[1024];
+
+	/*
+	*/
+	for (auto it = keys_map.begin(); it != keys_map.end() ; ++it) {
+		strcpy(concat_str, it->first.c_str());
+		split_tokens(concat_str, host, dbname);
+
+		connection_t * conn = (connection_t *) get_conn_from_pool(POSTGRES_DB_TYPE_NAME, host, dbname);
+		while (conn) {
+			//DEBUGPOINT("CLOSING CONNECTION\n");
+			close_connection(conn);
+			free(conn);
+			conn = (connection_t *) get_conn_from_pool(POSTGRES_DB_TYPE_NAME, host, dbname);
+		}
+	}
+	keys_map.clear();
+	clear_statements_map();
+	clear_types_map();
+	return;
+}
+
 extern "C" int ev_postgres_connection(lua_State *L);
 int ev_postgres_connection(lua_State *L)
 {
@@ -398,6 +469,9 @@ int ev_postgres_connection(lua_State *L)
 
 	if (!db_initialized) init_pool_type(POSTGRES_DB_TYPE_NAME, &qhf);
 	db_initialized = 1;
+
+
+	register_cleanup_func((void *)cleanup_connections);
 
 	return 1;    
 }

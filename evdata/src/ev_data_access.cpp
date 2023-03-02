@@ -149,6 +149,23 @@ void init_pool_type(const char * type, evl_pool::queue_holder *qhf)
 	//DEBUGPOINT("Initialized type [%s]\n", type);
 }
 
+void clear_types_map()
+{
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	auto it = m_o_m->find(TYPES_MAP);
+	if (m_o_m->end() == it) return;
+
+	type_map_type* tm = get_type_map(m_o_m);
+
+	if (!tm) return;
+	for (auto it = tm->begin(); it != tm->end() ; ++it) {
+		delete it->second;
+	}
+	tm->clear();
+	delete tm;
+	(m_o_m)->erase(std::string(TYPES_MAP));
+}
+
 static evl_pool::queue_holder *
 get_queue_holder(const char * type, const char * host, const char * name)
 {
@@ -219,6 +236,19 @@ static statements_map_type * get_statements_map()
 		}
 	}
 	return sm;
+}
+
+void clear_statements_map()
+{
+	map_of_maps_type* m_o_m = get_map_of_maps();
+	statements_map_type * sm = get_statements_map();
+	if (!sm) return;
+	for (auto it = sm->begin(); it != sm->end() ; ++it) {
+		free((void*)(it->second));
+	}
+	sm->clear();
+	delete sm;
+	(m_o_m)->erase(std::string(STATEMENTS_MAP));
 }
 
 static const char* core_get_stmt_id_from_cache(const char * statement)

@@ -501,6 +501,16 @@ public:
 		//DEBUGPOINT("Constructor\n");
 		_queue = create_ev_queue();
 	}
+	void clearCache() {
+		lua_State* l = NULL;
+		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
+			//DEBUGPOINT("LUAStateCache clearing cache\n");
+			lua_gc(l, LUA_GCCOLLECT, 0);
+			lua_gc(l, LUA_GCCOLLECT, 0);
+			lua_close(l);
+		}
+		return;
+	}
 	~LUAStateCache() {
 		lua_State* l = NULL;
 		while ((l = (lua_State*)dequeue(_queue)) != NULL) {
@@ -514,6 +524,13 @@ public:
 };
 
 static LUAStateCache sg_lua_state_cache;
+
+extern "C" void clear_lua_state_cache();
+void clear_lua_state_cache()
+{
+	sg_lua_state_cache.clearCache();
+	return ;
+}
 
 static const char *getCB (lua_State *L, void *ud, size_t *size)
 {
@@ -4209,6 +4226,7 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		else {
 			if (_L) {
 				lua_close(_L);
+				_L = NULL;
 			}
 		}
 	}
@@ -4277,6 +4295,8 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 		}
 		else {
 			if (_L) {
+				lua_gc(_L, LUA_GCCOLLECT, 0);
+				lua_gc(_L, LUA_GCCOLLECT, 0);
 				lua_close(_L);
 			}
 		}
@@ -4284,6 +4304,9 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
 	else {
 		//if (!getServer().aborting()) lua_close(_L);
 		//DEBUGPOINT("CLOSING [%p] \n", _L);
+		//invoke_cleanup_funcs();
+		lua_gc(_L, LUA_GCCOLLECT, 0);
+		lua_gc(_L, LUA_GCCOLLECT, 0);
 		lua_close(_L);
 	}
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
