@@ -101,6 +101,7 @@ EVAcceptedStreamSocket::~EVAcceptedStreamSocket()
 		this->_reqProcState = NULL;
 	}
 	if (this->_req_memory_stream) {
+		//DEBUGPOINT("Deleting request memory stream\n");
 		delete this->_req_memory_stream;
 		this->_req_memory_stream = NULL;
 	}

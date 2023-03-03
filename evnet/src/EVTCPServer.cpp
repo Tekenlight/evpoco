@@ -713,6 +713,7 @@ void EVTCPServer::clearAcceptedSocket(poco_socket_t fd)
 			ev_clear_pending(this->_loop, socket_watcher_ptr);
 		}
 	}
+	//DEBUGPOINT("CLEARING FOR [%p]\n", tn);
 	delete tn;
 }
 
@@ -3039,7 +3040,7 @@ handleCLFdReadable_finally:
 
 EVAcceptedStreamSocket* EVTCPServer::addCLPrimaryFdToAcceptedList(int fd, int wr_fd, int task_type)
 {
-	EVAcceptedStreamSocket * acceptedSock = new EVAcceptedStreamSocket(fd, wr_fd);
+	EVAcceptedStreamSocket * acceptedSock = NULL;
 	try {
 
 		acceptedSock = new EVAcceptedStreamSocket(fd, wr_fd);
