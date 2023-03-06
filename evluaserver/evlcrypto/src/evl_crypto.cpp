@@ -8,6 +8,7 @@
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 #include <openssl/x509.h>
+#include <openssl/evp.h>
 #include <stddef.h>
 #include <assert.h>
 #include <arpa/inet.h>
@@ -69,18 +70,12 @@ using namespace Poco::Crypto;
 static int hmac_fdigest(lua_State *L)
 {
     const char *t = luaL_checkstring(L, 1);
-    const EVP_MD *type = EVP_get_digestbyname(t);
     size_t slen; const char *s;
     size_t klen; const char *k;
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int written = 0;
 
 	memset(digest, 0, EVP_MAX_MD_SIZE);
-
-    if (type == NULL) {
-        luaL_argerror(L, 1, "invalid digest type");
-        return 0;
-    }
 
     s = luaL_checklstring(L, 2, &slen);
     k = luaL_checklstring(L, 3, &klen);
@@ -104,7 +99,43 @@ static int hmac_fdigest(lua_State *L)
 	EVP_MAC_final(ctx, (unsigned char*)digest, (unsigned long *)(&written), EVP_MAX_MD_SIZE);
 	EVP_MAC_CTX_free(ctx);
 	EVP_MAC_free(mac);
+
+
+	/*
+	OpenSSL_add_all_digests();
+	EVP_MD_CTX* mdctx = NULL;
+	const EVP_MD* type = NULL;
+	EVP_PKEY *pkey = NULL;
+
+	OpenSSL_add_all_digests();
+
+	mdctx = EVP_MD_CTX_new();
+	type = EVP_get_digestbyname(t);
+	if (type == NULL) {
+		luaL_argerror(L, 1, "invalid digest type");
+		return 0;
+	}
+
+	pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, (unsigned char *)k, klen);
+
+	EVP_DigestSignInit(mdctx, NULL, type, NULL, pkey);
+
+	EVP_DigestSignUpdate(mdctx, s, slen);
+
+	EVP_DigestSignFinal(mdctx, (unsigned char *)digest, (size_t*)&written);
+	DEBUGPOINT("written = [%d]\n", written);
+
+	EVP_PKEY_free(pkey);
+	EVP_MD_CTX_free(mdctx);
+	*/
+
 #else
+    const EVP_MD *type = EVP_get_digestbyname(t);
+	if (type == NULL) {
+		luaL_argerror(L, 1, "invalid digest type");
+		return 0;
+	}
+
 	/*
 	*/
     //HMAC_CTX_init(&c);
