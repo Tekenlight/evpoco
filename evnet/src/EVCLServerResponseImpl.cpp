@@ -5,7 +5,7 @@
 // Package: EVHTTPServer
 // Module:  EVCLServerResponseImpl
 //
-// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
+// Tekenlight Solutions Pvt Ltd.
 // and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0

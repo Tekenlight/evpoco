@@ -9,7 +9,7 @@
 // This file must be the first file included by every other evnet
 // header file.
 //
-// Copyright (c) 2005-2006, Applied Informatics Software Engineering GmbH.
+// Tekenlight Solutions Pvt Ltd.
 // and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0

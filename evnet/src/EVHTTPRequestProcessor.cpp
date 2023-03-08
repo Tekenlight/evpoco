@@ -5,7 +5,7 @@
 // Package: EVHTTPServer
 // Module:  EVHTTPRequestProcessor
 //
-// Copyright (c) 2019-2020, Tekenlight Solutions Pvt. Ltd.
+// Tekenlight Solutions Pvt Ltd.
 // and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0

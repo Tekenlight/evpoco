@@ -5,7 +5,8 @@
 // Package: EVHTTPClient
 // Module:  EVHTTPClientSession
 //
-// Copyright (c) 2019-2020, Tekenlight Solutions and contributors
+// Tekenlight Solutions Pvt Ltd.
+// and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0
 //

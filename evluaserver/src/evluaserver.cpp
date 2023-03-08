@@ -3,7 +3,7 @@
 //
 // This sample demonstrates the HTTPServer and HTMLForm classes.
 //
-// Copyright (c) 2018-2019, Tekenlight Solutions Pvt Ltd.
+// Tekenlight Solutions Pvt Ltd.
 // and Contributors.
 //
 // SPDX-License-Identifier:	BSL-1.0

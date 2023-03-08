@@ -5,7 +5,8 @@
 // Package: EVHTTPServer
 // Module:  EVLHTTPRequestHandler
 //
-// Copyright (c) 2019-2020, Tekenlight Solutions Pvt Ltd
+// Tekenlight Solutions Pvt Ltd.
+// and Contributors.
 //
 
 #include <unistd.h>
