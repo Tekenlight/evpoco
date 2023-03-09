@@ -12,6 +12,7 @@
 
 # cmake -DPG_VERSION=13 -DCMAKE_INSTALL_PREFIX=$HOME/usr/local -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/lib" ..
 # cmake -DPG_VERSION=13 -DCMAKE_INSTALL_PREFIX=$HOME/usr/local -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib;/usr/local/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/include;/usr/local/include" ..
+# cmake -DPG_VERSION=13 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib;/usr/local/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/include;/usr/local/include" ..
 
 # on ubuntu in order to install on system directories,
 # cmake -DPG_VERSION=14 .. 
