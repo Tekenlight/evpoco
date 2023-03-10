@@ -69,16 +69,16 @@ using namespace Poco::Crypto;
 
 static int hmac_fdigest(lua_State *L)
 {
-    const char *t = luaL_checkstring(L, 1);
-    size_t slen; const char *s;
-    size_t klen; const char *k;
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int written = 0;
+	const char *t = luaL_checkstring(L, 1);
+	size_t slen; const char *s;
+	size_t klen; const char *k;
+	unsigned char digest[EVP_MAX_MD_SIZE];
+	unsigned int written = 0;
 
 	memset(digest, 0, EVP_MAX_MD_SIZE);
 
-    s = luaL_checklstring(L, 2, &slen);
-    k = luaL_checklstring(L, 3, &klen);
+	s = luaL_checklstring(L, 2, &slen);
+	k = luaL_checklstring(L, 3, &klen);
 
 
 #if ((defined OPENSSL_VERSION_MAJOR) && (OPENSSL_VERSION_MAJOR >=3))
@@ -130,7 +130,7 @@ static int hmac_fdigest(lua_State *L)
 	*/
 
 #else
-    const EVP_MD *type = EVP_get_digestbyname(t);
+	const EVP_MD *type = EVP_get_digestbyname(t);
 	if (type == NULL) {
 		luaL_argerror(L, 1, "invalid digest type");
 		return 0;
@@ -138,28 +138,28 @@ static int hmac_fdigest(lua_State *L)
 
 	/*
 	*/
-    //HMAC_CTX_init(&c);
-    HMAC_CTX * c = HMAC_CTX_new();
+	//HMAC_CTX_init(&c);
+	HMAC_CTX * c = HMAC_CTX_new();
 	HMAC_CTX_reset(c);
-    HMAC_Init_ex(c, k, klen, type, NULL);
-    HMAC_Update(c, (unsigned char *)s, slen);
-    HMAC_Final(c, digest, &written);
-    //HMAC_CTX_cleanup(c);
+	HMAC_Init_ex(c, k, klen, type, NULL);
+	HMAC_Update(c, (unsigned char *)s, slen);
+	HMAC_Final(c, digest, &written);
+	//HMAC_CTX_cleanup(c);
 	HMAC_CTX_free(c);
 #endif
 
-    if (lua_toboolean(L, 4)) {
-        lua_pushlstring(L, (char *)digest, written);
+	if (lua_toboolean(L, 4)) {
+		lua_pushlstring(L, (char *)digest, written);
 	}
-    else {
-        char * hex = (char *)calloc(sizeof(char), written * 2 + 1);
-        for (unsigned int i = 0; i < written; i++)
-            sprintf(hex + 2 * i, "%02x", digest[i]);
-        lua_pushlstring(L, hex, written * 2);
-        free(hex);
-    }
+	else {
+		char * hex = (char *)calloc(sizeof(char), written * 2 + 1);
+		for (unsigned int i = 0; i < written; i++)
+			sprintf(hex + 2 * i, "%02x", digest[i]);
+		lua_pushlstring(L, hex, written * 2);
+		free(hex);
+	}
 
-    return 1;
+	return 1;
 }
 
 
