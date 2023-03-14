@@ -53,10 +53,6 @@ target_include_directories( "${LIBNAME}"
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-message(STATUS "===========")
-message(STATUS "${TARGET_OS_OSX_HOMEBREW}")
-message(STATUS "===========")
-
 if (PG_VERSION EQUAL 12)
 	message(STATUS PG_VERSION " ${PG_VERSION}")
 	add_definitions(-DPG_VERSION=12)
