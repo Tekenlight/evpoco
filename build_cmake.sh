@@ -8,15 +8,23 @@ rm -rf cmake-build
 mkdir cmake-build
 cd cmake-build
 
-cmake ../. -DCMAKE_BUILD_TYPE=Debug  $1 $2 $3 $4 $5
-make -j3
-make install
+PLATFORM=`uname`
+if [ "$PLATFORM" = "Darwin" ]
+then
+	cmake ../. -DPG_VERSION=13 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib;/usr/local/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/include;/usr/local/include" ..  $1 $2 $3 $4 $5
+	make -j3
+	sudo make install
+else
+	cmake ../. -DPG_VERSION=13  ..  $1 $2 $3 $4 $5
+	make -j3
+	sudo make install
+fi
 
-rm -rf CMakeCache.txt
+#rm -rf CMakeCache.txt
 
-cmake ../. -DCMAKE_BUILD_TYPE=Release $1 $2 $3 $4 $5
-make -j3
-make install
+#cmake ../. -DCMAKE_BUILD_TYPE=Release $1 $2 $3 $4 $5
+#make -j3
+#make install
 
 
 cd ..
