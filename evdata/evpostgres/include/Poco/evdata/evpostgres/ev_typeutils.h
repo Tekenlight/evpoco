@@ -7,6 +7,36 @@ extern "C" {
 
 #ifdef TARGET_OS_OSX // {
 
+#ifdef TARGET_OS_OSX_HOMEBREW // {
+
+#if defined (PG_VERSION) && (PG_VERSION == 12)  // {
+
+#include "postgresql@12/libpq-fe.h"
+#include "postgresql@12/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 13) // } {
+
+#include "postgresql@13/libpq-fe.h"
+#include "postgresql@13/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 14) // } {
+
+#include "postgresql@14/libpq-fe.h"
+#include "postgresql@14/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 15) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#else // } {
+
+#error
+
+#endif // }
+
+#else // } {
+
 #if defined (PG_VERSION) && (PG_VERSION == 12)  // {
 
 #include "postgresql12/libpq-fe.h"
@@ -30,6 +60,8 @@ extern "C" {
 #else // } {
 
 #error
+
+#endif // }
 
 #endif // }
 
