@@ -50,7 +50,20 @@ set_target_properties( "${LIBNAME}"
     )
 endif(APPLE)
 
-find_library(LIBLUA NAMES lua REQUIRED)
+function(lualib_check validator_result_var item)
+	#if(NOT item MATCHES ...)
+	#	set(${validator_result_var} FALSE PARENT_SCOPE)
+	#endif()
+	message(STATUS "IN VALIDATOR")
+	message(STATUS "${item}")
+	message(STATUS "IN VALIDATOR")
+	message(STATUS "${validator_result_var}")
+	message(STATUS "IN VALIDATOR")
+
+endfunction()
+
+find_library(LIBLUA NAMES lua PATHS "${CMAKE_INSTALL_PREFIX}/lib" NO_CACHE REQUIRED )
+message(STATUS "FOUND LUALIB ${LIBLUA}")
 if(APPLE)
 	target_link_libraries( "${LIBNAME}" ${LIBLUA} )
 else(APPLE)
@@ -61,6 +74,7 @@ endif(APPLE)
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )

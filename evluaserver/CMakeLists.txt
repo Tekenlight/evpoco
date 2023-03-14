@@ -30,6 +30,14 @@ target_link_libraries( ${LIBNAME} "${LIBEVGLOBALS}" )
 target_link_libraries( ${LIBNAME} "${LIBCORE_UTILS}" )
 target_link_libraries( ${LIBNAME} "${LIBEVSYNC}" )
 
+target_include_directories(${LIBNAME}
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+	)
+
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${EXENAME1}" PUBLIC "${dir}")
 	target_include_directories( "${EXENAME2}" PUBLIC "${dir}")

@@ -30,18 +30,22 @@ set_target_properties( "${LIBNAME}"
     )
 
 target_link_libraries( "${LIBNAME}" Foundation Net Util lualib)
-find_library(LIBEV NAMES ev REQUIRED PATH_SUFFIXES "evpoco")
+
 find_library(LIBEVDS NAMES evds REQUIRED)
 find_library(LIBEVSYNC NAMES evsync REQUIRED)
 find_library(LIBEVIO NAMES evio REQUIRED)
 find_library(LIBEVTHRPOOL NAMES evthrpool REQUIRED)
-find_library(LIBHTTP_PARSER NAMES http_parser REQUIRED PATH_SUFFIXES "evpoco")
-find_library(LIBHIREDIS NAMES hiredis REQUIRED PATH_SUFFIXES "evpoco")
+
+find_library(LIBEV NAMES ev REQUIRED NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" PATH_SUFFIXES "evpoco")
+find_library(LIBHTTP_PARSER NAMES http_parser REQUIRED NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" PATH_SUFFIXES "evpoco")
+find_library(LIBHIREDIS NAMES hiredis REQUIRED NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" PATH_SUFFIXES "evpoco" )
+
 target_link_libraries( "${LIBNAME}" ${LIBEV} ${LIBEVDS} ${LIBEVSYNC} ${LIBEVIO} ${LIBEVTHRPOOL} ${LIBHTTP_PARSER} ${LIBHIREDIS} )
 
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
