@@ -62,7 +62,7 @@ function(lualib_check validator_result_var item)
 
 endfunction()
 
-find_library(LIBLUA NAMES lua PATHS "${CMAKE_INSTALL_PREFIX}/lib" NO_CACHE REQUIRED )
+find_library(LIBLUA NAMES lua NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" NO_CACHE REQUIRED )
 message(STATUS "FOUND LUALIB ${LIBLUA}")
 if(APPLE)
 	target_link_libraries( "${LIBNAME}" ${LIBLUA} )

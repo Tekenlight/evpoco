@@ -11,7 +11,8 @@ cd cmake-build
 PLATFORM=`uname`
 if [ "$PLATFORM" = "Darwin" ]
 then
-	cmake ../. -DPG_VERSION=13 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib;/usr/local/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/include;/usr/local/include" ..  $1 $2 $3 $4 $5
+	#cmake ../. -DPG_VERSION=13 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_LIBRARY_PATH="$HOME/usr/local/lib;$HOME/usr/lib;/usr/local/lib" -DADD_INCLUDE_DIRECTORIES="$HOME/usr/local/include;$HOME/usr/include;/usr/local/include" ..  $1 $2 $3 $4 $5
+	cmake ../. -DPG_VERSION=13 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" ..  $1 $2 $3 $4 $5
 	make -j3
 	sudo make install
 else
