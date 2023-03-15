@@ -69,6 +69,8 @@ elseif(PG_VERSION EQUAL 15)
 	message(STATUS PG_VERSION " ${PG_VERSION}")
 	find_library(LIBPQ NAMES pq REQUIRED PATH_SUFFIXES "postgresql15" "postgresql/15" "postgresql@15")
 	target_compile_definitions("${LIBNAME}" PRIVATE -DPG_VERSION=15)
+else ()
+	message(FATAL_ERROR "VARIABLE PG_VERSION NOT DEFINED")
 endif()
 
 if (DEFINED TARGET_OS_OSX_HOMEBREW)
