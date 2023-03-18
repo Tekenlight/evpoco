@@ -4249,9 +4249,6 @@ EVLHTTPRequestHandler::EVLHTTPRequestHandler():
 		lua_pushlightuserdata(_L, (void*) this);
 		lua_setglobal(_L, "EVLHTTPRequestHandler*");
 
-		lua_pushinteger(_L, getEVRHMode());
-		lua_setglobal(_L, "EVR_MODE");
-
 		lua_pushinteger(_L, MAX_MEMORY_ALLOC_LIMIT);
 		lua_setglobal(_L, S_MAX_MEMORY_ALLOC_LIMIT);
 
@@ -4580,6 +4577,9 @@ int EVLHTTPRequestHandler::loadReqHandler()
 
 int EVLHTTPRequestHandler::handleRequest()
 {
+	lua_pushinteger(_L, getEVRHMode());
+	lua_setglobal(_L, "EVR_MODE");
+
 	int status = 0;
 	int nargs = 0;
 	/* Request object is necessary for deduction of script names
