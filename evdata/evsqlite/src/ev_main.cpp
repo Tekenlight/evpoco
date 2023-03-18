@@ -38,3 +38,9 @@ int luaopen_evrdbms_sqlite3(lua_State *L)
     return 1;
 }
 
+extern "C" int luaopen_libevsqlite(lua_State *L);
+int luaopen_libevsqlite(lua_State *L)
+{
+    return luaopen_evrdbms_sqlite3(L);
+}
+
