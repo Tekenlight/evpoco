@@ -2,14 +2,15 @@
 
 local _M = {}
 
+local utils = require('service_utils.common.utils');
 -- Driver to module_loader mapping
 local name_to_module_loader = {
-    mysql = package.loadlib('libevmysql.so','luaopen_evrdbms_mysql'),
-    postgresql = package.loadlib('libevpostgresql.so','luaopen_evrdbms_postgresql'),
-    sqlite = package.loadlib('libevsqlite.so','luaopen_evrdbms_sqlite3'),
-    db2 = package.loadlib('libevdb2.so','luaopen_evrdbms_db2'),
-    oracle = package.loadlib('libevoracle.so','luaopen_evrdbms_oracle'),
-    odbc = package.loadlib('libevodbc.so','luaopen_evrdbms_odbc'),
+    mysql = utils.load_library('libevmysql'),
+    postgresql = utils.load_library('libevpostgresql'),
+    sqlite = utils.load_library('libevsqlite'),
+    db2 = utils.load_library('libevdb2'),
+    oracle = utils.load_library('libevoracle'),
+    odbc = utils.load_library('libevodbc'),
 }
 
 local driver_to_initfuncs = {};

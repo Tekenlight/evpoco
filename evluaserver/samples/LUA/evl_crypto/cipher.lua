@@ -1,17 +1,5 @@
 local ffi = require('ffi');
-ffi.cdef[[
-void * pin_loaded_so(const char * libname);
-]]
-
-local evl_crypto_loader = package.loadlib('libevlcrypto.so','luaopen_libevlcrypto');
-local loaded, evl_crypto = pcall(evl_crypto_loader);
-if(not loaded) then
-    error("Could not load library: "..evl_crypto);
-end
-local loaded, lib = pcall(ffi.C.pin_loaded_so, 'libevlcrypto.so');
-if(not loaded) then
-    error("Could not load library: "..evl_crypto);
-end
+local evl_crypto  = (require('service_utils.common.utils')).load_library('libevlcrypto');
 
 local status, symmetric_key = pcall(evl_crypto.generate_aes_key, 256);
 if (not status) then
