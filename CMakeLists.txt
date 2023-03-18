@@ -354,8 +354,8 @@ add_custom_target(uninstall
 
 include(InstallRequiredSystemLibraries)
 
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Poco Libraries")
-set(CPACK_PACKAGE_VENDOR "Applied Informatics Software Engineering GmbH")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "evpoco Libraries")
+set(CPACK_PACKAGE_VENDOR "Tekenlight Solutions Pvt Ltd.")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "/usr/local")

@@ -551,3 +551,9 @@ int luaopen_evredis(lua_State *L)
     return ev_redis_connection(L);
 }
 
+extern "C" int luaopen_libevredis(lua_State *L);
+int luaopen_libevredis(lua_State *L)
+{
+    return luaopen_evredis(L);
+}
+

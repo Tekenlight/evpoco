@@ -16,3 +16,9 @@ int luaopen_evrdbms_postgres(lua_State *L)
     return ev_postgres_connection(L);
 }
 
+extern "C" int luaopen_libevpostgres(lua_State *L);
+int luaopen_libevpostgres(lua_State *L)
+{
+    return luaopen_evrdbms_postgres(L);
+}
+
