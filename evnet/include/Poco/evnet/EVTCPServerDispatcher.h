@@ -62,6 +62,9 @@ public:
 	void stop();
 		/// Stops the dispatcher.
 			
+	void joinall();
+		/// Joins all threads
+			
 	int currentThreads() const;
 		/// Returns the number of currently used threads.
 

@@ -29,7 +29,7 @@ set_target_properties( "${LIBNAME}"
     DEFINE_SYMBOL evnet_EXPORTS
     )
 
-target_link_libraries( "${LIBNAME}" Foundation Net Util lualib)
+target_link_libraries( "${LIBNAME}" Foundation Net Util lualib evluautil)
 
 find_library(LIBEVDS NAMES evds REQUIRED)
 find_library(LIBEVSYNC NAMES evsync REQUIRED)

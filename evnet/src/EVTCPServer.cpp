@@ -35,6 +35,7 @@ extern "C" {
 void debug_io_watcher(const char * file, const int lineno, const ev_io * w);
 void debug_io_watchers(const char * file, const  int lineno, EV_P);
 }
+extern void invoke_cleanup_funcs();
 
 namespace Poco {
 namespace evnet {
@@ -760,7 +761,6 @@ void EVTCPServer::stop()
 	if (!_stopped)
 	{
 		_stopped = true;
-		//_pDispatcher->stopall();
 		{
 
 			ev_spin_lock(this->_loop_active_spin_lock);
@@ -775,7 +775,6 @@ void EVTCPServer::stop()
 		}
 
 		_thread.join();
-		_pDispatcher->stop();
 		destroy_thread_pool(this->_thread_pool);
 	}
 }
@@ -3323,6 +3322,10 @@ void EVTCPServer::run()
 		}
 	}
 
+	this->_pDispatcher->stop();
+	this->_pDispatcher->joinall();
+
+	invoke_cleanup_funcs();
 	ev_loop_destroy(this->_loop);
 
 	return;

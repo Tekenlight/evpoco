@@ -262,6 +262,12 @@ void EVTCPServerDispatcher::stop()
 	_queue.wakeUpAll();
 }
 
+void EVTCPServerDispatcher::joinall()
+{
+	_threadPool.joinAll();
+	stopall();
+}
+
 void EVTCPServerDispatcher::stopall()
 {
 	stop();

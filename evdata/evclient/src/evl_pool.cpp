@@ -24,6 +24,7 @@ class queue_holder : public Poco::evnet::evl_pool::queue_holder {
 		Poco::Net::StreamSocket * conn = (Poco::Net::StreamSocket*)dequeue(_queue);
 		while (conn) {
 			delete conn;
+			conn = (Poco::Net::StreamSocket*)dequeue(_queue);
 		}
 		wf_destroy_ev_queue(_queue);
 	}
