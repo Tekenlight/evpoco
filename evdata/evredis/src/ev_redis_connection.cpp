@@ -134,16 +134,13 @@ static int open_connection_initiate(lua_State *L)
 		 (conn->orig_fd != conn->ac->c.fd) ||
 		 (conn->ac->err) ||
 		 (conn->ac->c.err))) {
-		//DEBUGPOINT("HERE CONN NOT OK\n");
 		int fd = conn->ac->c.fd;
 		close_connection(L, conn);
 		free(conn);
 		conn = NULL;
 	}
 
-	//DEBUGPOINT("CONN = [%p]\n", conn);
 	if (conn == NULL) {
-		//DEBUGPOINT("DID NOT FIND CONNECTION from pool\n");
 		redisAsyncContext * p = initiate_connection(L, host, port, dbname, user, password);
 		if (!p) {
 			return 0;
@@ -164,15 +161,9 @@ static int open_connection_initiate(lua_State *L)
 				n_conn->free_reply_obj = n_conn->ac->c.reader->fn->coreFreeObject;
 				//n_conn->ac->c.reader->fn->freeObject = dummy_free_reply;
 				n_conn->ac->c.reader->fn->freeObject = NULL;
-				//DEBUGPOINT("1\n");
-				//DEBUGPOINT("n_conn->ac->c.reader->fn->freeObject = [%p]\n", n_conn->ac->c.reader->fn->freeObject);
-				//debug_conn(n_conn);
-				//DEBUGPOINT("1\n");
 			}
 			luaL_getmetatable(L, EV_REDIS_CONNECTION);
 			lua_setmetatable(L, -2);
-			//DEBUGPOINT("CONNECTION SUCCEEDED top=[%d]\n", lua_gettop(L));
-			//DEBUGPOINT("Here ac = [%p]\n", n_conn->ac);
 
 			return 1;
 		}
