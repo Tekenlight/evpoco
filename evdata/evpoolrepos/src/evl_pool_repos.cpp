@@ -35,6 +35,7 @@ class sock_queue_holder : public Poco::evnet::evl_pool::queue_holder {
 		Poco::Net::StreamSocket * conn = (Poco::Net::StreamSocket*)dequeue(_queue);
 		while (conn) {
 			delete conn;
+			conn = (Poco::Net::StreamSocket*)dequeue(_queue);
 		}
 		wf_destroy_ev_queue(_queue);
 	}
@@ -146,11 +147,9 @@ static int get_from_pool(lua_State* L)
 	return 1;
 }
 
-static std::map<std::string, char*> sg_initialized_pools;
 static int create_pool(lua_State* L)
 {
 	const char *poolname = luaL_checkstring(L, 1);
-	auto it = sg_initialized_pools.find(poolname);
 	sock_queue_holder qhf;
 	init_pool_type(poolname, &qhf);
 
