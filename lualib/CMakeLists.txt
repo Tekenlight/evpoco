@@ -23,23 +23,7 @@ if(WIN32)
     endif()    
 endif(WIN32)
 
-if (APPLE)
-	add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} ) #This is needed to creare .so file
-else(APPLE)
-	add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
-endif(APPLE)
-
-if(APPLE)
-set_target_properties( "${LIBNAME}"
-    PROPERTIES
-#	LINK_FLAGS "-bind_at_load"
-	LINK_FLAGS "-fpic -Wl,-all_load"
-    VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
-#   VERSION ${SHARED_LIBRARY_VERSION} SOVERSION ${SHARED_LIBRARY_VERSION}
-    OUTPUT_NAME ${POCO_LIBNAME}
-    DEFINE_SYMBOL lualib_EXPORTS
-    )
-else(APPLE)
+add_library( "${LIBNAME}" ${LIB_MODE} ${SRCS} )
 
 set_target_properties( "${LIBNAME}"
     PROPERTIES
@@ -48,7 +32,6 @@ set_target_properties( "${LIBNAME}"
     OUTPUT_NAME ${POCO_LIBNAME}
     DEFINE_SYMBOL lualib_EXPORTS
     )
-endif(APPLE)
 
 function(lualib_check validator_result_var item)
 	#if(NOT item MATCHES ...)
@@ -64,12 +47,7 @@ endfunction()
 
 find_library(LIBLUA NAMES lua NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" NO_CACHE REQUIRED )
 message(STATUS "FOUND LUALIB ${LIBLUA}")
-if(APPLE)
-	target_link_libraries( "${LIBNAME}" ${LIBLUA} )
-else(APPLE)
-	target_link_libraries( "${LIBNAME}" "-Wl,--whole-archive,--no-whole-archive" )
-	target_link_libraries( "${LIBNAME}" ${LIBLUA} )
-endif(APPLE)
+target_link_libraries( "${LIBNAME}" ${LIBLUA} )
 
 target_include_directories( "${LIBNAME}"
     PUBLIC

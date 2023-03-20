@@ -46,11 +46,13 @@ endforeach(dir)
 
 set_target_properties( "${EXENAME1}"
     PROPERTIES
+	INSTALL_RPATH_USE_LINK_PATH true
     OUTPUT_NAME evluaserver
     )
 
 set_target_properties( "${EXENAME2}"
     PROPERTIES
+	INSTALL_RPATH_USE_LINK_PATH true
     OUTPUT_NAME evlua
     )
 
