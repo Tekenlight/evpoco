@@ -233,7 +233,7 @@ protected:
 			char * buf = (char*)malloc(buf_size);
 			memset(buf, 0, buf_size);
 			for (int i = 0; i < n; i++) {
-				strcat(buf, "<|SEPARATOR|>");
+				if (i>0) strcat(buf, "<|SEPARATOR|>");
 				strcat(buf,  args[i].c_str());
 			}
 			strcat(buf, "\n");
