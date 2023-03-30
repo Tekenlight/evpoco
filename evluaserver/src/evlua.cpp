@@ -228,12 +228,12 @@ protected:
 			size_t n = args.size();
 			size_t buf_size = 1;
 			for (int i = 0; i < n; i++) {
-				buf_size += args[i].length() + 1;
+				buf_size += args[i].length() + strlen("<|SEPARATOR|>");
 			}
 			char * buf = (char*)malloc(buf_size);
 			memset(buf, 0, buf_size);
 			for (int i = 0; i < n; i++) {
-				if (i != 0) strcat(buf, " ");
+				strcat(buf, "<|SEPARATOR|>");
 				strcat(buf,  args[i].c_str());
 			}
 			strcat(buf, "\n");
