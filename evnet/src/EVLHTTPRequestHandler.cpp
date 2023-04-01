@@ -25,6 +25,8 @@
 
 #include <ev_queue.h>
 
+#include <ev_compression.h>
+
 #include "Poco/Util/Application.h"
 #include "Poco/evnet/EVTCPServer.h"
 #include "Poco/evnet/EVLHTTPRequestHandler.h"
@@ -69,6 +71,7 @@ namespace Poco {
 namespace evnet {
 
 const static char *_memory_buffer_name = "memorybuffer";
+const static char *_allocated_buffer_ptr_name = "allocated_buffer_ptr";
 const static char *_file_handle_type_name = "filehandle";
 const static char *_html_form_type_name = "htmlform";
 const static char *_http_creq_type_name = "httpcreq";
@@ -161,6 +164,13 @@ static int file_handle_type_name__tostring(lua_State *L)
 	return 1;
 }
 
+static int compression_handle_type_name__tostring(lua_State *L)
+{
+	lua_pushstring(L, "compression_handle");
+
+	return 1;
+}
+
 static int memory_buffer_name__tostring(lua_State *L)
 {
 	lua_pushstring(L, "memorybuffer");
@@ -231,6 +241,9 @@ namespace evpoco {
 
 	static int alloc_buffer(lua_State* L);
 	static int ev_lua_file_open_initiate(lua_State* L);
+	static int ev_lua_compress_data(lua_State* L);
+	static int ev_lua_uncompress_text_data(lua_State* L);
+	static int ev_lua_uncompress_binary_data(lua_State* L);
 	static int ev_lua_file_read_text_initiate(lua_State* L);
 	static int ev_lua_file_read_binary_initiate(lua_State* L);
 	static int ev_lua_file_read_binary_initiate_1(lua_State* L);
@@ -440,6 +453,9 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "set_acc_sock_to_be_closed", &evpoco::evpoco_set_acc_sock_to_be_closed },
 	{ "get_accepted_stream_socket", &evpoco::get_accepted_stream_socket},
 	{ "stop_taking_requests", &evpoco::stop_taking_requests},
+	{ "compress_data", &evpoco::ev_lua_compress_data},
+	{ "uncompress_text_data", &evpoco::ev_lua_uncompress_text_data},
+	{ "uncompress_binary_data", &evpoco::ev_lua_uncompress_binary_data},
 	{ NULL, NULL }
 };
 
@@ -2607,6 +2623,103 @@ static int ev_lua_file_read_text_complete(lua_State* L, int status, lua_KContext
 	}
 }
 
+static int ev_lua_compress_data(lua_State* L)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	int n = lua_gettop(L);
+	void * data = NULL;
+	size_t sz = 0;
+	if (n < 1) {
+		return luaL_error(L, "compress_data: invalid number of arguments, expetcted 1 [or 2], actual %d", n);
+	}
+	if (lua_isstring(L, 1)) {
+		data = (void*)luaL_checkstring(L, 1);
+		sz = strlen((char*)data);
+	}
+	else if (lua_isuserdata(L, 1)) {
+		if (n != 2) {
+			return luaL_error(L, "compress_data: invalid number of arguments, expetcted 2, actual %d", n);
+		}
+		data = lua_touserdata(L, 1);
+		if (data == NULL) {
+			return luaL_error(L, "compress_data: data argumebt cannot be NULL");
+		}
+		sz = luaL_checkinteger(L, 2);
+	}
+
+	void * ptr = NULL;
+	size_t out_size = 0;
+
+	int ret = compress_inp_buf(data, sz, &ptr, &out_size);
+	if (Z_OK != ret) {
+		return luaL_error(L, zerr(ret));
+	}
+
+	void * out_ptr = lua_newuserdata(L, out_size);
+	luaL_setmetatable(L, _memory_buffer_name);
+	memcpy(out_ptr, ptr, out_size);
+	free(ptr);
+
+	lua_pushinteger(L, out_size);
+
+	return 2;
+}
+
+static int ev_lua_uncompress_data_internal(lua_State * L, void ** pp, size_t * sp)
+{
+	EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
+	int n = lua_gettop(L);
+	if (n != 2) {
+		return luaL_error(L, "compress_data: invalid number of arguments, expetcted 2, actual %d", n);
+	}
+	void * compressed_data = lua_touserdata(L, 1);
+	if (compressed_data == NULL) {
+		return luaL_error(L, "uncompress_text_data: data argumebt cannot be NULL");
+	}
+	size_t size = luaL_checkinteger(L, 2);
+
+	int ret = uncompress_inp_buf(compressed_data, size, pp, sp);
+	if (ret != Z_OK) {
+		return luaL_error(L, zerr(ret));
+	}
+
+	return 0;
+
+}
+
+
+static int ev_lua_uncompress_text_data(lua_State* L)
+{
+	char * textptr = NULL;
+	size_t out_size = 0;
+
+	evpoco::ev_lua_uncompress_data_internal(L, (void**)(&textptr), &out_size);
+
+	lua_pushlstring(L, textptr, out_size);
+
+	free(textptr);
+
+	return 1;
+}
+
+static int ev_lua_uncompress_binary_data(lua_State* L)
+{
+	void * dataptr = NULL;
+	size_t out_size = 0;
+
+	evpoco::ev_lua_uncompress_data_internal(L, &dataptr, &out_size);
+
+	void * out_ptr = lua_newuserdata(L, out_size);
+	luaL_setmetatable(L, _memory_buffer_name);
+	memcpy(out_ptr, dataptr, out_size);
+	free(dataptr);
+
+	lua_pushinteger(L, out_size);
+
+
+	return 2;
+}
+
 /* local string = fh.read_text(fh, size); */
 static int ev_lua_file_read_text_initiate(lua_State* L)
 {
@@ -4177,7 +4290,7 @@ static int luaopen_evpoco(lua_State* L)
 	lua_pop(L, 1); // Stack: context
 
 	luaL_newmetatable(L, _file_handle_type_name); // Stack: meta
-	luaL_newlib(L, evpoco_file_lib); // Stack: meta dummy
+	luaL_newlib(L, evpoco_file_lib); // Stack: meta file_lib
 	lua_setfield(L, -2, "__index"); // Stack: meta
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
@@ -4191,6 +4304,16 @@ static int luaopen_evpoco(lua_State* L)
 	lua_setfield(L, -2, "__index"); // Stack: meta
 	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
 	lua_pushcfunction(L, obj__gc); // Stack: meta "__gc" fptr
+	lua_settable(L, -3); // Stack: meta
+	lua_pushcfunction(L, memory_buffer_name__tostring); // Stack: context meta fptr
+	lua_setfield(L, -2, "__tostring"); // Stack: context meta
+	lua_pop(L, 1); // Stack:
+
+	luaL_newmetatable(L, _allocated_buffer_ptr_name); // Stack: meta
+	luaL_newlib(L, dummy); // Stack: meta dummy
+	lua_setfield(L, -2, "__index"); // Stack: meta
+	lua_pushstring(L, "__gc"); // Stack: meta "__gc"
+	lua_pushcfunction(L, buffer__gc); // Stack: meta "__gc" fptr
 	lua_settable(L, -3); // Stack: meta
 	lua_pushcfunction(L, memory_buffer_name__tostring); // Stack: context meta fptr
 	lua_setfield(L, -2, "__tostring"); // Stack: context meta
