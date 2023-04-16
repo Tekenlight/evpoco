@@ -37,7 +37,7 @@ EVHTTPResponse::EVHTTPResponse():
 
 EVHTTPResponse::~EVHTTPResponse()
 {
-	if (_msg_parse_state) free(_msg_parse_state); _msg_parse_state = NULL;
+	if (_msg_parse_state) delete _msg_parse_state; _msg_parse_state = NULL;
 	if (_istr) delete _istr;
 }
 
