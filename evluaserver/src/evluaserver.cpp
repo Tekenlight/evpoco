@@ -179,7 +179,6 @@ static void add_ref_range(Poco::Util::AbstractConfiguration& config, modules_lis
 	if ((c == NULL) || (c->err)) {
 		if (c) {
 			DEBUGPOINT("Redis Connection error: %s\n", c->errstr);
-			redisFree(c);
 		} else {
 			DEBUGPOINT("Redis Connection error: can't allocate redis context\n");
 		}
