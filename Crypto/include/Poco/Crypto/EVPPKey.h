@@ -328,7 +328,15 @@ private:
 	}
 
 	EVP_PKEY* _pEVPPKey = 0;
-	static const std::map<int, std::string> KNOWN_TYPES;
+	//static const std::map<int, std::string> KNOWN_TYPES;
+	const std::map<int, std::string> KNOWN_TYPES =
+		{
+			{ EVP_PKEY_RSA, "rsa" },
+			// not implemented
+			//{ EVP_PKEY_DSA, "dsa" },
+			//{ EVP_PKEY_DH, "dh" },
+			{ EVP_PKEY_EC, "ec" }
+		};
 
 	//@deprecated
 	friend class ECKeyImpl;

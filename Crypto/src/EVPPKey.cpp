@@ -26,6 +26,7 @@ namespace Poco {
 namespace Crypto {
 
 
+	/*
 const std::map<int, std::string> EVPPKey::KNOWN_TYPES =
 	{
 		{ EVP_PKEY_RSA, "rsa" },
@@ -34,6 +35,7 @@ const std::map<int, std::string> EVPPKey::KNOWN_TYPES =
 		//{ EVP_PKEY_DH, "dh" },
 		{ EVP_PKEY_EC, "ec" }
 	};
+	*/
 
 
 EVPPKey::EVPPKey(const std::string& ecCurveName): _pEVPPKey(0)
