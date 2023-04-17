@@ -790,6 +790,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 		//DEBUGPOINT("size = [%zu]\n", size);
 		//DEBUGPOINT("chptr = [%s]\n", (char*)chptr);
 		ret = ss.sendBytes(chptr, size );
+		//DEBUGPOINT("AFTER sendBytes\n");
 		if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
 		else if (wait_mode_ptr) *wait_mode_ptr = 0;
 		if (wait_mode_ptr) {

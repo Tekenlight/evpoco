@@ -493,6 +493,12 @@ evl_pool* EVLHTTPRequestHandler::getPool()
 	evl_pool* ret =  &_pool;
 	return ret;
 }
+
+void EVLHTTPRequestHandler::clearPool()
+{
+	_pool.clear_pool();
+}
+
 std::map<std::string, void*> EVLHTTPRequestHandler::_map_of_maps;
 std::map<std::string, void*> * EVLHTTPRequestHandler::getMapOfMaps()
 {
@@ -1185,6 +1191,7 @@ static int ss__gc(lua_State *L)
 {
 	Poco::Net::StreamSocket* ss_ptr = *(Poco::Net::StreamSocket**)lua_touserdata(L, 1);
 	int fd = ss_ptr->impl()->sockfd();
+	//DEBUGPOINT("Here ss_ptr = [%p]\n", ss_ptr);
 	//DEBUGPOINT("HERE [%p]  fd=[%d]\n", ss_ptr, ss_ptr->impl()->sockfd());
 	//if (!(ss_ptr->impl()->isManaged())) {
 		//DEBUGPOINT("HERE\n");
@@ -1209,6 +1216,7 @@ static int ev_connected_socket_type_name__gc(lua_State* L)
 static int http_connection__gc(lua_State* L)
 {
 	EVHTTPClientSession* session = *(EVHTTPClientSession**)lua_touserdata(L, 1);
+	//DEBUGPOINT("HERE session = [%p]\n", session);
 	//DEBUGPOINT("HERE sock = [%d]\n", session->getSS().impl()->sockfd());
 	delete session;
 	/*
@@ -1308,6 +1316,7 @@ static int make_http_connection_initiate(lua_State* L)
 
 		session = new EVHTTPClientSession();
 
+		//DEBUGPOINT("Here session = [%p]\n", (session));
 		//DEBUGPOINT("Here ssp = [%p]\n", &(session->getSS()));
 		reqHandler->makeNewHTTPConnection(NULL, server_address, port_num, *session, timeout);
 	}
@@ -1894,7 +1903,10 @@ static int send_data_on_socket_initiate(lua_State* L)
 
 
 	int wait_mode = 0;
+	//DEBUGPOINT("HERE ss_ptr = [%p]\n", ss_ptr);
+	//DEBUGPOINT("HERE ss_ptr->impl() = [%p] fd = [%d] refcount = [%d]\n", ss_ptr->impl(), ss_ptr->impl()->sockfd(), ss_ptr->impl()->referenceCount());
 	long ret = EVTCPServer::sendData(*(ss_ptr), buf, size, &wait_mode);
+	//DEBUGPOINT("HERE\n");
 	if (ret < 0) {
 		//DEBUGPOINT("Here %ld {%d:%s}\n", ret, errno, strerror(errno));
 		return luaL_error(L, "send_data_on_socket: %s", strerror(errno));

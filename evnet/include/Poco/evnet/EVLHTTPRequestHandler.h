@@ -193,6 +193,13 @@ public:
 		}
 		_map.clear();
 	}
+	void clear_pool() {
+		for (auto it = _map.begin(); it != _map.end(); ++it) {
+			//DEBUGPOINT("Here\n");
+			delete it->second;
+		}
+		_map.clear();
+	}
 	queue_holder * get_queue_holder(std::string name);
 	queue_holder * add_queue_holder(std::string name, queue_holder *);
 
@@ -289,6 +296,7 @@ public:
 	bool getAsyncTaskAwaited();
 	void setAsyncTaskAwaited(bool);
 	static evl_pool* getPool();
+	static void clearPool();
 	static std::map<std::string, void*> * getMapOfMaps();
 	static unsigned long getNextCachedStmtId();
 
