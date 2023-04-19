@@ -175,6 +175,7 @@ static int generate_hash(lua_State *L, const char * algo)
 	const char * salt = luaL_tolstring(L, 2, NULL);
 	size_t len = strlen(inp_str) + ((salt)?strlen(salt):0);
 	char * str = (char*)malloc(len+1);
+    memset(str, 0, len+1);
 	strcpy(str, inp_str);
 	if (salt) strcat(str, salt);
 
@@ -540,6 +541,7 @@ static void serialize_symmetric_key(lua_State *L, CipherKey * key, struct serial
 	s_cipher_key_p->buffer_size = sizeof(unsigned int) + name_len +
 					sizeof(unsigned int) + key_len + sizeof(unsigned int) + iv_len;
 	s_cipher_key_p->buffer = (unsigned char *)malloc(s_cipher_key_p->buffer_size);
+    memset(s_cipher_key_p->buffer, 0, s_cipher_key_p->buffer_size);
 	unsigned char * ptr = s_cipher_key_p->buffer;
 
 	{
@@ -587,6 +589,7 @@ static int rsa_encrypt_symm_key(lua_State *L)
 	}
 
 	unsigned char * crypto_buffer = (unsigned char *)malloc(rsa_key->impl()->size());
+    memset(crypto_buffer, 0, rsa_key->impl()->size());
 	Poco::MemoryInputStream istream((const char *)s_cipher_key.buffer, s_cipher_key.buffer_size);
 	Poco::MemoryOutputStream ostream((char *)crypto_buffer, rsa_key->impl()->size());
 
@@ -788,6 +791,7 @@ static int encrypt_text(lua_State *L)
 
 	cipher_text_s* cs_p = (cipher_text_s*)lua_newuserdata(L, sizeof(cipher_text_s));
 	cs_p->buffer = (unsigned char*)malloc(bufferlen);
+    memset(cs_p->buffer, 0, bufferlen);
 	cs_p->len = bufferlen;
 	luaL_setmetatable(L, _cipher_text_name);
 
