@@ -131,7 +131,7 @@ public:
 	/* Return values of handleRequest method. */
 	static const int INVALID_STATE = -1;
 	static const int PROCESSING_ERROR = -1000;
-	static const int PROCESSING = 0;
+	static const int PROCESSING = 500;
 	static const int PROCESSING_COMPLETE = 1000;
 
 	static const int HTTPRH_INVALID_CB_NUM = -1;

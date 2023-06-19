@@ -184,8 +184,11 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 
 					if (pHandler) {
 						int ret = EVHTTPRequestHandler::PROCESSING;
+						//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 						ret = pHandler->handleRequestSurrogateInitial();
 						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+						pHandler->setState(ret);
+						//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 						switch (ret) {
 							case EVHTTPRequestHandler::PROCESSING:
 								reqProcState->setState(REQUEST_PROCESSING);
@@ -222,12 +225,16 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 						/* Process upstream events here. */
 						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
-							pHandler->setState(usN->getCBEVIDNum());
+							//pHandler->setState(usN->getCBEVIDNum());
+							//pHandler->setState(EVHTTPRequestHandler::PROCESSING);
 							pHandler->setUNotification(usN.get());
 							{
 								int ret = EVHTTPRequestHandler::PROCESSING;
+								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+								pHandler->setState(ret);
+								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
 										reqProcState->setState(REQUEST_PROCESSING);
@@ -489,8 +496,11 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 						}
 						else {
 							int ret = EVHTTPRequestHandler::PROCESSING;
+							//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 							ret = pHandler->handleRequestSurrogateInitial();
 							if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+							pHandler->setState(ret);
+							//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 							switch (ret) {
 								case EVHTTPRequestHandler::PROCESSING:
 									reqProcState->setState(REQUEST_PROCESSING);
@@ -525,12 +535,15 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 						/* Process upstream events here. */
 						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
-							pHandler->setState(usN->getCBEVIDNum());
+							//pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
 							{
 								int ret = EVHTTPRequestHandler::PROCESSING;
+								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+								pHandler->setState(ret);
+								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
 										reqProcState->setState(REQUEST_PROCESSING);
@@ -716,8 +729,11 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 
 					if (pHandler) {
 						int ret = EVHTTPRequestHandler::PROCESSING;
+						//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 						ret = pHandler->handleRequestSurrogateInitial();
 						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+						pHandler->setState(ret);
+						//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 						switch (ret) {
 							case EVHTTPRequestHandler::PROCESSING:
 								reqProcState->setState(REQUEST_PROCESSING);
@@ -751,12 +767,15 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 						/* Process upstream events here. */
 						std::unique_ptr<EVEventNotification> usN((EVEventNotification*)elem);
 						try {
-							pHandler->setState(usN->getCBEVIDNum());
+							//pHandler->setState(usN->getCBEVIDNum());
 							pHandler->setUNotification(usN.get());
 							{
 								int ret = EVHTTPRequestHandler::PROCESSING;
+								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
+								pHandler->setState(ret);
+								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
 										reqProcState->setState(REQUEST_PROCESSING);

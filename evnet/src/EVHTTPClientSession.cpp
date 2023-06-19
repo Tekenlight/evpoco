@@ -19,7 +19,7 @@ namespace evnet {
 
 void EVHTTPClientSession::parser_init(EVHTTPResponse * response_ptr)
 {
-	_parser = (http_parser*)malloc(sizeof(http_parser));
+	if (!_parser) _parser = (http_parser*)malloc(sizeof(http_parser));
 	memset(_parser,0,sizeof(http_parser));
 	_parser->data = response_ptr;
 	http_parser_init(_parser,HTTP_RESPONSE);
