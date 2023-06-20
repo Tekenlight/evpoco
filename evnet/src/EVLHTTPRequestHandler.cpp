@@ -4712,16 +4712,19 @@ int EVLHTTPRequestHandler::loadReqHandler()
 
 int EVLHTTPRequestHandler::handleRequest()
 {
-	lua_pushinteger(_L, getEVRHMode());
-	lua_setglobal(_L, "EVR_MODE");
-
-	int status = 0;
-	int nargs = 0;
 	/* Request object is necessary for deduction of script names
 	 * Thus, it is not possible to do this initialization in the 
 	 * constructor of this class.
 	 * */
+	lua_pushinteger(_L, getEVRHMode());
+	lua_setglobal(_L, "EVR_MODE");
+
 	//DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n", (void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
+	//DEBUGPOINT("STATE = [%d] event=[%d]\n", getState(), getEvent());
+
+	int status = 0;
+	int nargs = 0;
+
 	EVAcceptedStreamSocket * tn = getAcceptedSocket();
 	if (INITIAL == getState()) {
 		int mode = getEVRHMode();

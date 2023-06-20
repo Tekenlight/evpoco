@@ -187,7 +187,7 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 						//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 						ret = pHandler->handleRequestSurrogateInitial();
 						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-						pHandler->setState(ret);
+						//pHandler->setState(ret);
 						//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 						switch (ret) {
 							case EVHTTPRequestHandler::PROCESSING:
@@ -233,7 +233,7 @@ void EVHTTPRequestProcessor::procCLReq(EVCommandLineProcessingState *reqProcStat
 								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-								pHandler->setState(ret);
+								//pHandler->setState(ret);
 								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
@@ -499,7 +499,7 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 							//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 							ret = pHandler->handleRequestSurrogateInitial();
 							if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-							pHandler->setState(ret);
+							//pHandler->setState(ret);
 							//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 							switch (ret) {
 								case EVHTTPRequestHandler::PROCESSING:
@@ -542,7 +542,7 @@ void EVHTTPRequestProcessor::procHTTPReq(EVHTTPProcessingState *reqProcState)
 								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-								pHandler->setState(ret);
+								//pHandler->setState(ret);
 								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:
@@ -732,7 +732,7 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 						//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 						ret = pHandler->handleRequestSurrogateInitial();
 						if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-						pHandler->setState(ret);
+						//pHandler->setState(ret);
 						//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 						switch (ret) {
 							case EVHTTPRequestHandler::PROCESSING:
@@ -774,7 +774,7 @@ void EVHTTPRequestProcessor::procWebSockReq(EVHTTPProcessingState *reqProcState)
 								//DEBUGPOINT("STATE BEFORE IS [%d]\n", pHandler->getState());
 								ret = pHandler->handleRequestSurrogate();
 								if (ret<0) ret = EVHTTPRequestHandler::PROCESSING_ERROR;
-								pHandler->setState(ret);
+								//pHandler->setState(ret);
 								//DEBUGPOINT("SETTING STATE to [%d]\n", ret);
 								switch (ret) {
 									case EVHTTPRequestHandler::PROCESSING:

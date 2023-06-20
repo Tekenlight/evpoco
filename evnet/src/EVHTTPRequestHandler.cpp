@@ -512,6 +512,8 @@ int EVHTTPRequestHandler::handleRequestSurrogateInitial()
 		ret = PROCESSING_ERROR;
 	}
 
+	this->setState(ret);
+
 	return ret;
 }
 
@@ -524,13 +526,19 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	/* If this Service request was not created here
 	 * no action needs to be taken here.
 	 * */
-	//DEBUGPOINT("Here event = %d, SRP = %p\n", getEvent(), _srColl[sr_num]);
-	//if (!_srColl[sr_num]) return PROCESSING; Linux porting change
 	auto it = _srColl.find(sr_num);
-	//DEBUGPOINT("sr_num = [%ld]\n", sr_num);
+
+	// Linux Porting change
 	//DEBUGPOINT("_srColl.end() == it = [%d]\n", _srColl.end() == it);
-	if (_srColl.end() == it) return PROCESSING;
+	if (_srColl.end() == it) {
+		ret = PROCESSING;
+		this->setState(ret);
+		return ret;
+	}
+
+	//DEBUGPOINT("sr_num = [%ld]\n", sr_num);
 	//DEBUGPOINT("Here event = %d, \n", getEvent());
+	//DEBUGPOINT("Here event = %d, SRP = %p\n", getEvent(), _srColl[sr_num]);
 
 	switch (getEvent()) {
 		case HTTPRH_HTTPCONN_CONNECTION_ESTABLISHED:
@@ -729,7 +737,11 @@ int EVHTTPRequestHandler::handleRequestSurrogate()
 	}
 
 	//DEBUGPOINT("Here ret = %d\n", ret);
-	return (ret<0)?PROCESSING_ERROR:ret;
+	ret = (ret<0)?PROCESSING_ERROR:ret;
+
+	this->setState(ret);
+
+	return ret;
 }
 
 file_handle* EVHTTPRequestHandler::ev_file_open(const char * path, int oflag, ...)
