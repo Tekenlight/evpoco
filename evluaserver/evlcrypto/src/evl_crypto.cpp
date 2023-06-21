@@ -783,7 +783,10 @@ static int encrypt_text(lua_State *L)
 	//DEBUGPOINT("Here block_size = [%zu]\n", block_size);
 
 	size_t bufferlen = strlen(text);
+	size_t old_bufferlen = bufferlen;
 	while (bufferlen % block_size) bufferlen++;
+	/* Additional block for padding if required */
+	bufferlen += (old_bufferlen == bufferlen) ? block_size : 0;
 
 	//DEBUGPOINT("Here bufferlen = [%zu]\n", bufferlen);
 	//DEBUGPOINT("Here ivlen = [%zu]\n", ivlen);
