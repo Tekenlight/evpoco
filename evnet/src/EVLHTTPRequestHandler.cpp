@@ -200,6 +200,7 @@ namespace evpoco {
 	static int get_host_ip_address_and_port(lua_State* L);
 	static int make_http_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_http_connection_initiate(lua_State* L);
+	static int make_http_connection_secure(lua_State* L);
 	static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext ctx);
 	static int make_tcp_connection_initiate(lua_State* L);
 	static int stop_tracking_conn_sock(lua_State* L);
@@ -415,6 +416,7 @@ static const luaL_Reg evpoco_lib[] = {
 	{ "get_host_ip_address_and_port", &evpoco::get_host_ip_address_and_port },
 	{ "resolve_host_address", &evpoco::resolve_host_address_initiate },
 	{ "make_http_connection", &evpoco::make_http_connection_initiate },
+	{ "make_http_connection_secure", &evpoco::make_http_connection_secure },
 	{ "make_tcp_connection", &evpoco::make_tcp_connection_initiate },
 	{ "stop_tracking_conn_sock", &evpoco::stop_tracking_conn_sock },
 	//{ "use_pooled_connection", &evpoco::use_pooled_connection },
@@ -1322,6 +1324,15 @@ static int make_http_connection_initiate(lua_State* L)
 	}
 
 	return lua_yieldk(L, 0, (lua_KContext)session, make_http_connection_complete);
+}
+
+static int make_http_connection_secure(lua_State* L)
+{
+	EVHTTPClientSession * session_ptr = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
+	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 2, _stream_socket_type_name);
+
+	session_ptr->setSS(*ss_ptr);
+	return 0;
 }
 
 static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext ctx)
