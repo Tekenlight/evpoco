@@ -1331,6 +1331,9 @@ static int make_http_connection_secure(lua_State* L)
 	EVHTTPClientSession * session_ptr = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
 	Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 2, _stream_socket_type_name);
 
+	if (!(ss_ptr->secure())) luaL_error(L, "Input ss is not secure");
+	if (ss_ptr->impl()->sockfd() != session_ptr->getSS().impl()->sockfd()) luaL_error(L, "Invalid socket");
+
 	session_ptr->setSS(*ss_ptr);
 	return 0;
 }
