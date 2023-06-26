@@ -31,7 +31,10 @@ RejectCertificateHandler::~RejectCertificateHandler()
 
 void RejectCertificateHandler::onInvalidCertificate(const void*, VerificationErrorArgs& errorCert)
 {
-	errorCert.setIgnoreError(false);
+	if (errorCert.errorNumber() == 20)
+		errorCert.setIgnoreError(true);
+	else
+		errorCert.setIgnoreError(false);
 }
 
 
