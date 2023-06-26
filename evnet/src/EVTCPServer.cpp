@@ -828,6 +828,9 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size, int * wait_mode_ptr)
 {
 	ssize_t ret = 0;
+	printf("%s:%d This function is not supported and should not be called\n", __FILE__, __LINE__);
+	std::abort();
+	/*
 	errno = 0;
 	ret = send(fd, chptr, size , 0);
 	if (ret < 0 && wait_mode_ptr) *wait_mode_ptr = ret;
@@ -851,6 +854,7 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size, int * wait_mode
 			return -1;
 		}
 	}
+	*/
 	return ret;
 }
 
@@ -940,7 +944,6 @@ ssize_t EVTCPServer::handleCLWrFdWritable(StreamSocket & streamSocket, const boo
 			buffer = cms->get_buffer(nodeptr);
 			bytes = cms->get_buffer_len(nodeptr);
 
-			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
 			//DEBUGPOINT("SENDING_DATA ON ACCP SOCK %d\n", streamSocket.impl()->sockfd());
 			ret1 = writeData(tn->getOutStreamSocket().impl()->sockfd(), buffer, bytes);
 			if (ret1 > 0) {
@@ -1047,7 +1050,6 @@ ssize_t EVTCPServer::handleAccSocketWritable(StreamSocket & streamSocket, const 
 			buffer = cms->get_buffer(nodeptr);
 			bytes = cms->get_buffer_len(nodeptr);
 
-			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
 			//DEBUGPOINT("SENDING_DATA ON ACCP SOCK %d\n", streamSocket.impl()->sockfd());
 			ret1 = sendData(streamSocket, buffer, bytes);
 			if (ret1 > 0) {
@@ -1791,7 +1793,6 @@ ssize_t EVTCPServer::handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, cons
 			buffer = cms->get_buffer(nodeptr);
 			bytes = cms->get_buffer_len(nodeptr);
 
-			//ret1 = sendData(streamSocket.impl()->sockfd(), buffer, bytes);
 			//DEBUGPOINT("cn = [%p]\n", cn);
 			//DEBUGPOINT("SENDING_DATA ON CONN SOCK %d\n", cn->getStreamSocket().impl()->sockfd());
 			ret1 = sendData(cn->getStreamSocket(), buffer, bytes);
