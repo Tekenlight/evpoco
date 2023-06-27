@@ -32,6 +32,8 @@ class NetSSL_API RejectCertificateHandler: public InvalidCertificateHandler
 	/// the certificate.
 {
 public:
+	static const std::string CFG_OPENSSL_CA_CERT_PREFIX;
+	static const std::string IGNORE_CA_CERT_ERR_20;;
 	RejectCertificateHandler(bool handleErrorsOnServerSide);
 		/// Creates the RejectCertificateHandler
 
