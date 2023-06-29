@@ -20,7 +20,7 @@ if(MSVC AND BUILD_SHARED_LIBS)
 	list(APPEND SRCS ${PROJECT_SOURCE_DIR}/DLLVersion.rc)
 endif()
 
-add_library(Crypto ${SRCS})
+add_library(Crypto ${LIB_MODE} ${SRCS})
 add_library(Poco::Crypto ALIAS Crypto)
 set_target_properties(Crypto
 	PROPERTIES
