@@ -32,6 +32,9 @@ set_target_properties( "${LIBNAME}"
     DEFINE_SYMBOL evpostgres_EXPORTS
     )
 
+set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
+target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
+
 target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -39,32 +42,46 @@ target_include_directories( "${LIBNAME}"
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-if (DEFINED PG_VERSION) 
-	message(STATUS PG_VERSION " ${PG_VERSION}")
-	find_library(LIBPQ NAMES pq REQUIRED PATH_SUFFIXES "postgresql${PG_VERSION}" "postgresql/${PG_VERSION}" "postgresql@${PG_VERSION}" )
-	target_compile_definitions("${LIBNAME}" PRIVATE -DPG_VERSION=${PG_VERSION})
-else(DEFINED PG_VERSION)
-	message(FATAL_ERROR "VARIABLE PG_VERSION NOT DEFINED")
-endif(DEFINED PG_VERSION)
-
-if (APPLE)
-	if (DEFINED TARGET_OS_OSX_HOMEBREW)
-		target_include_directories( "${LIBNAME}" PUBLIC "/opt/homebrew/include/")
-		target_compile_definitions("${LIBNAME}" PRIVATE -DTARGET_OS_OSX_HOMEBREW=1)
-	else (DEFINED TARGET_OS_OSX_HOMEBREW)
-		target_include_directories( "${LIBNAME}" PUBLIC "/opt/local/include/")
-	endif ()
-endif ()
-
 # The additional includes are to take hiredis into consideration
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
 endforeach(dir)
-target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" )
 
+if (DEFINED PG_BUILD_PATH)
+	message(STATUS "PG_BUILD_PATH  ......")
+	message(STATUS "PG_BUILD_PATH  ${PG_BUILD_PATH}")
 
-set(CMAKE_CXX_FLAGS "-Wno-c++17-compat-mangling")
-target_compile_definitions("${LIBNAME}" PUBLIC ${LIB_MODE_DEFINITIONS})
+	target_include_directories( "${LIBNAME}" PUBLIC "${PG_BUILD_PATH}/usr/local/pgsql/include")
+
+	target_compile_definitions("${LIBNAME}" PRIVATE -DBUILT_PG=1 )
+
+	find_library(LIBPQ NAMES "libpq.a" NO_DEFAULT_PATH PATHS "${PG_BUILD_PATH}/usr/local/pgsql/lib" REQUIRED)
+	find_library(LIBPQ_1 NAMES "libpgcommon.a" NO_DEFAULT_PATH PATHS "${PG_BUILD_PATH}/usr/local/pgsql/lib" REQUIRED)
+	find_library(LIBPQ_2 NAMES "libpgcommon_shlib.a" NO_DEFAULT_PATH PATHS "${PG_BUILD_PATH}/usr/local/pgsql/lib" REQUIRED)
+	find_library(LIBPQ_3 NAMES "libpgport_shlib.a" NO_DEFAULT_PATH PATHS "${PG_BUILD_PATH}/usr/local/pgsql/lib" REQUIRED)
+
+	target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" "${LIBPQ_1}" "${LIBPQ_2}" "${LIBPQ_3}" NetSSL Crypto )
+
+elseif (DEFINED PG_VERSION) 
+	if (APPLE)
+		if (DEFINED TARGET_OS_OSX_HOMEBREW)
+			target_include_directories( "${LIBNAME}" PUBLIC "/opt/homebrew/include/")
+			target_compile_definitions("${LIBNAME}" PRIVATE -DTARGET_OS_OSX_HOMEBREW=1)
+		else (DEFINED TARGET_OS_OSX_HOMEBREW)
+			target_include_directories( "${LIBNAME}" PUBLIC "/opt/local/include/")
+		endif ()
+	endif ()
+
+	message(STATUS PG_VERSION " ${PG_VERSION}")
+
+	find_library(LIBPQ NAMES pq REQUIRED PATH_SUFFIXES "postgresql${PG_VERSION}" "postgresql/${PG_VERSION}" "postgresql@${PG_VERSION}" )
+	target_compile_definitions("${LIBNAME}" PRIVATE -DPG_VERSION=${PG_VERSION})
+
+	target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" "${LIBPQ_1}" NetSSL Crypto )
+
+else(DEFINED PG_VERSION)
+	message(FATAL_ERROR "VARIABLE PG_BUILD_PATH OR PG_VERSION NOT DEFINED")
+endif(DEFINED PG_BUILD_PATH)
 
 POCO_INSTALL("${LIBNAME}")
 POCO_GENERATE_PACKAGE("${LIBNAME}")

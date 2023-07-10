@@ -5,6 +5,13 @@
 
 extern "C" {
 
+#if (BUILT_PG == 1) // {
+
+#include "libpq-fe.h"
+#include "server/catalog/pg_type_d.h"
+
+#else // } {
+
 #ifdef TARGET_OS_OSX // {
 
 #ifdef TARGET_OS_OSX_HOMEBREW // {
@@ -89,10 +96,14 @@ extern "C" {
 
 #else // } {
 
-#error
+//#error
+#include "libpq-fe.h"
+#include "server/catalog/pg_type_d.h"
 
 #endif // }
 
+
+#endif // }
 
 #endif // }
 
