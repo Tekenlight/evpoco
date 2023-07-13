@@ -1,5 +1,6 @@
 set(LIBNAME "lualib")
 set(POCO_LIBNAME "${LIBNAME}")
+set(LUA_INSTALL_DIR "${LUA_INSTALL_DIR}")
 
 # Sources
 file(GLOB SRCS_G "src/*.cpp")
@@ -45,7 +46,7 @@ function(lualib_check validator_result_var item)
 
 endfunction()
 
-find_library(LIBLUA NAMES lua NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" NO_CACHE REQUIRED )
+find_library(LIBLUA NAMES lua NO_DEFAULT_PATH PATHS "${CMAKE_INSTALL_PREFIX}/lib" "${LUA_INSTALL_DIR}/lib" NO_CACHE REQUIRED )
 message(STATUS "FOUND LUALIB ${LIBLUA}")
 target_link_libraries( "${LIBNAME}" ${LIBLUA} )
 
