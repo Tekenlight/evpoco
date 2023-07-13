@@ -54,6 +54,7 @@ target_include_directories( "${LIBNAME}"
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
+        $<BUILD_INTERFACE:${LUA_INSTALL_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
