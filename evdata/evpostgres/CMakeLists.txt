@@ -77,7 +77,7 @@ elseif (DEFINED PG_VERSION)
 	find_library(LIBPQ NAMES pq REQUIRED PATH_SUFFIXES "postgresql${PG_VERSION}" "postgresql/${PG_VERSION}" "postgresql@${PG_VERSION}" )
 	target_compile_definitions("${LIBNAME}" PRIVATE -DPG_VERSION=${PG_VERSION})
 
-	target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" "${LIBPQ_1}" NetSSL Crypto )
+	target_link_libraries( "${LIBNAME}" evdata evnet "${LIBPQ}" NetSSL Crypto )
 
 else(DEFINED PG_VERSION)
 	message(FATAL_ERROR "VARIABLE PG_BUILD_PATH OR PG_VERSION NOT DEFINED")
