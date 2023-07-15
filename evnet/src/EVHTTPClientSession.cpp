@@ -117,7 +117,15 @@ static int headers_complete_cb (http_parser *p)
 	http_parser_pause(p, 1);
 
 	//printf("headers_complete_cb\n");
-	return 0;
+	switch (status_code) {
+		case EVHTTPResponse::HTTP_SWITCHING_PROTOCOLS:
+			return 2;
+		case EVHTTPResponse::HTTP_CONTINUE:
+		case EVHTTPResponse::HTTP_PROCESSING:
+			return 1;
+		default:
+			return 0;
+	}
 }
 
 static int body_cb (http_parser *p, const char *buf, size_t len, int interrupted)
@@ -208,7 +216,7 @@ int EVHTTPClientSession::http_parser_hack()
 	 * */
 	int n = 0, c = 0, reduction_count = 0;
 	n = _recv_stream->copy(0, &c, 1);
-	//DEBUGPOINT("Found c = %c\n", c);
+	//DEBUGPOINT("Found n=[%d] c = %c\n", n, c);
 	if (n && (c == 10)) {
 		_recv_stream->erase(1);
 		reduction_count = 1;
@@ -334,24 +342,42 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			}
 
 			if (HTTP_HEADER_ONLY == response.getRespType()) {
+				//DEBUGPOINT("\n%s\n", buffer);
 				if (response.getStatus() == EVHTTPResponse::HTTP_CONTINUE) {
 					//DEBUGPOINT("GOT A CONTINUATION RESPONSE, restarting the parsing\n");
-					//DEBUGPOINT("\n%s\n", buffer);
+					//DEBUGPOINT("BUFFER \n{%s}\n", buffer);
 					response.clear();
 					response.initParseState();
 					parser_init(&response);
 					len2 = response.getMessageBodySize();
 					//len2 = 0; Restart parse length.
 				}
+				else if (response.getStatus() == EVHTTPResponse::HTTP_SWITCHING_PROTOCOLS) {
+					//DEBUGPOINT("GOT A NON-CONTINUATION RESPONSE STATUS=[%d]\n", response.getStatus());
+					//DEBUGPOINT("BUFFER \n{%s}\n", buffer);
+					//len2 = response.getMessageBodySize();
+					//http_parser_hack();
+				}
+				else if (response.getStatus() == EVHTTPResponse::HTTP_PROCESSING) {
+					//DEBUGPOINT("GOT A NON-CONTINUATION RESPONSE STATUS=[%d]\n", response.getStatus());
+					//DEBUGPOINT("BUFFER \n{%s}\n", buffer);
+					//len2 = response.getMessageBodySize();
+					//http_parser_hack();
+				}
 				else {
+					//DEBUGPOINT("GOT A NON-CONTINUATION RESPONSE STATUS=[%d]\n", response.getStatus());
+					//DEBUGPOINT("BUFFER \n{%s}\n", buffer);
 					http_parser_hack();
 					response.setParseState(MESSAGE_COMPLETE);
 					response.setPrevNodePtr(0);
 					break;
 				}
 			}
+			//DEBUGPOINT("HEADER COMPLETE status=[%d] respType = [%d]\n", response.getStatus(), response.getRespType());
 		}
 		else if (response.getParseState() == MESSAGE_COMPLETE) {
+			//DEBUGPOINT("MESSAGE COMPLETED\n");
+			//DEBUGPOINT("prior len=[%zu]\n", len2);
 			response.setPrevNodePtr(0);
 			len2 -= http_parser_hack();
 			break;
@@ -367,6 +393,7 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 	if (MESSAGE_COMPLETE == response.getParseState()) {
 		response.formInputStream(_recv_stream);
 		parser_init(0);
+		//DEBUGPOINT("MESSAGE PARSING COMPLETE len2=[%zu]\n", len2);
 	}
 
 	return response.getParseState();

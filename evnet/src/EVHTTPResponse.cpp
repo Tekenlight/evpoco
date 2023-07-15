@@ -51,7 +51,8 @@ void EVHTTPResponse::formInputStream(chunked_memory_stream * mem_inp_stream)
 {
 	switch (getRespType()) {
 		case HTTP_HEADER_ONLY:
-			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, 0);
+			//_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, 0);
+			_istr = new EVHTTPFixedLengthInputStream(mem_inp_stream, this->getMessageBodySize());
 			break;
 		case HTTP_CHUNKED:
 			_istr = new EVHTTPChunkedInputStream(mem_inp_stream, this->getMessageBodySize());
