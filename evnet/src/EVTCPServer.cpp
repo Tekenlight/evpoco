@@ -384,10 +384,10 @@ static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
 
 /*
  * Utility to function to peek into a socket
- * The usual ss.receiveBytes may call SecureScoektImpl.receiveBytes
- * which actually reads the data and ignore all the flag settings in the 
+ * The usual ss.receiveBytes may call SecureSocketImpl.receiveBytes
+ * which actually reads the data and ignores all the flag settings in the 
  * third argument.
- * This function does not implement proper decryption etc.
+ * The implementation here does not take care of proper decryption etc.
  * It only serves to purpose of checking if socket has data and not
  * any other purpose such as checking what data is present etc.
  */
