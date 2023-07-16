@@ -382,6 +382,24 @@ static void stop_the_loop(struct ev_loop *loop, ev_async *w, int revents)
 	return;
 }
 
+/*
+ * Utility to function to peek into a socket
+ * The usual ss.receiveBytes may call SecureScoektImpl.receiveBytes
+ * which actually reads the data and ignore all the flag settings in the 
+ * third argument.
+ * This function does not implement proper decryption etc.
+ * It only serves to purpose of checking if socket has data and not
+ * any other purpose such as checking what data is present etc.
+ */
+static ssize_t local_msg_peek(int fd, size_t length)
+{
+	ssize_t ret = 0;
+	char * buf = (char *)malloc(length);
+	ret = recv(fd, buf, length, MSG_PEEK);
+	free(buf);
+	return ret;
+}
+
 void EVTCPServer::stopEvents(const bool& ev_occured)
 {
 
@@ -1901,7 +1919,8 @@ ssize_t EVTCPServer::handleAccWebSocketReadable(StreamSocket & ss, const bool& e
 	errno = 0;
 	try {
 		if (!(tn->shutdownInitiated())) {
-			ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
+			//ret = ss.receiveBytes(buffer, 127, MSG_PEEK);
+			ret = local_msg_peek(ss.impl()->sockfd(), 127);
 			//DEBUGPOINT("Here ret = [%zd]\n", ret);
 		}
 		else {
