@@ -1,6 +1,5 @@
 set(LIBNAME "lualib")
 set(POCO_LIBNAME "${LIBNAME}")
-set(LUA_INSTALL_DIR "${LUA_INSTALL_DIR}")
 
 # Sources
 file(GLOB SRCS_G "src/*.cpp")
