@@ -427,11 +427,6 @@ protected:
 	void initialize(Application& self)
 	{
 		try {
-			DEBUGPOINT("Here\n");
-			//loadConfiguration(PROPERTIES_FILE);
-			loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
-		}
-		catch (...) {
 			char * path_env = getenv(EVLUA_PATH);
 			if (path_env) {
 				std::string path(path_env);
@@ -440,8 +435,13 @@ protected:
 				loadConfiguration(path); // load default configuration files, if present in path
 			}
 			else {
-				loadConfiguration(); // load default configuration files, if present in executable directory
+				DEBUGPOINT("Here\n");
+				//loadConfiguration(PROPERTIES_FILE);
+				loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
 			}
+		}
+		catch (...) {
+			loadConfiguration(); // load default configuration files, if present in executable directory
 		}
 		ServerApplication::initialize(self);
 	}

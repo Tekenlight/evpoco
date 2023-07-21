@@ -151,9 +151,6 @@ protected:
 	void initialize(Application& self)
 	{
 		try {
-			loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
-		}
-		catch (...) {
 			char * path_env = getenv(EVLUA_PATH);
 			if (path_env) {
 				std::string path(path_env);
@@ -161,8 +158,11 @@ protected:
 				loadConfiguration(path); // load default configuration files, if present in path
 			}
 			else {
-				throw ;
+				loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
 			}
+		}
+		catch (...) {
+			throw ;
 		}
 		ServerApplication::initialize(self);
 	}
