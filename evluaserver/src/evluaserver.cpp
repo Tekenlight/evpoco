@@ -334,7 +334,7 @@ public:
 		if (requestPtr->getReqMode() == Poco::evnet::EVServerRequest::HTTP_REQ) {
 			char * path_env = getenv(EVLUA_PATH);
 			if (!path_env) {
-				std::string s("/etc/evlua");
+				std::string s(PROPERTIES_PATH);
 				return s + config.getString("evluaserver.requestMappingScript", "mapper.lua");
 			}
 			else {
@@ -346,7 +346,7 @@ public:
 		else {
 			char * path_env = getenv(EVLUA_PATH);
 			if (!path_env) {
-				std::string s("/etc/evlua");
+				std::string s(PROPERTIES_PATH);
 				return s + config.getString("evluaserver.clMappingScript", "evlua_mapper.lua");
 			}
 			else {

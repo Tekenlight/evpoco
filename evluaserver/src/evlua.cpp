@@ -68,7 +68,7 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			std::string s("/etc/evlua");
+			std::string s(PROPERTIES_PATH);
 			return s + config.getString("evlua.clMappingScript", "evlua_mapper.lua");
 		}
 		else {
@@ -83,7 +83,7 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			std::string s("/etc/evlua");
+			std::string s(PROPERTIES_PATH);
 			return s + config.getString("evlua.wsMessageMappingScript", "mapper.lua");
 		}
 		else {
