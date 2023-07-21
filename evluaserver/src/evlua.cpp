@@ -33,6 +33,7 @@
 
 #define EVLUA_PATH "EVLUA_PATH"
 #define PROPERTIES_FILE "evlua.properties"
+#define PROPERTIES_PATH "/etc/evlua/"
 
 extern "C" {
 void init_so_tracker_lock();
@@ -67,7 +68,8 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			return config.getString("evlua.clMappingScript", "evlua_mapper.lua");
+			std::string s("/etc/evlua");
+			return s + config.getString("evlua.clMappingScript", "evlua_mapper.lua");
 		}
 		else {
 			std::string s;
@@ -81,7 +83,8 @@ public:
 
 		char * path_env = getenv(EVLUA_PATH);
 		if (!path_env) {
-			return config.getString("evlua.wsMessageMappingScript", "mapper.lua");
+			std::string s("/etc/evlua");
+			return s + config.getString("evlua.wsMessageMappingScript", "mapper.lua");
 		}
 		else {
 			std::string s;
@@ -148,7 +151,7 @@ protected:
 	void initialize(Application& self)
 	{
 		try {
-			loadConfiguration(PROPERTIES_FILE);
+			loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
 		}
 		catch (...) {
 			char * path_env = getenv(EVLUA_PATH);

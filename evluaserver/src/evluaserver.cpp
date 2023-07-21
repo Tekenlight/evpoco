@@ -46,6 +46,7 @@
 #include <string.h>
 
 #define EVLUA_PATH "EVLUA_PATH"
+#define PROPERTIES_PATH "/etc/evlua/"
 #define PROPERTIES_FILE "evluaserver.properties"
 
 using Poco::Net::ServerSocket;
@@ -333,7 +334,8 @@ public:
 		if (requestPtr->getReqMode() == Poco::evnet::EVServerRequest::HTTP_REQ) {
 			char * path_env = getenv(EVLUA_PATH);
 			if (!path_env) {
-				return config.getString("evluaserver.requestMappingScript", "mapper.lua");
+				std::string s("/etc/evlua");
+				return s + config.getString("evluaserver.requestMappingScript", "mapper.lua");
 			}
 			else {
 				std::string s;
@@ -344,7 +346,8 @@ public:
 		else {
 			char * path_env = getenv(EVLUA_PATH);
 			if (!path_env) {
-				return config.getString("evluaserver.clMappingScript", "evlua_mapper.lua");
+				std::string s("/etc/evlua");
+				return s + config.getString("evluaserver.clMappingScript", "evlua_mapper.lua");
 			}
 			else {
 				std::string s;
@@ -425,7 +428,8 @@ protected:
 	{
 		try {
 			DEBUGPOINT("Here\n");
-			loadConfiguration(PROPERTIES_FILE);
+			//loadConfiguration(PROPERTIES_FILE);
+			loadConfiguration(std::string(PROPERTIES_PATH) + std::string(PROPERTIES_FILE));
 		}
 		catch (...) {
 			char * path_env = getenv(EVLUA_PATH);

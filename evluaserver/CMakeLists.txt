@@ -72,6 +72,10 @@ install(
     INCLUDES DESTINATION include
     )
 
+install(FILES "evlua.properties" "evluaserver.properties" "mapper.lua" "evlua_mapper.lua"
+		DESTINATION "/etc/evlua"
+		)
+
 POCO_INSTALL("${LIBNAME}")
 POCO_GENERATE_PACKAGE("${LIBNAME}")
 
