@@ -4701,12 +4701,14 @@ int EVLHTTPRequestHandler::loadReqMapper()
 	return ret;
 }
 
+#define SERVER_REQUEST_HANDLER_PATH "/etc/evlua/"
+
 int EVLHTTPRequestHandler::loadReqHandler()
 {
 	char * path_env = getDeploymentPath();
 	std::string s;
 	if (!path_env) {
-		s = _request_handler;
+		s = std::string(SERVER_REQUEST_HANDLER_PATH) + _request_handler;
 	}
 	else {
 		s = s + path_env + "/" + _request_handler;

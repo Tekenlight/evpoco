@@ -72,7 +72,7 @@ install(
     INCLUDES DESTINATION include
     )
 
-install(FILES "evlua.properties" "evluaserver.properties" "mapper.lua" "evlua_mapper.lua"
+install(FILES "evlua.properties" "evluaserver.properties" "mapper.lua" "evlua_mapper.lua" "main.lua"
 		DESTINATION "/etc/evlua"
 		)
 
