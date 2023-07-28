@@ -73,7 +73,7 @@ install(
     )
 
 install(FILES "evlua.properties" "evluaserver.properties" "mapper.lua" "evlua_mapper.lua" "main.lua"
-		DESTINATION "/etc/evlua"
+		DESTINATION "${CMAKE_ETC_PREFIX}/etc/evlua"
 		)
 
 POCO_INSTALL("${LIBNAME}")
