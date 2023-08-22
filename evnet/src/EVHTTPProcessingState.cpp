@@ -414,6 +414,7 @@ int EVHTTPProcessingState::continueRead()
 			len2 = 0;
 		}
 		else if (_state == HEADER_READ_COMPLETE) {
+			//DEBUGPOINT("HEADER_READ_COMPLETE\n");
 			/* Header reading is complete
 			 * Buffer may or may not be completely read yet.
 			 * */
@@ -438,16 +439,19 @@ int EVHTTPProcessingState::continueRead()
 				return -1;
 			}
 			if (HTTP_HEADER_ONLY == _request->getReqType()) {
+				//DEBUGPOINT("HTTP_HEADER_ONLY\n");
 				_state = MESSAGE_COMPLETE;
 				_prev_node_ptr = 0;
 				break;
 			}
 		}
 		else if (_state == MESSAGE_COMPLETE) {
+			//DEBUGPOINT("MESSAGE_COMPLETE\n");
 			_prev_node_ptr = 0;
 			break;
 		}
 		else {
+			//DEBUGPOINT("NOTA\n");
 			_prev_node_ptr = nodeptr;
 			nodeptr = _req_memory_stream->get_next(nodeptr);
 			buffer = (char*)_req_memory_stream->get_buffer(nodeptr);
@@ -461,7 +465,6 @@ int EVHTTPProcessingState::continueRead()
 		return -1;
 	}
 
-	_request->setMessageBodySize(len2);
 	if (_state == MESSAGE_COMPLETE) {
 		/* This is a hack to circumvent the issue caused by combination of
 		 * http_parser_execute when on_headers_complete event is registered and
@@ -475,14 +478,17 @@ int EVHTTPProcessingState::continueRead()
 		n = _req_memory_stream->copy(0, &c, 1);
 		if (n && (c == 10)) {
 			_req_memory_stream->erase(1);
+			if (len2) len2--;
 		}
 		noMoreDataNecessary();
 		//DEBUGPOINT("MESSAGE_COMPLETE\n");
+		//DEBUGPOINT("len2 = [%zu]\n", len2);
 		_request->formInputStream(_req_memory_stream);
 		memset(_parser,0,sizeof(http_parser));
 		_parser->data = (void*)this;
 		http_parser_init(_parser,HTTP_REQUEST);
 	}
+	_request->setMessageBodySize(len2);
 
 	return _state;
 }
