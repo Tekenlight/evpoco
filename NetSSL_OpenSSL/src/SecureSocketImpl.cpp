@@ -12,6 +12,8 @@
 //
 
 
+#include "Poco/Net/SecureSocketImpl.h"
+#include "Poco/Net/SSLManager.h"
 #include "Poco/Net/SSLException.h"
 #include "Poco/Net/Context.h"
 #include "Poco/Net/X509Certificate.h"
@@ -31,7 +33,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "Poco/Net/SecureSocketImpl.h"
 
 using Poco::IOException;
 using Poco::TimeoutException;
@@ -102,8 +103,33 @@ void SecureSocketImpl::acceptSSL()
 		//printf("[%p]:%s:%d Reached here \n", pthread_self(), __FILE__, __LINE__);
 		throw SSLException("Cannot create SSL object");
 	}
+
+#if OPENSSL_VERSION_NUMBER >= 0x1010100fL
+	/* TLS 1.3 changes done begin
+	 */
+	/* TLS 1.3 server sends session tickets after a handhake as part of
+	* the SSL_accept(). If a client finishes all its job before server
+	* sends the tickets, SSL_accept() fails with EPIPE errno. Since we
+	* are not interested in a session resumption, we can not to send the
+	* tickets. */
+	if (1 != SSL_set_num_tickets(_pSSL, 0))
+	{
+		BIO_free(pBIO);
+		throw SSLException("Cannot create SSL object");
+	}
+	/* TLS 1.3 changes done end
+	 */
+	//Otherwise we can perform two-way shutdown. Client must call SSL_read() before the final SSL_shutdown().
+#endif
+
 	SSL_set_bio(_pSSL, pBIO, pBIO);
 	SSL_set_accept_state(_pSSL);
+	/* TLS 1.3 changes done
+	 * Store this as the data pointer to instance of this class as user data
+	 * the storage and retrieval depend on socketindex implementation of
+	 * SSLManager
+	*/
+	SSL_set_ex_data(_pSSL, SSLManager::instance().socketIndex(), this);
 	_needHandshake = true;
 }
 
@@ -167,15 +193,34 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
+	/* TLS 1.3 changes done
+	 * Store this as the data pointer to instance of this class as user data
+	 * the storage and retrieval depend on socketindex implementation of
+	 * SSLManager
+	*/
+	SSL_set_ex_data(_pSSL, SSLManager::instance().socketIndex(), this);
 
-#if OPENSSL_VERSION_NUMBER >= 0x0908060L && !defined(OPENSSL_NO_TLSEXT)
 	if (!_peerHostName.empty())
 	{
 		SSL_set_tlsext_host_name(_pSSL, _peerHostName.c_str());
 	}
+
+	/* TLS 1.3 changes done
+	 * Store this as teh data pointer to instance of this class as user data
+	 * the storage and retrieval depend on socketindex implementation of
+	 * SSLManager
+	*/
+#if OPENSSL_VERSION_NUMBER >= 0x10001000L
+	if(_pContext->ocspStaplingResponseVerificationEnabled())
+	{
+		SSL_set_tlsext_status_type(_pSSL, TLSEXT_STATUSTYPE_ocsp);
+	}
 #endif
 
-	if (_pSession)
+	/* TLS 1.3 changes done
+	 * */
+	//if (_pSession)
+	if (_pSession && _pSession->isResumable())
 	{
 		SSL_set_session(_pSSL, _pSession->sslSession());
 	}
@@ -211,6 +256,30 @@ void SecureSocketImpl::bind(const SocketAddress& address, bool reuseAddress)
 }
 
 
+void SecureSocketImpl::bind(const SocketAddress& address, bool reuseAddress, bool reusePort)
+{
+	poco_check_ptr (_pSocket);
+
+	_pSocket->bind(address, reuseAddress, reusePort);
+}
+
+
+void SecureSocketImpl::bind6(const SocketAddress& address, bool reuseAddress, bool ipV6Only)
+{
+	poco_check_ptr (_pSocket);
+
+	_pSocket->bind6(address, reuseAddress, ipV6Only);
+}
+
+
+void SecureSocketImpl::bind6(const SocketAddress& address, bool reuseAddress, bool reusePort, bool ipV6Only)
+{
+	poco_check_ptr (_pSocket);
+
+	_pSocket->bind6(address, reuseAddress, reusePort, ipV6Only);
+}
+
+
 void SecureSocketImpl::listen(int backlog)
 {
 	poco_check_ptr (_pSocket);
@@ -235,8 +304,50 @@ void SecureSocketImpl::shutdown()
 			// most web browsers, so we just set the shutdown
 			// flag by calling SSL_shutdown() once and be
 			// done with it.
-			int rc = SSL_shutdown(_pSSL);
 			//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
+			/* TLS 1.3 changes done begin
+			 */
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+			int rc = 0;
+			if (!_bidirectShutdown)
+				rc = SSL_shutdown(_pSSL);
+			else
+			{
+				Poco::Timespan recvTimeout = _pSocket->getReceiveTimeout();
+				Poco::Timespan pollTimeout(0, 100000);
+				Poco::Timestamp tsNow;
+				do
+				{
+					rc = SSL_shutdown(_pSSL);
+					if (rc == 1) break;
+					if (rc < 0)
+					{
+						int err = SSL_get_error(_pSSL, rc);
+						if (err == SSL_ERROR_WANT_READ)
+							_pSocket->poll(pollTimeout, Poco::Net::Socket::SELECT_READ);
+						else if (err == SSL_ERROR_WANT_WRITE)
+							_pSocket->poll(pollTimeout, Poco::Net::Socket::SELECT_WRITE);
+						else
+						{
+							int socketError = SocketImpl::lastError();
+							long lastError = ERR_get_error();
+							if ((err == SSL_ERROR_SSL) && (socketError == 0) && (lastError == 0x0A000123))
+								rc = 0;
+							break;
+						}
+					}
+					else _pSocket->poll(pollTimeout, Poco::Net::Socket::SELECT_READ);
+				} while (!tsNow.isElapsed(recvTimeout.totalMicroseconds()));
+			}
+#else
+			/* TLS 1.3 changes done end
+			*/
+			int rc = SSL_shutdown(_pSSL);
+			/* TLS 1.3 changes done begin
+			 */
+#endif
+			/* TLS 1.3 changes done end
+			*/
 			if (rc < 0) handleError(rc);
 			if (_pSocket->getBlocking())
 			{
@@ -312,6 +423,9 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 		rc = SSL_read(_pSSL, buffer, length);
 	}
 	while (mustRetry(rc));
+	/* TLS 1.3 changes done
+	*/
+	_bidirectShutdown = false;
 	if (rc <= 0)
 	{
 		//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
@@ -455,7 +569,10 @@ int SecureSocketImpl::handleError(int rc)
 	if (rc > 0) return rc;
 
 	int sslError = SSL_get_error(_pSSL, rc);
+	/* TLS 1.3 changes done
 	int error = SocketImpl::lastError();
+	*/
+	int socketError = SocketImpl::lastError();
 	/*
 	{
 		//char filename[128] = {'\0'};
@@ -497,16 +614,36 @@ int SecureSocketImpl::handleError(int rc)
 		// these should not occur
 		poco_bugcheck();
 		return rc;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	case SSL_ERROR_SSL:
+		// fallthrough to handle socket errors first
+#endif
 	case SSL_ERROR_SYSCALL:
-		if (error != 0)
+		if (socketError != 0)
 		{
-			SocketImpl::error(error);
+			SocketImpl::error(socketError);
 		}
 		// fallthrough
 	default:
 		{
 			long lastError = ERR_get_error();
+			std::string msg;
+			if (lastError)
+			{
+				char buffer[256];
+				ERR_error_string_n(lastError, buffer, sizeof(buffer));
+				msg = buffer;
+			}
+			// SSL_GET_ERROR(3ossl):
+			// On an unexpected EOF, versions before OpenSSL 3.0 returned
+			// SSL_ERROR_SYSCALL, nothing was added to the error stack, and
+			// errno was 0.  Since OpenSSL 3.0 the returned error is
+			// SSL_ERROR_SSL with a meaningful error on the error stack.
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+			if (sslError == SSL_ERROR_SSL)
+#else
 			if (lastError == 0)
+#endif
 			{
 				if (rc == 0)
 				{
@@ -514,22 +651,28 @@ int SecureSocketImpl::handleError(int rc)
 					if (_pContext->isForServerUse())
 						return 0;
 					else
-						throw SSLConnectionUnexpectedlyClosedException();
+						throw SSLConnectionUnexpectedlyClosedException(msg);
 				}
 				else if (rc == -1)
 				{
-					throw SSLConnectionUnexpectedlyClosedException();
+					throw SSLConnectionUnexpectedlyClosedException(msg);
 				}
 				else
 				{
 					SecureStreamSocketImpl::error(Poco::format("The BIO reported an error: %d", rc));
 				}
 			}
+			else if (lastError)
+			{
+				throw SSLException(msg);
+			}
 			else
 			{
+				/* TLS 1.3 changes done
 				char buffer[256];
 				ERR_error_string_n(lastError, buffer, sizeof(buffer));
 				std::string msg(buffer);
+				*/
 				throw SSLException(msg);
 			}
 		}
@@ -550,6 +693,9 @@ void SecureSocketImpl::reset()
 	close();
 	if (_pSSL)
 	{
+		/* TLS 1.3 changes done
+		*/
+		SSL_set_ex_data(_pSSL, SSLManager::instance().socketIndex(), nullptr);
 		SSL_free(_pSSL);
 		_pSSL = 0;
 	}
@@ -564,20 +710,23 @@ void SecureSocketImpl::abort()
 
 Session::Ptr SecureSocketImpl::currentSession()
 {
-	if (_pSSL)
-	{
-		SSL_SESSION* pSession = SSL_get1_session(_pSSL);
-		if (pSession)
+	return _pSession;
+	/*
+		if (_pSSL)
 		{
-			if (_pSession && pSession == _pSession->sslSession())
+			SSL_SESSION* pSession = SSL_get1_session(_pSSL);
+			if (pSession)
 			{
-				SSL_SESSION_free(pSession);
-				return _pSession;
+				if (_pSession && pSession == _pSession->sslSession())
+				{
+					SSL_SESSION_free(pSession);
+					return _pSession;
+				}
+				else return new Session(pSession);
 			}
-			else return new Session(pSession);
 		}
-	}
-	return 0;
+		return 0;
+	*/
 }
 
 
@@ -593,6 +742,21 @@ bool SecureSocketImpl::sessionWasReused()
 		return SSL_session_reused(_pSSL) != 0;
 	else
 		return false;
+}
+
+int SecureSocketImpl::onSessionCreated(SSL* pSSL, SSL_SESSION* pSession)
+{
+	/* TLS 1.3 changes done
+	 * This is to handle setting managing user data in SSL session
+	*/
+	void* pEx = SSL_get_ex_data(pSSL, SSLManager::instance().socketIndex());
+	if (pEx)
+	{
+		SecureSocketImpl* pThis = reinterpret_cast<SecureSocketImpl*>(pEx);
+		pThis->_pSession = new Session(pSession);
+		return 1;
+	}
+	else return 0;
 }
 
 void SecureSocketImpl::setBlocking(bool flag)

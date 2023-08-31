@@ -87,6 +87,57 @@ public:
 		///
 		/// If reuseAddress is true, sets the SO_REUSEADDR
 		/// socket option.
+
+	void bind(const SocketAddress& address, bool reuseAddress, bool reusePort);
+		/// Bind a local address to the socket.
+		///
+		/// This is usually only done when establishing a server
+		/// socket. SSL clients should not bind a socket to a
+		/// specific address.
+		///
+		/// If reuseAddress is true, sets the SO_REUSEADDR
+		/// socket option.
+		///
+		/// If reusePort is true, sets the SO_REUSEPORT
+		/// socket option.
+
+	void bind6(const SocketAddress& address, bool reuseAddress = false, bool ipV6Only = false);
+		/// Bind a local IPv6 address to the socket.
+		///
+		/// This is usually only done when establishing a server
+		/// socket. TCP clients should not bind a socket to a
+		/// specific address.
+		///
+		/// If reuseAddress is true, sets the SO_REUSEADDR
+		/// socket option.
+		///
+		/// The given address must be an IPv6 address. The
+		/// IPPROTO_IPV6/IPV6_V6ONLY option is set on the socket
+		/// according to the ipV6Only parameter.
+		///
+		/// If the library has not been built with IPv6 support,
+		/// a Poco::NotImplementedException will be thrown.
+
+	void bind6(const SocketAddress& address, bool reuseAddress, bool reusePort, bool ipV6Only);
+		/// Bind a local IPv6 address to the socket.
+		///
+		/// This is usually only done when establishing a server
+		/// socket. TCP clients should not bind a socket to a
+		/// specific address.
+		///
+		/// If reuseAddress is true, sets the SO_REUSEADDR
+		/// socket option.
+		///
+		/// If reusePort is true, sets the SO_REUSEPORT
+		/// socket option.
+		///
+		/// The given address must be an IPv6 address. The
+		/// IPPROTO_IPV6/IPV6_V6ONLY option is set on the socket
+		/// according to the ipV6Only parameter.
+		///
+		/// If the library has not been built with IPv6 support,
+		/// a Poco::NotImplementedException will be thrown.
+
 		
 	void listen(int backlog = 64);
 		/// Puts the socket into listening state.
@@ -223,6 +274,9 @@ protected:
 		/// Note that simply closing a socket is not sufficient
 		/// to be able to re-use it again.
 
+	static int onSessionCreated(SSL* pSSL, SSL_SESSION* pSession);
+		/// Callback to handle new session data sent by server.
+
 private:	
 	SecureSocketImpl(const SecureSocketImpl&);
 	SecureSocketImpl& operator = (const SecureSocketImpl&);
@@ -233,8 +287,10 @@ private:
 	bool _needHandshake;
 	std::string _peerHostName;
 	Session::Ptr _pSession;
+	bool _bidirectShutdown = true;
 	
 	friend class SecureStreamSocketImpl;
+	friend class Context;
 };
 
 
