@@ -105,7 +105,7 @@ void SecureSocketImpl::acceptSSL()
 	}
 
 #if OPENSSL_VERSION_NUMBER >= 0x1010100fL
-	/* TLS 1.3 changes done begin
+	/* OpenSSL3 changes done begin
 	 */
 	/* TLS 1.3 server sends session tickets after a handhake as part of
 	* the SSL_accept(). If a client finishes all its job before server
@@ -117,14 +117,14 @@ void SecureSocketImpl::acceptSSL()
 		BIO_free(pBIO);
 		throw SSLException("Cannot create SSL object");
 	}
-	/* TLS 1.3 changes done end
+	/* OpenSSL3 changes done end
 	 */
 	//Otherwise we can perform two-way shutdown. Client must call SSL_read() before the final SSL_shutdown().
 #endif
 
 	SSL_set_bio(_pSSL, pBIO, pBIO);
 	SSL_set_accept_state(_pSSL);
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	 * Store this as the data pointer to instance of this class as user data
 	 * the storage and retrieval depend on socketindex implementation of
 	 * SSLManager
@@ -193,7 +193,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 		throw SSLException("Cannot create SSL object");
 	}
 	SSL_set_bio(_pSSL, pBIO, pBIO);
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	 * Store this as the data pointer to instance of this class as user data
 	 * the storage and retrieval depend on socketindex implementation of
 	 * SSLManager
@@ -205,7 +205,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 		SSL_set_tlsext_host_name(_pSSL, _peerHostName.c_str());
 	}
 
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	 * Store this as teh data pointer to instance of this class as user data
 	 * the storage and retrieval depend on socketindex implementation of
 	 * SSLManager
@@ -217,7 +217,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 	}
 #endif
 
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	 * */
 	//if (_pSession)
 	if (_pSession && _pSession->isResumable())
@@ -305,7 +305,7 @@ void SecureSocketImpl::shutdown()
 			// flag by calling SSL_shutdown() once and be
 			// done with it.
 			//printf("[%p]:%s:%d calling from here\n", pthread_self(), __FILE__, __LINE__);
-			/* TLS 1.3 changes done begin
+			/* OpenSSL3 changes done begin
 			 */
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 			int rc = 0;
@@ -340,13 +340,13 @@ void SecureSocketImpl::shutdown()
 				} while (!tsNow.isElapsed(recvTimeout.totalMicroseconds()));
 			}
 #else
-			/* TLS 1.3 changes done end
+			/* OpenSSL3 changes done end
 			*/
 			int rc = SSL_shutdown(_pSSL);
-			/* TLS 1.3 changes done begin
+			/* OpenSSL3 changes done begin
 			 */
 #endif
-			/* TLS 1.3 changes done end
+			/* OpenSSL3 changes done end
 			*/
 			if (rc < 0) handleError(rc);
 			if (_pSocket->getBlocking())
@@ -423,7 +423,7 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 		rc = SSL_read(_pSSL, buffer, length);
 	}
 	while (mustRetry(rc));
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	*/
 	_bidirectShutdown = false;
 	if (rc <= 0)
@@ -569,7 +569,7 @@ int SecureSocketImpl::handleError(int rc)
 	if (rc > 0) return rc;
 
 	int sslError = SSL_get_error(_pSSL, rc);
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	int error = SocketImpl::lastError();
 	*/
 	int socketError = SocketImpl::lastError();
@@ -668,7 +668,7 @@ int SecureSocketImpl::handleError(int rc)
 			}
 			else
 			{
-				/* TLS 1.3 changes done
+				/* OpenSSL3 changes done
 				char buffer[256];
 				ERR_error_string_n(lastError, buffer, sizeof(buffer));
 				std::string msg(buffer);
@@ -693,7 +693,7 @@ void SecureSocketImpl::reset()
 	close();
 	if (_pSSL)
 	{
-		/* TLS 1.3 changes done
+		/* OpenSSL3 changes done
 		*/
 		SSL_set_ex_data(_pSSL, SSLManager::instance().socketIndex(), nullptr);
 		SSL_free(_pSSL);
@@ -746,7 +746,7 @@ bool SecureSocketImpl::sessionWasReused()
 
 int SecureSocketImpl::onSessionCreated(SSL* pSSL, SSL_SESSION* pSession)
 {
-	/* TLS 1.3 changes done
+	/* OpenSSL3 changes done
 	 * This is to handle setting managing user data in SSL session
 	*/
 	void* pEx = SSL_get_ex_data(pSSL, SSLManager::instance().socketIndex());

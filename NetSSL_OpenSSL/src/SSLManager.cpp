@@ -77,12 +77,12 @@ const bool        SSLManager::VAL_FIPS_MODE(false);
 #endif
 
 
-/* TLS 1.3 changes done
+/* OpenSSL3 changes done
 SSLManager::SSLManager()
 */
 SSLManager::SSLManager():
 	_contextIndex(SSL_CTX_get_ex_new_index(0, NULL, NULL, NULL, NULL)),
-	_socketIndex(SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL)) // TLS 1.3 change not present in remote origin
+	_socketIndex(SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL)) // OpenSSL3 change not present in remote origin
 {
 }
 
@@ -221,7 +221,7 @@ int SSLManager::verifyCallback(bool server, int ok, X509_STORE_CTX* pStore)
 {
 	if (!ok)
 	{
-		/* TLS 1.3 changes done begin
+		/* OpenSSL3 changes done begin
 		*/
 		SSLManager& sslManager = SSLManager::instance();
 		SSL* pSSL = reinterpret_cast<SSL*>(X509_STORE_CTX_get_ex_data(pStore, SSL_get_ex_data_X509_STORE_CTX_idx()));
@@ -231,7 +231,7 @@ int SSLManager::verifyCallback(bool server, int ok, X509_STORE_CTX* pStore)
 
 		Context* pContext = reinterpret_cast<Context*>(SSL_CTX_get_ex_data(pSSLContext, sslManager.contextIndex()));
 		poco_assert_dbg (pContext);
-		/* TLS 1.3 changes done end
+		/* OpenSSL3 changes done end
 		*/
 
 		X509* pCert = X509_STORE_CTX_get_current_cert(pStore);
@@ -240,7 +240,7 @@ int SSLManager::verifyCallback(bool server, int ok, X509_STORE_CTX* pStore)
 		int err = X509_STORE_CTX_get_error(pStore);
 		std::string error(X509_verify_cert_error_string(err));
 		VerificationErrorArgs args(x509, depth, err, error);
-		/* TLS 1.3 changes done
+		/* OpenSSL3 changes done
 		if (server)
 			SSLManager::instance().ServerVerificationError.notify(&SSLManager::instance(), args);
 		else

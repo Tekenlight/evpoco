@@ -135,7 +135,7 @@ void Context::init(const Params& params)
 	try
 	{
 		int errCode = 0;
-		/* TLS 1.3 changes done
+		/* OpenSSL3 changes done
 		*/
 
 		setSecurityLevel(params.securityLevel);
@@ -174,21 +174,21 @@ void Context::init(const Params& params)
 			}
 		}
 
-		/* TLS 1.3 changes done
+		/* OpenSSL3 changes done
 		if (!params.certificateFile.empty())
 		*/
 		std::string certificateFile = params.certificateFile;
 		if (certificateFile.empty()) certificateFile = params.privateKeyFile;
 		if (!certificateFile.empty())
 		{
-			/* TLS 1.3 changes done
+			/* OpenSSL3 changes done
 			errCode = SSL_CTX_use_certificate_chain_file(_pSSLContext, Poco::Path::transcode(params.certificateFile).c_str());
 			*/
 			errCode = SSL_CTX_use_certificate_chain_file(_pSSLContext, Poco::Path::transcode(certificateFile).c_str());
 			if (errCode != 1)
 			{
 				std::string errMsg = Utility::getLastError();
-				/* TLS 1.3 changes done
+				/* OpenSSL3 changes done
 				throw SSLContextException(std::string("Error loading certificate from file ") + params.certificateFile, errMsg);
 				*/
 				throw SSLContextException(std::string("Error loading certificate from file ") + certificateFile, errMsg);
@@ -204,13 +204,13 @@ void Context::init(const Params& params)
 		SSL_CTX_set_verify_depth(_pSSLContext, params.verificationDepth);
 		SSL_CTX_set_mode(_pSSLContext, SSL_MODE_AUTO_RETRY);
 		SSL_CTX_set_session_cache_mode(_pSSLContext, SSL_SESS_CACHE_OFF);
-		/* TLS 1.3 changes done begin
+		/* OpenSSL3 changes done begin
 		*/
 		SSL_CTX_set_ex_data(_pSSLContext, SSLManager::instance().contextIndex(), this);
-		/* TLS 1.3 changes done end
+		/* OpenSSL3 changes done end
 		*/
 
-		/* TLS 1.3 changes done begin
+		/* OpenSSL3 changes done begin
 		 * */
 		if (!isForServerUse())
 		{
@@ -227,10 +227,10 @@ void Context::init(const Params& params)
 			throw SSLContextException("OCSP Stapling is not supported by this OpenSSL version");
 #endif
 		}
-		/* TLS 1.3 changes done begin
+		/* OpenSSL3 changes done begin
 		*/
 
-		//initDH(params.dhParamsFile); TLS 1.3 change reconciled
+		//initDH(params.dhParamsFile); OpenSSL3 change reconciled
 		initDH(params.dhUse2048Bits, params.dhParamsFile);
 		initECDH(params.ecdhCurve);
 	}
@@ -539,7 +539,7 @@ void Context::createSSLContext()
 
 	if (SSLManager::isFIPSEnabled())
 	{
-		/* TLS 1.3 changes done
+		/* OpenSSL3 changes done
 		_pSSLContext = SSL_CTX_new(TLSv1_method());
 		*/
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -640,7 +640,7 @@ void Context::createSSLContext()
 }
 
 
-// void Context::initDH(const std::string& dhParamsFile) TLS 1.3 changes reconciled
+// void Context::initDH(const std::string& dhParamsFile) OpenSSL3 changes reconciled
 void Context::initDH(bool use2048Bits, const std::string& dhParamsFile)
 {
 #ifndef OPENSSL_NO_DH
