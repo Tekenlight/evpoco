@@ -63,5 +63,5 @@ Other links: [evlua documentation](https://github.com/Tekenlight/.github/wiki)
 ----
 
 ##### Notes
-* Crypto and NetSSL_OpenSSL related commits in poco reconciled on 30-Aug-2023 (TLS 1.3, OpenSSL3 and other enhancements)
+* Crypto and NetSSL_OpenSSL related commits in poco reconciled on 30-Aug-2023 (TLS 1.3, OpenSSL3 and other enhancements) (poco NetSSL_OpenSSL 11-Jul-2023 Crypto 11-Jul-2023)
 
