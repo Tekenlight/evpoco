@@ -60,3 +60,8 @@ Other links: [evlua documentation](https://github.com/Tekenlight/.github/wiki)
 [overview]: doc/images/Overview.png "evpoco Overview"
 [thread]: doc/images/lua_threads.png "Thread model"
 
+----
+
+##### Notes
+* Crypto and NetSSL_OpenSSL related commits in poco reconciled on 30-Aug-2023 (TLS 1.3, OpenSSSL3 and other enhancements)
+
