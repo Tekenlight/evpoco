@@ -2517,12 +2517,8 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						_file_evt_subscriptions.erase(it->first);
 					}
 					subscriptions.clear();
-					if (this->_mode == SERVER_MODE) {
-						DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
-					}
-					else {
-						//DEBUGPOINT("Deleted processing state %p for %d\n", tn->getProcState(), tn->getSockfd());
-					}
+					void * p = tn->getProcState();
+					int fd = tn->getSockfd();
 					/* EXPERIMENTAL CHANGES for delete state
 					 * in websocket mode, we are having a single state object
 					 * that runs throughout the lifecycle
@@ -2532,6 +2528,12 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 					//if (tn->getSockMode() != EVAcceptedStreamSocket::WEBSOCKET_MODE)
 						//tn->deleteState();
 					/* EXPERIMENTAL CHANGES */
+					if (this->_mode == SERVER_MODE) {
+						DEBUGPOINT("Deleted processing state %p for %d\n", p, fd);
+					}
+					else {
+						//DEBUGPOINT("Deleted processing state %p for %d\n", p, fd);
+					}
 
 					/* Should reset of number of CS events be done at all
 					 * tn->newresetNumCSEvents();
