@@ -340,6 +340,7 @@ static void async_stream_socket_cb_3(EV_P_ ev_io *w, int revents)
 // this callback is called when data is readable on a connected socket
 static void async_stream_socket_timeout_cb(EV_P_ ev_timer *w, int revents)
 {
+	//DEBUGPOINT("STREAM SOCKET TIMEOUT\n");
 	strms_io_cb_ptr_type cb_ptr = (strms_io_cb_ptr_type)0;
 	/* for one-shot events, one must manually stop the watcher
 	 * with its corresponding stop function.
@@ -827,6 +828,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 	}
 	if ((ret <= 0) || errno) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			//DEBUGPOINT("HERE ret = [%zd]\n", ret);
 			return 0;
 		}
 		else {
@@ -837,6 +839,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 			else {
 				error_string = strerror(errno);
 			}
+			//DEBUGPOINT("HERE ret = [%zd] error_string=[%s]\n", ret, error_string);
 			return -1;
 		}
 	}
@@ -1004,11 +1007,13 @@ handleCLWrFdWritable_finally:
 		socket_watcher_ptr = tn->getSocketWatcher();
 
 		if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_WRITE) {
+			//DEBUGPOINT("HERE\n");
 			ev_io_stop(this->_loop, socket_watcher_ptr);
 			ev_clear_pending(this->_loop, socket_watcher_ptr);
 			tn->setState(EVAcceptedStreamSocket::NOT_WAITING);
 		}
 		else if (tn->getState() == EVAcceptedStreamSocket::WAITING_FOR_READWRITE) {
+			//DEBUGPOINT("HERE\n");
 			ev_io_stop(this->_loop, socket_watcher_ptr);
 			ev_clear_pending(this->_loop, socket_watcher_ptr);
 			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_1, streamSocket.impl()->sockfd(), EV_READ);
@@ -1019,6 +1024,7 @@ handleCLWrFdWritable_finally:
 		}
 		else {
 			/* It should not come here otherwise. */
+			DEBUGPOINT("HERE\n");
 			std::abort();
 		}
 	}
@@ -1581,6 +1587,7 @@ ssize_t EVTCPServer::handleManagedConnSockTimeOut(strms_io_cb_ptr_type cb_ptr, c
 	ssize_t ret = -1;
 	EVConnectedStreamSocket *cn = cb_ptr->cn;
 	cn->setTimeOfLastUse();
+	//DEBUGPOINT("Here\n");
 	ev_timer_stop(this->_loop, cn->getTimer());
 	errno = 0;
 
@@ -1636,6 +1643,7 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 	ssize_t ret = 0;
 	size_t received_bytes = 0;
 	EVConnectedStreamSocket *cn = cb_ptr->cn;
+	//DEBUGPOINT("Here\n");
 	ev_timer_stop(this->_loop, cn->getTimer());
 	cn->setTimeOfLastUse();
 	if (cn->getState() == EVConnectedStreamSocket::BEFORE_CONNECT) {
@@ -1659,9 +1667,16 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 		return -1;
 	}
 	*/
+
+	ssize_t ret1 = 0;
+	if (cn->sockInError()) {
+		ret = -1;
+		errno = EBADF;
+		goto handleConnSocketReadable_finally;
+	}
+
 	errno = 0;
 	{
-		ssize_t ret1 = 0;
 		int count = 0;
 		do {
 			count ++;
@@ -1670,7 +1685,6 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
 			ret1 = receiveData(cn->getStreamSocket(), buffer, TCP_BUFFER_SIZE);
 			if (ret1 >0) {
-				//printf("%zd\n", ret1);
 				cn->pushRcvData(buffer, (size_t)ret1);
 				ret += ret1;
 				received_bytes += ret1;
@@ -1682,6 +1696,14 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 				}
 			}
 		} while(!_blocking && ret1>0);
+		/* printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d]\n", __FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl());
+		if (ret == 0 && ret1 == 0 && cn->rcvDataAvlbl() == 1) {
+			char buf[1024];
+			memset(buf,0, 1024);
+			chunked_memory_stream * cms = cn->getRcvMemStream();
+			ssize_t bytes = cms->copy(0, buf, 1023);
+			DEBUGPOINT("bytes = {\n%s\n}\n", buf);
+		} */
 	}
 
 handleConnSocketReadable_finally:
@@ -1713,7 +1735,7 @@ handleConnSocketReadable_finally:
 
 	}
 
-	if ((ret >=0) && cn->rcvDataAvlbl()) {
+	if ((ret > 0) && cn->rcvDataAvlbl()) {
 		//DEBUGPOINT("cn = [%p]\n", cn);
 		//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
 		//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
@@ -1730,9 +1752,11 @@ handleConnSocketReadable_finally:
 			enqueue(tn->getIoEventQueue(), (void*)usN);
 			tn->newdecrNumCSEvents();
 			if (!(tn->sockBusy())) {
+				//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
 				srCompleteEnqueue(tn);
 			}
 			else {
+				//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
 				tn->setWaitingTobeEnqueued(true);
 			}
 		}
@@ -1770,6 +1794,9 @@ handleConnSocketReadable_finally:
 		}
 	}
 	else {
+		/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d]\n",
+							__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl());
+		DEBUGPOINT("Here\n");*/
 	}
 
 	return ret;
@@ -1780,6 +1807,7 @@ ssize_t EVTCPServer::handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, cons
 {
 	ssize_t ret = 0;
 	EVConnectedStreamSocket * cn = cb_ptr->cn;
+	//DEBUGPOINT("Here\n");
 	ev_timer_stop(this->_loop, cn->getTimer());
 	cn->setTimeOfLastUse();
 	if (cn->getState() == EVConnectedStreamSocket::BEFORE_CONNECT) {
@@ -1791,6 +1819,12 @@ ssize_t EVTCPServer::handleConnSocketWriteable(strms_io_cb_ptr_type cb_ptr, cons
 
 	//EVAcceptedStreamSocket *tn = _accssColl[cn->getAccSockfd()];
 	if (!cn->sendDataAvlbl()) {
+		goto handleConnSocketWritable_finally;
+	}
+
+	if (cn->sockInError()) {
+		ret = -1;
+		errno = EBADF;
 		goto handleConnSocketWritable_finally;
 	}
 
@@ -1886,7 +1920,32 @@ handleConnSocketWritable_finally:
 		 * When the processing gets complete, and the socket is returned,
 		 * At that time the socket will get disposed.
 		 * */
+		{
+			ev_io * socket_watcher_ptr = 0;
+
+			socket_watcher_ptr = cn->getSocketWatcher();
+
+			if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_WRITE) {
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+			}
+			else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				ev_io_init (socket_watcher_ptr, async_stream_socket_cb_3, cn->getStreamSocket().impl()->sockfd(), EV_READ);
+				ev_io_start (this->_loop, socket_watcher_ptr);
+				cn->setState(EVConnectedStreamSocket::WAITING_FOR_READ);
+			}
+			else {
+				/* It should not come here otherwise. */
+				DEBUGPOINT("It should not come here otherwise.[%d]\n", cn->getState());
+				std::abort();
+			}
+		}
 		cn->setSockInError();
+		//shutdown(cn->getStreamSocket().impl()->sockfd(), 2);
+		//DEBUGPOINT("CONNECTED SOCK = [%p]\n", cn);
 
 		// TBD Handle dispatching of EVENT here. TBD
 
@@ -2793,6 +2852,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 				}
 				break;
 			default:
+				//DEBUGPOINT("NONE OF THE ABOVE\n");
 				break;
 		}
 		pcNf = NULL;
@@ -4518,12 +4578,12 @@ void EVTCPServer::srCompleteEnqueue(EVAcceptedStreamSocket* tn)
 	//DEBUGPOINT("DECREMENTING FOR [%d]\n", tn->getSockfd());
 	//tn->newdecrNumCSEvents();
 	if (!tn->sockInError()) {
-		//DEBUGPOINT("Here\n");
+		//DEBUGPOINT("Here socknotinerror\n");
 		tn->setSockBusy();
 		_pDispatcher->enqueue(tn);
 	}
 	else {
-		//DEBUGPOINT("Here\n");
+		//DEBUGPOINT("Here sockinerror\n");
 		errorInAuxProcesing(tn->getSockfd(), true);
 	}
 }
@@ -5115,7 +5175,8 @@ struct timer_s {
 	int time_in_s;
 };
 
-static void handle_evtimer_event(EV_P_ ev_timer *w, int revents)
+extern "C" void handle_evtimer_event(EV_P_ ev_timer *w, int revents);
+void handle_evtimer_event(EV_P_ ev_timer *w, int revents)
 {
 	//DEBUGPOINT("Here\n");
 	bool ev_occurred = true;
@@ -5197,6 +5258,7 @@ int EVTCPServer::evTimerProcess(EVTCPServiceRequest * sr)
 			std::abort();
 		}
 		timer->data = (void*)ref_data;
+		//DEBUGPOINT("Setting timer [%p]\n", handle_evtimer_event);
 		ev_timer_init(timer, handle_evtimer_event, timeout, 0);
 		ev_timer_start(this->_loop, timer);
 

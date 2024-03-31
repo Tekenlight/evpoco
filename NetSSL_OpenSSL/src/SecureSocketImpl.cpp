@@ -202,6 +202,7 @@ void SecureSocketImpl::connectSSL(bool performHandshake)
 
 	if (!_peerHostName.empty())
 	{
+		// SNI (Server Name Indication) extension
 		SSL_set_tlsext_host_name(_pSSL, _peerHostName.c_str());
 	}
 
