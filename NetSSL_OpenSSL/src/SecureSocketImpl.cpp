@@ -563,6 +563,44 @@ bool SecureSocketImpl::mustRetry(int rc)
 	return false;
 }
 
+void show_errors(int rc, int sslError)
+{
+	switch (sslError) {
+		case SSL_ERROR_ZERO_RETURN:
+		case SSL_ERROR_WANT_READ:
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_CONNECT:
+		case SSL_ERROR_WANT_ACCEPT:
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			return;
+		default:
+			break;
+	}
+
+	{
+		//char filename[128] = {'\0'};
+		char *filename = NULL, *func= NULL, *data = NULL;;
+		int lineno = 0, flags =0;
+		unsigned long error_number = 0;
+		error_number = ERR_peek_error_all((const char **)(&filename), &lineno, (const char**)(&func), (const char **)(&data), &flags);
+		printf("%s:%d Reached here ERR = %d error_number = %zu filename = %s  lineno = %d \n",
+				__FILE__, __LINE__, ERR_GET_LIB(error_number), error_number, filename, lineno);
+		if (data && (flags & ERR_TXT_STRING))
+			printf("error data: %s\n", data);
+		if (error_number) {
+			char buffer[256];
+			memset(buffer, 0, 256);
+			ERR_error_string_n(error_number, buffer, 255);
+			printf("%s:%d ERROR:[%s]\n", __FILE__, __LINE__, buffer);
+		}
+	}
+
+	printf("%s:%d Reached here SSLERROR = %d rc = %d  %d %s\n",
+			__FILE__, __LINE__, sslError, rc,  errno, strerror(errno));
+
+	return;
+}
+
 
 int SecureSocketImpl::handleError(int rc)
 {
@@ -573,32 +611,8 @@ int SecureSocketImpl::handleError(int rc)
 	int error = SocketImpl::lastError();
 	*/
 	int socketError = SocketImpl::lastError();
-	/*
-	{
-		//char filename[128] = {'\0'};
-		char *filename = NULL;
-		int lineno = 0;
-		unsigned long error_number = 0;
-		error_number = ERR_peek_error_line((const char **)(&filename), &lineno);
-		printf("[%p]:%s:%d Reached here ERR = %d error_number = %zu filename = %s  lineno = %d \n",
-				pthread_self(), __FILE__, __LINE__, ERR_GET_LIB(error_number), error_number, filename, lineno);
-	}
 
-	printf("[%p]:%s:%d Reached here SSLERROR = %d rc = %d  %d %s\n",
-			pthread_self(), __FILE__, __LINE__, sslError, rc,  errno, strerror(errno));
-	{
-		int flags, line;
-		char *data, *file;
-		unsigned long code;
-		code = ERR_get_error_line_data((const char**)(&file), &line, (const char **)(&data), &flags);
-		while (code) {
-			printf("error code: %lu in %s line %d.\n", code, file, line);
-			if (data && (flags & ERR_TXT_STRING))
-			printf("error data: %s\n", data);
-			code = ERR_get_error_line_data((const char**)(&file), &line, (const char **)(&data), &flags);
-		}
-	}
-	*/
+	show_errors(rc, sslError);
 
 	switch (sslError)
 	{

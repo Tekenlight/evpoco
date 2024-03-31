@@ -2441,8 +2441,7 @@ static int receive_http_response_complete(lua_State* L, int status, lua_KContext
 	Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
 	if (usN.getRet() < 0) {
 		delete response;
-		char msg[1024];
-		luaL_error(L, msg, "receive_http_response: error: %s", strerror(usN.getErrNo()));
+		luaL_error(L, "receive_http_response: error: %s", (usN.getErrNo()) ? strerror(usN.getErrNo()): "Unknown Error");
 		return 1;
 	}
 
