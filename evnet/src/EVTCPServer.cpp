@@ -835,6 +835,7 @@ ssize_t EVTCPServer::sendData(StreamSocket& ss, void * chptr, size_t size, int *
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				errno = ENOTCONN;
 			}
 			else {
 				error_string = strerror(errno);
@@ -868,6 +869,7 @@ ssize_t EVTCPServer::sendData(int fd, void * chptr, size_t size, int * wait_mode
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				errno = ENOTCONN;
 			}
 			else {
 				error_string = strerror(errno);
@@ -1237,6 +1239,7 @@ ssize_t EVTCPServer::receiveData(StreamSocket & ss, void * chptr, size_t size, i
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				errno = ENOTCONN;
 				//DEBUGPOINT("Here for sock [%d] ret = [%zd] [%d][%s]\n", ss.impl()->sockfd(), ret, errno, error_string);
 			}
 			else {
@@ -1269,6 +1272,7 @@ ssize_t EVTCPServer::writeData(int fd, void * chptr, size_t size, int * wait_mod
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				errno = ENOTCONN;
 			}
 			else {
 				error_string = strerror(errno);
@@ -1295,6 +1299,7 @@ ssize_t EVTCPServer::readData(int fd, void * chptr, size_t size, int * wait_mode
 			if (!errno) {
 				//DEBUGPOINT("Here\n");
 				error_string = "Connection closed";
+				errno = ENOTCONN;
 			}
 			else {
 				//DEBUGPOINT("Here\n");
@@ -1322,6 +1327,7 @@ ssize_t EVTCPServer::receiveData(int fd, void * chptr, size_t size, int * wait_m
 			const char * error_string = NULL;
 			if (!errno) {
 				error_string = "Peer closed connection";
+				errno = ENOTCONN;
 			}
 			else {
 				error_string = strerror(errno);
@@ -1691,6 +1697,7 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 				received_bytes += ret1;
 			}
 			else {
+				//DEBUGPOINT("Here ret1 = [%zd] [%d]\n", ret1, errno);
 				free(buffer);
 				if (ret1 < 0) {
 					ret = -1;
