@@ -1675,6 +1675,7 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 		goto handleConnSocketReadable_finally;
 	}
 
+	cn->lock();
 	errno = 0;
 	{
 		int count = 0;
@@ -1696,15 +1697,17 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 				}
 			}
 		} while(!_blocking && ret1>0);
-		/* printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d]\n", __FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl());
-		if (ret == 0 && ret1 == 0 && cn->rcvDataAvlbl() == 1) {
-			char buf[1024];
-			memset(buf,0, 1024);
-			chunked_memory_stream * cms = cn->getRcvMemStream();
-			ssize_t bytes = cms->copy(0, buf, 1023);
-			DEBUGPOINT("bytes = {\n%s\n}\n", buf);
-		} */
 	}
+	if (ret > 0) cn->addBytesReceived((unsigned long)ret);
+	/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
+				__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), cn->receivedDataAvlbl());
+	if (ret == 0 && ret1 == 0 && cn->rcvDataAvlbl() == 1) {
+		char buf[1024];
+		memset(buf,0, 1024);
+		chunked_memory_stream * cms = cn->getRcvMemStream();
+		ssize_t bytes = cms->copy(0, buf, 1023);
+		DEBUGPOINT("bytes = {\n%s\n}\n", buf);
+	}*/
 
 handleConnSocketReadable_finally:
 	/* ret will be 0 after recv even on a tickled socket
@@ -1735,7 +1738,7 @@ handleConnSocketReadable_finally:
 
 	}
 
-	if ((ret > 0) && cn->rcvDataAvlbl()) {
+	if ((ret >= 0) && cn->receivedDataAvlbl()) {
 		//DEBUGPOINT("cn = [%p]\n", cn);
 		//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
 		//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
@@ -1794,10 +1797,11 @@ handleConnSocketReadable_finally:
 		}
 	}
 	else {
-		/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d]\n",
-							__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl());
+		/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
+							__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), receivedDataAvlbl());
 		DEBUGPOINT("Here\n");*/
 	}
+	cn->unlock();
 
 	return ret;
 }

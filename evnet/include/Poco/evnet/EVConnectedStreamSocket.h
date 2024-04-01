@@ -11,7 +11,7 @@
 // SPDX-License-Identifier:	BSL-1.0
 //
 
-
+#include <pthread.h>
 #include <evpoco/ev.h>
 #include <sys/time.h>
 #include <chunked_memory_stream.h>
@@ -91,8 +91,9 @@ public:
 	// data is received from the upstream server.
 
 	bool sendDataAvlbl();
+	[[deprecated("Use receivedDataAvlbl() instead.")]]
 	bool rcvDataAvlbl();
-	
+
 	bool sockBusy();
 
 	void setNextPtr(EVConnectedStreamSocket * ptr);
@@ -119,6 +120,18 @@ public:
 	void invalidateSocket();
 	void makeSSCopy();
 	void cleanupSocket();
+	void lock();
+	void unlock();
+
+	void addBytesCollected(unsigned long b);
+	void addBytesSent(unsigned long b);
+
+	void addBytesReceived(unsigned long b);
+	void addBytesConsumed(unsigned long b);
+
+	bool receivedDataAvlbl();
+	bool dataForSendAvlbl();
+
 
 private:
 	poco_socket_t				_sock_fd;
@@ -137,6 +150,10 @@ private:
 	connected_sock_state		_state;
 	int							_socketInError;
 	bool						_newConnection;
+	pthread_mutex_t				_lock;
+	pthread_cond_t				_cond;
+	unsigned long				_bytes_from_socket_received;
+	unsigned long				_bytes_to_socket_collected;
 };
 
 inline void EVConnectedStreamSocket::makeSSCopy()
@@ -147,6 +164,46 @@ inline void EVConnectedStreamSocket::makeSSCopy()
 	}
 	_ss = *_streamSocket;
 	_streamSocket = &_ss;
+}
+
+inline void EVConnectedStreamSocket::lock()
+{
+	pthread_mutex_lock(&(this->_lock));
+}
+
+inline void EVConnectedStreamSocket::unlock()
+{
+	pthread_mutex_unlock(&(this->_lock));
+}
+
+inline void EVConnectedStreamSocket::addBytesCollected(unsigned long b)
+{
+	this->_bytes_to_socket_collected += b;
+}
+
+inline void EVConnectedStreamSocket::addBytesSent(unsigned long b)
+{
+	this->_bytes_to_socket_collected -= b;
+}
+
+inline bool EVConnectedStreamSocket::dataForSendAvlbl()
+{
+	return (this->_bytes_to_socket_collected > 0);
+}
+
+inline void EVConnectedStreamSocket::addBytesReceived(unsigned long b)
+{
+	this->_bytes_from_socket_received += b;
+}
+
+inline void EVConnectedStreamSocket::addBytesConsumed(unsigned long b)
+{
+	this->_bytes_from_socket_received -= b;
+}
+
+inline bool EVConnectedStreamSocket::receivedDataAvlbl()
+{
+	return (this->_bytes_from_socket_received > 0);
 }
 
 inline StreamSocket &  EVConnectedStreamSocket::getStreamSocket()

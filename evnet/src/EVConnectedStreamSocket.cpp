@@ -32,13 +32,20 @@ EVConnectedStreamSocket::EVConnectedStreamSocket(int acc_fd, StreamSocket & stre
 	_rcv_memory_stream(0),
 	_state(BEFORE_CONNECT),
 	_socketInError(0),
-	_newConnection(true)
+	_newConnection(true),
+	_bytes_from_socket_received(0),
+	_bytes_to_socket_collected(0)
 {
 	struct timeval tv;
 	gettimeofday(&tv,0);
-	_timeOfLastUse = tv.tv_sec;
-	_send_memory_stream = new chunked_memory_stream();
-	_rcv_memory_stream = new chunked_memory_stream();
+	this->_timeOfLastUse = tv.tv_sec;
+	this->_send_memory_stream = new chunked_memory_stream();
+	this->_rcv_memory_stream = new chunked_memory_stream();
+	pthread_mutex_init(&(this->_lock), NULL);
+	if (pthread_cond_init(&(this->_cond), NULL)) {
+		DEBUGPOINT("UNEXPECTED ERROR IN initializing condintion variable");
+		std::abort();
+	}
 }
 
 void EVConnectedStreamSocket::cleanupSocket()
@@ -94,6 +101,8 @@ EVConnectedStreamSocket::~EVConnectedStreamSocket()
 		delete this->_rcv_memory_stream;
 		this->_rcv_memory_stream = NULL;
 	}
+	pthread_mutex_destroy(&(this->_lock));
+	pthread_cond_destroy(&(this->_cond));
 }
 
 void EVConnectedStreamSocket::setTimer(ev_timer *timer)

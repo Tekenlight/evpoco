@@ -221,6 +221,7 @@ int EVHTTPClientSession::http_parser_hack()
 		_recv_stream->erase(1);
 		reduction_count = 1;
 	}
+	//DEBUGPOINT("Here reduction_count = [%d]\n", reduction_count);
 	return reduction_count;
 }
 
@@ -240,6 +241,8 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 		,.on_chunk_header = chunk_header_cb
 		,.on_chunk_complete = chunk_complete_cb
 	};
+	size_t data_consumed = 0;
+	size_t len0 = 0;
 
 	size_t len1 = 0, len2 = 0;
 	void * nodeptr = NULL;
@@ -264,7 +267,11 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			break;
 		}
 
-		len2 += http_parser_execute(_parser,&settings, buffer, len1);
+		len0 = 0;
+		len0 = http_parser_execute(_parser,&settings, buffer, len1);
+		len2 += len0;
+		data_consumed += len0;
+		//DEBUGPOINT("len2 = [%zu] data_consumed = [%zu]\n", len2, data_consumed);
 		if (_parser->http_errno && (_parser->http_errno != HPE_PAUSED)) {
 			char * buf_for_dump = (char*)malloc(len1+1);
 			memset(buf_for_dump, 0, len1+1);
@@ -367,7 +374,8 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 				else {
 					//DEBUGPOINT("GOT A NON-CONTINUATION RESPONSE STATUS=[%d]\n", response.getStatus());
 					//DEBUGPOINT("BUFFER \n{%s}\n", buffer);
-					http_parser_hack();
+					int hc = http_parser_hack();
+					//DEBUGPOINT("Unexpected hc [%d]\n", hc);
 					response.setParseState(MESSAGE_COMPLETE);
 					response.setPrevNodePtr(0);
 					break;
@@ -379,7 +387,16 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			//DEBUGPOINT("MESSAGE COMPLETED\n");
 			//DEBUGPOINT("prior len=[%zu]\n", len2);
 			response.setPrevNodePtr(0);
-			len2 -= http_parser_hack();
+			int hc = http_parser_hack();
+			len2 -= hc;
+			/*
+			 * No need to do this for data_consumed:
+			 * Assume {HEADER}{BODY} as {X}{Y}
+			 * Upon headers complete len2 will be X -1 and data_consumed will be X - 1
+			 * Upon message complete len2 will be Y + 1 and data_consumed will be X - 1 + Y + 1 = X+Y
+			 * We dont want spurious char in the begining of len2 (body) which is being removed
+			 * where as data_consumed is already X + Y, which is correct
+			 */
 			break;
 		}
 		else {
@@ -389,7 +406,13 @@ int EVHTTPClientSession::continueRead(EVHTTPResponse& response)
 			len1 = _recv_stream->get_buffer_len(nodeptr);
 		}
 	}
+
 	response.setMessageBodySize(len2);
+
+	this->getConnSock()->lock();
+	this->getConnSock()->addBytesConsumed(data_consumed);
+	this->getConnSock()->unlock();
+
 	if (MESSAGE_COMPLETE == response.getParseState()) {
 		response.formInputStream(_recv_stream);
 		parser_init(0);
