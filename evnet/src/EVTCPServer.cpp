@@ -1674,139 +1674,141 @@ ssize_t EVTCPServer::handleConnSocketReadable(strms_io_cb_ptr_type cb_ptr, const
 	}
 	*/
 
-	ssize_t ret1 = 0;
-	if (cn->sockInError()) {
-		ret = -1;
-		errno = EBADF;
-		goto handleConnSocketReadable_finally;
-	}
-
 	cn->lock();
-	errno = 0;
 	{
-		int count = 0;
-		do {
-			count ++;
-			void * buffer = malloc(TCP_BUFFER_SIZE);
-			memset(buffer,0,TCP_BUFFER_SIZE);
-			//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
-			ret1 = receiveData(cn->getStreamSocket(), buffer, TCP_BUFFER_SIZE);
-			if (ret1 >0) {
-				cn->pushRcvData(buffer, (size_t)ret1);
-				ret += ret1;
-				received_bytes += ret1;
-			}
-			else {
-				//DEBUGPOINT("Here ret1 = [%zd] [%d]\n", ret1, errno);
-				free(buffer);
-				if (ret1 < 0) {
-					ret = -1;
+		ssize_t ret1 = 0;
+		if (cn->sockInError()) {
+			ret = -1;
+			errno = EBADF;
+			goto handleConnSocketReadable_finally;
+		}
+
+		errno = 0;
+		{
+			int count = 0;
+			do {
+				count ++;
+				void * buffer = malloc(TCP_BUFFER_SIZE);
+				memset(buffer,0,TCP_BUFFER_SIZE);
+				//ret1 = receiveData(streamSocket.impl()->sockfd(), buffer, TCP_BUFFER_SIZE);
+				ret1 = receiveData(cn->getStreamSocket(), buffer, TCP_BUFFER_SIZE);
+				if (ret1 >0) {
+					cn->pushRcvData(buffer, (size_t)ret1);
+					ret += ret1;
+					received_bytes += ret1;
 				}
-			}
-		} while(!_blocking && ret1>0);
-	}
-	if (ret > 0) cn->addBytesReceived((unsigned long)ret);
-	/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
-				__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), cn->receivedDataAvlbl());
-	if (ret == 0 && ret1 == 0 && cn->rcvDataAvlbl() == 1) {
-		char buf[1024];
-		memset(buf,0, 1024);
-		chunked_memory_stream * cms = cn->getRcvMemStream();
-		ssize_t bytes = cms->copy(0, buf, 1023);
-		DEBUGPOINT("bytes = {\n%s\n}\n", buf);
-	}*/
+				else {
+					//DEBUGPOINT("Here ret1 = [%zd] [%d]\n", ret1, errno);
+					free(buffer);
+					if (ret1 < 0) {
+						ret = -1;
+					}
+				}
+			} while(!_blocking && ret1>0);
+		}
+		if (ret > 0) cn->addBytesReceived((unsigned long)ret);
+		/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
+					__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), cn->receivedDataAvlbl());
+		if (ret == 0 && ret1 == 0 && cn->rcvDataAvlbl() == 1) {
+			char buf[1024];
+			memset(buf,0, 1024);
+			chunked_memory_stream * cms = cn->getRcvMemStream();
+			ssize_t bytes = cms->copy(0, buf, 1023);
+			DEBUGPOINT("bytes = {\n%s\n}\n", buf);
+		}*/
 
 handleConnSocketReadable_finally:
-	/* ret will be 0 after recv even on a tickled socket
-	 * in case of SSL handshake.
-	 * */
-	//DEBUGPOINT("Return value of read = %zd\n", ret);
-	if (ret != 0) {
-		ev_io * socket_watcher_ptr = 0;
-		socket_watcher_ptr = cn->getSocketWatcher();
-		if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
-			ev_io_stop(this->_loop, socket_watcher_ptr);
-			ev_clear_pending(this->_loop, socket_watcher_ptr);
-			cn->setState(EVConnectedStreamSocket::NOT_WAITING);
-		}
-		else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
-			ev_io_stop(this->_loop, socket_watcher_ptr);
-			ev_clear_pending(this->_loop, socket_watcher_ptr);
-			ev_io_init (socket_watcher_ptr, async_stream_socket_cb_3, cn->getSockfd(), EV_WRITE);
-			ev_io_start (this->_loop, socket_watcher_ptr);
-			cn->setState(EVConnectedStreamSocket::WAITING_FOR_WRITE);
-		}
-		else {
-			/* It should not come here otherwise. */
-			DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", cn->getState());
-			std::abort();
-		}
-		//tn->decrNumCSEvents();
-
-	}
-
-	if ((ret >= 0) && cn->receivedDataAvlbl()) {
-		//DEBUGPOINT("cn = [%p]\n", cn);
-		//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
-		//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
-		//DEBUGPOINT("tn->srInSession(cb_ptr->sr_num) = [%d]\n", tn->srInSession(cb_ptr->sr_num));
-
-		EVEventNotification * usN = 0;
-		if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
-			usN = new EVEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
-													cb_ptr->cb_evid_num,
-													(ret)?ret:1, 0);
-			usN->setRecvStream(cn->getRcvMemStream());
-			usN->setSendStream(cn->getSendMemStream());
-			usN->setConnSock(cn);
-			enqueue(tn->getIoEventQueue(), (void*)usN);
-			tn->newdecrNumCSEvents();
-			if (!(tn->sockBusy())) {
-				//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
-				srCompleteEnqueue(tn);
+		/* ret will be 0 after recv even on a tickled socket
+		 * in case of SSL handshake.
+		 * */
+		//DEBUGPOINT("Return value of read = %zd\n", ret);
+		if (ret != 0) {
+			ev_io * socket_watcher_ptr = 0;
+			socket_watcher_ptr = cn->getSocketWatcher();
+			if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READ) {
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				cn->setState(EVConnectedStreamSocket::NOT_WAITING);
+			}
+			else if (cn->getState() == EVConnectedStreamSocket::WAITING_FOR_READWRITE) {
+				ev_io_stop(this->_loop, socket_watcher_ptr);
+				ev_clear_pending(this->_loop, socket_watcher_ptr);
+				ev_io_init (socket_watcher_ptr, async_stream_socket_cb_3, cn->getSockfd(), EV_WRITE);
+				ev_io_start (this->_loop, socket_watcher_ptr);
+				cn->setState(EVConnectedStreamSocket::WAITING_FOR_WRITE);
 			}
 			else {
-				//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
-				tn->setWaitingTobeEnqueued(true);
+				/* It should not come here otherwise. */
+				DEBUGPOINT("SHOULD NOT HAVE REACHED HERE %d\n", cn->getState());
+				std::abort();
 			}
-		}
-		else {
-			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
-			STACK_TRACE();
-			std::abort();
-		}
-	}
-	else if (ret<0) {
-		cn->setSockInError();
-		//DEBUGPOINT("cn = [%p]\n", cn);
-		//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
-		//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
-		//DEBUGPOINT("tn->srInSession(cb_ptr->sr_num) = [%d]\n", tn->srInSession(cb_ptr->sr_num));
+			//tn->decrNumCSEvents();
 
-		EVEventNotification * usN = 0;
-		if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
-			usN = new EVEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
-													cb_ptr->cb_evid_num,
-													-1, errno);
-			enqueue(tn->getIoEventQueue(), (void*)usN);
-			tn->newdecrNumCSEvents();
-			if (!(tn->sockBusy())) {
-				cn->setSockInError();
-				srCompleteEnqueue(tn);
+		}
+
+		if ((ret >= 0) && cn->receivedDataAvlbl()) {
+			//DEBUGPOINT("cn = [%p]\n", cn);
+			//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
+			//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
+			//DEBUGPOINT("tn->srInSession(cb_ptr->sr_num) = [%d]\n", tn->srInSession(cb_ptr->sr_num));
+
+			EVEventNotification * usN = 0;
+			if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+				usN = new EVEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+														cb_ptr->cb_evid_num,
+														(ret)?ret:1, 0);
+				usN->setRecvStream(cn->getRcvMemStream());
+				usN->setSendStream(cn->getSendMemStream());
+				usN->setConnSock(cn);
+				enqueue(tn->getIoEventQueue(), (void*)usN);
+				tn->newdecrNumCSEvents();
+				if (!(tn->sockBusy())) {
+					//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
+					srCompleteEnqueue(tn);
+				}
+				else {
+					//DEBUGPOINT("SOCK BUSY =[%d]\n", tn->sockBusy());
+					tn->setWaitingTobeEnqueued(true);
+				}
 			}
 			else {
-				tn->setWaitingTobeEnqueued(true);
+				DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+				STACK_TRACE();
+				std::abort();
+			}
+		}
+		else if (ret<0) {
+			cn->setSockInError();
+			//DEBUGPOINT("cn = [%p]\n", cn);
+			//DEBUGPOINT("tn->getProcState() = [%p]\n", tn->getProcState());
+			//DEBUGPOINT("cb_ptr->sr_num = [%ld]\n", cb_ptr->sr_num);
+			//DEBUGPOINT("tn->srInSession(cb_ptr->sr_num) = [%d]\n", tn->srInSession(cb_ptr->sr_num));
+
+			EVEventNotification * usN = 0;
+			if ((tn->getProcState()) && tn->srInSession(cb_ptr->sr_num)) {
+				usN = new EVEventNotification(cb_ptr->sr_num, (cn->getStreamSocket().impl()->sockfd()), 
+														cb_ptr->cb_evid_num,
+														-1, errno);
+				enqueue(tn->getIoEventQueue(), (void*)usN);
+				tn->newdecrNumCSEvents();
+				if (!(tn->sockBusy())) {
+					cn->setSockInError();
+					srCompleteEnqueue(tn);
+				}
+				else {
+					tn->setWaitingTobeEnqueued(true);
+				}
+			}
+			else {
+				DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
+				std::abort();
 			}
 		}
 		else {
-			DEBUGPOINT("IS THIS AN IMPOSSIBLE CONDITION for %d\n", tn->getSockfd());
-			std::abort();
+			/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
+								__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), receivedDataAvlbl());
+			DEBUGPOINT("Here\n");*/
 		}
-	}
-	else {
-		/*printf("%s:%d ret1=[%zd] ret=[%zd] blocking=[%d] cn->rcvDataAvlbl()=[%d] cn->receivedDataAvlbl()=[%d]\n",
-							__FILE__, __LINE__, ret1, ret, _blocking, cn->rcvDataAvlbl(), receivedDataAvlbl());
-		DEBUGPOINT("Here\n");*/
 	}
 	cn->unlock();
 
