@@ -31,6 +31,7 @@
 [_a-zA-Z][_a-zA-Z0-9]*      { yylval_param->nval = alloc_var(output, yytext); return VARIABLE; }
 [ \t\r]+                    { /* ignore whitespace */ }
 .                           { return YYUNDEF; }
+<<EOF>>                     { return END; }
 
 %%
 

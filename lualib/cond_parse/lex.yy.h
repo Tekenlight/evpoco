@@ -500,7 +500,7 @@ extern int yylex \
 #undef yyTABLES_NAME
 #endif
 
-#line 35 "calc.l"
+#line 36 "calc.l"
 
 
 #line 507 "lex.yy.h"

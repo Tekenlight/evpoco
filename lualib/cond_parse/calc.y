@@ -27,7 +27,7 @@ extern int yylex (YYSTYPE * yylval_param , yyscan_t yyscanner, parsed_output_t o
     cond_mem_node_t nval;
 }
 
-%token BVALUE AND OR NOT LPAREN RPAREN NEWLINE VARIABLE CONSTANT COMPARATOR
+%token BVALUE AND OR NOT LPAREN RPAREN NEWLINE VARIABLE CONSTANT COMPARATOR END
 /*%token BVALUE AND OR NOT LPAREN RPAREN NEWLINE VARIABLE CONSTANT EQ NEQ GE LE GT LT */
 
 %left NOT AND OR
@@ -48,6 +48,7 @@ input:
 line:
     NEWLINE
     | expr NEWLINE  { store_output(output, ($1)->buf); free_dup_buf(output, $1); YYACCEPT; }
+    | expr END  { store_output(output, ($1)->buf); free_dup_buf(output, $1); YYACCEPT; }
     | error NEWLINE { puts("ERROR"); reset_output(output); yyerrok; }
     ;
 
@@ -78,7 +79,9 @@ expr:
 %%
 
 void yyerror(yyscan_t scanner, parsed_output_t output, const char *s) {
-    fprintf(stderr, "Error: %s [%s] [%s]\n", s, yyget_lval(scanner)->nval->buf, yyget_text(scanner));
+    char * b = yyget_lval(scanner)->nval->buf;
+    char * t = yyget_text(scanner);
+    fprintf(stderr, "Error: %s [%s]\n", s, (t)?t:"??");
 }
 
 int main(int argc, char **argv) {
@@ -86,11 +89,11 @@ int main(int argc, char **argv) {
     yyscan_t scanner;
     yylex_init(&scanner);
     printf("Enter expressions to calculate (Ctrl+D to exit):\n");
-    //YY_BUFFER_STATE b = yy_scan_string("true and (false or not(false))\n", scanner);
-    //printf("Calculating value of true and (false or not(false))\n");
+    YY_BUFFER_STATE b = yy_scan_string("true and (false or not(false))", scanner);
+    printf("Calculating value of true and (false or not(false))\n");
     yyparse(scanner, output);
     printf("OUTPUT = [%s]\n", output->buffer);
-    //yy_delete_buffer(b, scanner);
+    yy_delete_buffer(b, scanner);
     yylex_destroy(scanner);
     destroy_output(output);
     return 0;

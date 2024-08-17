@@ -910,14 +910,16 @@ YY_RULE_SETUP
 #line 33 "calc.l"
 { return YYUNDEF; }
 	YY_BREAK
+case YY_STATE_EOF(INITIAL):
+#line 34 "calc.l"
+{ return END; }
+	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 35 "calc.l"
+#line 36 "calc.l"
 ECHO;
 	YY_BREAK
-#line 919 "lex.yy.c"
-case YY_STATE_EOF(INITIAL):
-	yyterminate();
+#line 923 "lex.yy.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -2096,7 +2098,7 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 35 "calc.l"
+#line 36 "calc.l"
 
 
 

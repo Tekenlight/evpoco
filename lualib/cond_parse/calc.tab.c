@@ -115,10 +115,11 @@ enum yysymbol_kind_t
   YYSYMBOL_VARIABLE = 10,                  /* VARIABLE  */
   YYSYMBOL_CONSTANT = 11,                  /* CONSTANT  */
   YYSYMBOL_COMPARATOR = 12,                /* COMPARATOR  */
-  YYSYMBOL_YYACCEPT = 13,                  /* $accept  */
-  YYSYMBOL_input = 14,                     /* input  */
-  YYSYMBOL_line = 15,                      /* line  */
-  YYSYMBOL_expr = 16                       /* expr  */
+  YYSYMBOL_END = 13,                       /* END  */
+  YYSYMBOL_YYACCEPT = 14,                  /* $accept  */
+  YYSYMBOL_input = 15,                     /* input  */
+  YYSYMBOL_line = 16,                      /* line  */
+  YYSYMBOL_expr = 17                       /* expr  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -446,19 +447,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   29
+#define YYLAST   31
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  13
+#define YYNTOKENS  14
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  4
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  16
+#define YYNRULES  17
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  26
+#define YYNSTATES  27
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   267
+#define YYMAXUTOK   268
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -498,15 +499,15 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7,     8,     9,    10,    11,    12
+       5,     6,     7,     8,     9,    10,    11,    12,    13
 };
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int8 yyrline[] =
 {
-       0,    43,    43,    45,    49,    50,    51,    55,    57,    59,
-      61,    63,    65,    67,    69,    71,    73
+       0,    43,    43,    45,    49,    50,    51,    52,    56,    58,
+      60,    62,    64,    66,    68,    70,    72,    74
 };
 #endif
 
@@ -524,7 +525,7 @@ static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "BVALUE", "AND", "OR",
   "NOT", "LPAREN", "RPAREN", "NEWLINE", "VARIABLE", "CONSTANT",
-  "COMPARATOR", "$accept", "input", "line", "expr", YY_NULLPTR
+  "COMPARATOR", "END", "$accept", "input", "line", "expr", YY_NULLPTR
 };
 
 static const char *
@@ -548,9 +549,9 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-      -7,     8,    -7,    -3,    -7,    17,    17,    -7,     4,     9,
-      -7,    -2,    -7,    -7,    21,    -6,     0,    17,    17,    -7,
-      -7,    -7,    -7,    -7,    -7,    -7
+      -7,     8,    -7,     1,    -7,    20,    20,    -7,     4,    10,
+      -7,    16,    -7,    -7,    -2,    -6,    -3,    20,    20,    -7,
+      -7,    -7,    -7,    -7,    -7,    -7,    -7
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -558,9 +559,9 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       2,     0,     1,     0,     7,     0,     0,     4,     9,     8,
-       3,     0,     6,    15,     0,     0,     0,     0,     0,     5,
-      16,    11,    10,    12,    13,    14
+       2,     0,     1,     0,     8,     0,     0,     4,    10,     9,
+       3,     0,     7,    16,     0,     0,     0,     0,     0,     5,
+       6,    17,    12,    11,    13,    14,    15
 };
 
 /* YYPGOTO[NTERM-NUM].  */
@@ -580,39 +581,41 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      13,    14,    17,    18,    21,    22,    12,    19,     2,     3,
-      23,     4,    24,    25,     5,     6,    15,     7,     8,     9,
-       4,    16,     0,     5,     6,    17,    18,     8,     9,    20
+      13,    14,    17,    18,    22,    23,    21,    24,     2,     3,
+      12,     4,    25,    26,     5,     6,    15,     7,     8,     9,
+      17,    18,    16,     4,     0,    19,     5,     6,     0,    20,
+       8,     9
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     6,     4,     5,    10,    11,     9,     9,     0,     1,
-      10,     3,    17,    18,     6,     7,    12,     9,    10,    11,
-       3,    12,    -1,     6,     7,     4,     5,    10,    11,     8
+       5,     6,     4,     5,    10,    11,     8,    10,     0,     1,
+       9,     3,    17,    18,     6,     7,    12,     9,    10,    11,
+       4,     5,    12,     3,    -1,     9,     6,     7,    -1,    13,
+      10,    11
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,    14,     0,     1,     3,     6,     7,     9,    10,    11,
-      15,    16,     9,    16,    16,    12,    12,     4,     5,     9,
-       8,    10,    11,    10,    16,    16
+       0,    15,     0,     1,     3,     6,     7,     9,    10,    11,
+      16,    17,     9,    17,    17,    12,    12,     4,     5,     9,
+      13,     8,    10,    11,    10,    17,    17
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    13,    14,    14,    15,    15,    15,    16,    16,    16,
-      16,    16,    16,    16,    16,    16,    16
+       0,    14,    15,    15,    16,    16,    16,    16,    17,    17,
+      17,    17,    17,    17,    17,    17,    17,    17
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     0,     2,     1,     2,     2,     1,     1,     1,
-       3,     3,     3,     3,     3,     2,     3
+       0,     2,     0,     2,     1,     2,     2,     2,     1,     1,
+       1,     3,     3,     3,     3,     3,     2,     3
 };
 
 
@@ -1088,77 +1091,83 @@ yyreduce:
   case 5: /* line: expr NEWLINE  */
 #line 50 "calc.y"
                     { store_output(output, ((yyvsp[-1].nval))->buf); free_dup_buf(output, (yyvsp[-1].nval)); YYACCEPT; }
-#line 1092 "calc.tab.c"
+#line 1095 "calc.tab.c"
     break;
 
-  case 6: /* line: error NEWLINE  */
+  case 6: /* line: expr END  */
 #line 51 "calc.y"
+                { store_output(output, ((yyvsp[-1].nval))->buf); free_dup_buf(output, (yyvsp[-1].nval)); YYACCEPT; }
+#line 1101 "calc.tab.c"
+    break;
+
+  case 7: /* line: error NEWLINE  */
+#line 52 "calc.y"
                     { puts("ERROR"); reset_output(output); yyerrok; }
-#line 1098 "calc.tab.c"
+#line 1107 "calc.tab.c"
     break;
 
-  case 7: /* expr: BVALUE  */
-#line 56 "calc.y"
+  case 8: /* expr: BVALUE  */
+#line 57 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[0].nval))->buf, NULL, NULL); free_dup_buf(output, (yyvsp[0].nval)); }
-#line 1104 "calc.tab.c"
+#line 1113 "calc.tab.c"
     break;
 
-  case 8: /* expr: CONSTANT  */
-#line 58 "calc.y"
+  case 9: /* expr: CONSTANT  */
+#line 59 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[0].nval))->buf, NULL, NULL); free_dup_buf(output, (yyvsp[0].nval)); }
-#line 1110 "calc.tab.c"
+#line 1119 "calc.tab.c"
     break;
 
-  case 9: /* expr: VARIABLE  */
-#line 60 "calc.y"
+  case 10: /* expr: VARIABLE  */
+#line 61 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[0].nval))->buf, NULL, NULL); free_dup_buf(output, (yyvsp[0].nval)); }
-#line 1116 "calc.tab.c"
+#line 1125 "calc.tab.c"
     break;
 
-  case 10: /* expr: VARIABLE COMPARATOR CONSTANT  */
-#line 62 "calc.y"
+  case 11: /* expr: VARIABLE COMPARATOR CONSTANT  */
+#line 63 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[-2].nval))->buf, ((yyvsp[-1].nval))->buf, ((yyvsp[0].nval))->buf); free_dup_bufs(output, (yyvsp[-2].nval), (yyvsp[-1].nval), (yyvsp[0].nval)); }
-#line 1122 "calc.tab.c"
+#line 1131 "calc.tab.c"
     break;
 
-  case 11: /* expr: VARIABLE COMPARATOR VARIABLE  */
-#line 64 "calc.y"
+  case 12: /* expr: VARIABLE COMPARATOR VARIABLE  */
+#line 65 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[-2].nval))->buf, ((yyvsp[-1].nval))->buf, ((yyvsp[0].nval))->buf); free_dup_bufs(output, (yyvsp[-2].nval), (yyvsp[-1].nval), (yyvsp[0].nval)); }
-#line 1128 "calc.tab.c"
+#line 1137 "calc.tab.c"
     break;
 
-  case 12: /* expr: CONSTANT COMPARATOR VARIABLE  */
-#line 66 "calc.y"
+  case 13: /* expr: CONSTANT COMPARATOR VARIABLE  */
+#line 67 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[-2].nval))->buf, ((yyvsp[-1].nval))->buf, ((yyvsp[0].nval))->buf); free_dup_bufs(output, (yyvsp[-2].nval), (yyvsp[-1].nval), (yyvsp[0].nval)); }
-#line 1134 "calc.tab.c"
+#line 1143 "calc.tab.c"
     break;
 
-  case 13: /* expr: expr AND expr  */
-#line 68 "calc.y"
+  case 14: /* expr: expr AND expr  */
+#line 69 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[-2].nval))->buf, "and", ((yyvsp[0].nval))->buf); free_dup_bufs(output, (yyvsp[-2].nval), (yyvsp[0].nval), NULL); }
-#line 1140 "calc.tab.c"
+#line 1149 "calc.tab.c"
     break;
 
-  case 14: /* expr: expr OR expr  */
-#line 70 "calc.y"
+  case 15: /* expr: expr OR expr  */
+#line 71 "calc.y"
                     { (yyval.nval) = create_output_buf(output, ((yyvsp[-2].nval))->buf, "or", ((yyvsp[0].nval))->buf); free_dup_bufs(output, (yyvsp[-2].nval), (yyvsp[0].nval), NULL); }
-#line 1146 "calc.tab.c"
+#line 1155 "calc.tab.c"
     break;
 
-  case 15: /* expr: NOT expr  */
-#line 72 "calc.y"
+  case 16: /* expr: NOT expr  */
+#line 73 "calc.y"
                     { (yyval.nval) = create_output_buf(output, "not", ((yyvsp[0].nval))->buf, NULL); free_dup_buf(output, (yyvsp[0].nval)); }
-#line 1152 "calc.tab.c"
+#line 1161 "calc.tab.c"
     break;
 
-  case 16: /* expr: LPAREN expr RPAREN  */
-#line 74 "calc.y"
+  case 17: /* expr: LPAREN expr RPAREN  */
+#line 75 "calc.y"
                     { (yyval.nval) = create_output_buf(output, "(", ((yyvsp[-1].nval))->buf, ")"); free_dup_buf(output, (yyvsp[-1].nval)); }
-#line 1158 "calc.tab.c"
+#line 1167 "calc.tab.c"
     break;
 
 
-#line 1162 "calc.tab.c"
+#line 1171 "calc.tab.c"
 
       default: break;
     }
@@ -1351,11 +1360,13 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 78 "calc.y"
+#line 79 "calc.y"
 
 
 void yyerror(yyscan_t scanner, parsed_output_t output, const char *s) {
-    fprintf(stderr, "Error: %s [%s] [%s]\n", s, yyget_lval(scanner)->nval->buf, yyget_text(scanner));
+    char * b = yyget_lval(scanner)->nval->buf;
+    char * t = yyget_text(scanner);
+    fprintf(stderr, "Error: %s [%s]\n", s, (t)?t:"??");
 }
 
 int main(int argc, char **argv) {
@@ -1363,11 +1374,11 @@ int main(int argc, char **argv) {
     yyscan_t scanner;
     yylex_init(&scanner);
     printf("Enter expressions to calculate (Ctrl+D to exit):\n");
-    //YY_BUFFER_STATE b = yy_scan_string("true and (false or not(false))\n", scanner);
-    //printf("Calculating value of true and (false or not(false))\n");
+    YY_BUFFER_STATE b = yy_scan_string("true and (false or not(false))", scanner);
+    printf("Calculating value of true and (false or not(false))\n");
     yyparse(scanner, output);
     printf("OUTPUT = [%s]\n", output->buffer);
-    //yy_delete_buffer(b, scanner);
+    yy_delete_buffer(b, scanner);
     yylex_destroy(scanner);
     destroy_output(output);
     return 0;

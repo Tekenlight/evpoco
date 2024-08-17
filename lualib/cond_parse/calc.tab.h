@@ -74,7 +74,8 @@ typedef void* yyscan_t;
     NEWLINE = 264,                 /* NEWLINE  */
     VARIABLE = 265,                /* VARIABLE  */
     CONSTANT = 266,                /* CONSTANT  */
-    COMPARATOR = 267               /* COMPARATOR  */
+    COMPARATOR = 267,              /* COMPARATOR  */
+    END = 268                      /* END  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -88,7 +89,7 @@ union YYSTYPE
     int  ival;
     cond_mem_node_t nval;
 
-#line 92 "calc.tab.h"
+#line 93 "calc.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
