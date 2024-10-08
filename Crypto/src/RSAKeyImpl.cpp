@@ -216,7 +216,7 @@ void RSAKeyImpl::freeRSA()
 
 int RSAKeyImpl::size() const
 {
-	return RSA_size(_pRSA);
+	return (_pRSA) ? RSA_size(_pRSA): 0;
 }
 
 
