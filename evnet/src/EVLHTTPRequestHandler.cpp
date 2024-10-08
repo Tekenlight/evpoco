@@ -4858,21 +4858,29 @@ int EVLHTTPRequestHandler::handleRequest()
 					}
 				}
 				{
-					/*
 					const char * msg = lua_tostring(_L, -1);
 					luaL_traceback(_L, _L, msg, 3);
 					DEBUGPOINT("%s\n", lua_tostring(_L, -1));
-					*/
 				}
 				//DEBUGPOINT("Here\n");
 				break;
 			case EVHTTPRequestHandler::COMMAND_LINE_MODE:
 				//DEBUGPOINT("Here\n");
-				send_string_response(__LINE__, lua_tostring(_L, -1));
+                {
+                    const char * msg = lua_tostring(_L, -1);
+                    send_string_response(__LINE__, msg);
+                    luaL_traceback(_L, _L, msg, 3);
+                    DEBUGPOINT("%s\n", lua_tostring(_L, -1));
+                }
 				break;
 			case EVHTTPRequestHandler::WEBSOCKET_MODE:
 				//DEBUGPOINT("Here\n");
-				send_string_response(__LINE__, lua_tostring(_L, -1));
+                {
+                    const char * msg = lua_tostring(_L, -1);
+                    send_string_response(__LINE__, msg);
+                    luaL_traceback(_L, _L, msg, 3);
+                    DEBUGPOINT("%s\n", lua_tostring(_L, -1));
+                }
 			default:
 				break;
 
