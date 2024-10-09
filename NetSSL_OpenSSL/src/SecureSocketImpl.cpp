@@ -390,7 +390,15 @@ int SecureSocketImpl::sendBytes(const void* buffer, int length, int flags)
 	}
 	do
 	{
+        //char tb[8192];
+        //memset(tb, 0, 8192);
 		rc = SSL_write(_pSSL, buffer, length);
+        //if (rc > 0) {
+            //memcpy(tb, buffer, rc);
+            //printf("%s:%d\n", __FILE__, __LINE__);
+            //printf("%s", tb);
+            //printf("%s:%d\n", __FILE__, __LINE__);
+        //}
 	}
 	while (mustRetry(rc));
 	if (rc <= 0)
@@ -421,7 +429,15 @@ int SecureSocketImpl::receiveBytes(void* buffer, int length, int flags)
 	}
 	do
 	{
+        //char tb[8192];
+        //memset(tb, 0, 8192);
 		rc = SSL_read(_pSSL, buffer, length);
+        //if (rc > 0) {
+            //memcpy(tb, buffer, rc);
+            //printf("%s:%d\n", __FILE__, __LINE__);
+            //printf("%s\n", tb);
+            //printf("%s:%d\n", __FILE__, __LINE__);
+        //}
 	}
 	while (mustRetry(rc));
 	/* OpenSSL3 changes done

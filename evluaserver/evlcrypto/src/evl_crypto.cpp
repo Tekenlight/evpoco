@@ -1013,12 +1013,16 @@ static int sign_message(lua_State *L)
     EVP_MD_CTX_free(mdctx);
     delete evpPkey;
 
+    lua_pushlstring(L, (char*)sig, (int)sig_len);
+    free(sig);
+    /*
     size_t b64_len;
     unsigned char * b64_sig = base64_encode(sig, sig_len, &b64_len, 1);
     free(sig);
 
     lua_pushstring(L, (char*)b64_sig);
     free(b64_sig);
+    */
 
     return 1;
 }
@@ -1029,10 +1033,13 @@ static int verify_signature(lua_State *L)
     size_t bufferlen = strlen(text);
     const char * rsa_pub_key_buffer = luaL_checkstring(L, 2);
     const char * digest_name = luaL_checkstring(L, 3);
-    const unsigned char * sig = (const unsigned char *)luaL_checkstring(L, 4);
+    size_t sig_len = 0;
+    const unsigned char * sig = (const unsigned char *)luaL_checklstring(L, 4, &sig_len);
+    /*
     size_t sig_len = (size_t)strlen((char*)sig);
 
     sig = base64_decode(sig, sig_len, &sig_len);
+    */
 
     EVPPKey* evpPkey = form_evp_key_from_rsa_key(NULL, rsa_pub_key_buffer);
     EVP_PKEY* pkey = static_cast<EVP_PKEY*>(*evpPkey);
@@ -1065,7 +1072,61 @@ static int verify_signature(lua_State *L)
     // Verify the signature
     int result = EVP_DigestVerifyFinal(md_ctx, sig, sig_len);
     EVP_MD_CTX_free(md_ctx);
-    free((void*)sig);
+    //free((void*)sig);
+    delete evpPkey;
+
+    lua_pushboolean(L, (result == 1));
+
+    return 1;
+}
+
+static int verify_signature_prv_key(lua_State *L)
+{
+    const char * text = luaL_checkstring(L, 1);
+    size_t bufferlen = strlen(text);
+    const char * rsa_prv_key_buffer = luaL_checkstring(L, 2);
+    const char * digest_name = luaL_checkstring(L, 3);
+    size_t sig_len = 0;
+    const unsigned char * sig = (const unsigned char *)luaL_checklstring(L, 4, &sig_len);
+    /*
+    const unsigned char * sig = (const unsigned char *)luaL_checkstring(L, 4);
+    size_t sig_len = (size_t)strlen((char*)sig);
+
+    sig = base64_decode(sig, sig_len, &sig_len);
+    */
+
+    EVPPKey* evpPkey = form_evp_key_from_rsa_key(rsa_prv_key_buffer, NULL);
+    EVP_PKEY* pkey = static_cast<EVP_PKEY*>(*evpPkey);
+
+
+    EVP_MD_CTX* md_ctx = NULL;
+    md_ctx = EVP_MD_CTX_new();
+    if (!md_ctx) {
+        DEBUGPOINT("Error creating EVP_MD_CTX\n");
+        delete evpPkey;
+        return 0;
+    }
+
+    // Initialize the DigestVerify operation
+    if (EVP_DigestVerifyInit(md_ctx, NULL, EVP_get_digestbyname(digest_name), NULL, pkey) <= 0) {
+        DEBUGPOINT("Error initializing DigestVerify\n");
+        EVP_MD_CTX_free(md_ctx);
+        delete evpPkey;
+        return 0;
+    }
+
+    // Update the context with the message data
+    if (EVP_DigestVerifyUpdate(md_ctx, text, bufferlen) <= 0) {
+        DEBUGPOINT("Error updating DigestVerify\n");
+        EVP_MD_CTX_free(md_ctx);
+        delete evpPkey;
+        return 0;
+    }
+
+    // Verify the signature
+    int result = EVP_DigestVerifyFinal(md_ctx, sig, sig_len);
+    EVP_MD_CTX_free(md_ctx);
+    //free((void*)sig);
     delete evpPkey;
 
     lua_pushboolean(L, (result == 1));
@@ -1109,6 +1170,7 @@ int luaopen_libevlcrypto(lua_State *L)
 
         ,{"sign_message", sign_message}
         ,{"verify_signature", verify_signature}
+        ,{"verify_signature_prv_key", verify_signature_prv_key}
 
         ,{NULL, NULL}
     };
