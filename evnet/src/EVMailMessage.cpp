@@ -4,6 +4,8 @@ extern "C" {
 #include <lualib.h>
 }
 
+#include "Poco/MemoryStream.h"
+
 #include "Poco/Net/MailMessage.h"
 #include "Poco/Net/MailRecipient.h"
 #include "Poco/Net/MailStream.h"
@@ -49,7 +51,7 @@ static int mm_tostring(lua_State *L)
 	return 1;
 }
 
-static int new_mail_message(lua_State *L)
+static MailMessage * low_new_mail_message(lua_State *L)
 {
 	MailMessage * mm = new MailMessage();
 
@@ -68,7 +70,43 @@ static int new_mail_message(lua_State *L)
 
 	lua_setmetatable(L, -2);
 
+	return mm;
+}
+
+static int new_mail_message(lua_State *L)
+{
+	MailMessage * mm = low_new_mail_message(L);
+
 	return 1;
+}
+
+static int get_content_type(lua_State *L)
+{
+	MailMessage * mm = *(MailMessage **)lua_touserdata(L, 1);
+	if (mm == NULL) {
+		return luaL_error(L, "get_content_type: Invalid first argument");
+	}
+	const char * cp_content_type = mm->getContentType().c_str();
+	if (cp_content_type == NULL) {
+		return luaL_error(L, "get_content_type: Sender not set in the mail message");
+	}
+	if (strcmp(cp_content_type, ""))
+		lua_pushstring(L, cp_content_type);
+	else
+		lua_pushnil(L);
+
+	return 1;
+}
+
+static int set_content_type(lua_State *L)
+{
+	MailMessage * mm = *(MailMessage **)lua_touserdata(L, 1);
+	if (mm == NULL) {
+		return luaL_error(L, "set_content_type: Invalid first argument");
+	}
+	const char * cp_content_type = luaL_checkstring(L, 2);
+	mm->setContentType(std::string(cp_content_type));
+	return 0;
 }
 
 static int get_sender(lua_State *L)
@@ -164,6 +202,24 @@ static int add_recipient(lua_State *L)
 	return 0;
 }
 
+static int get_subject(lua_State *L)
+{
+	MailMessage * mm = *(MailMessage **)lua_touserdata(L, 1);
+	if (mm == NULL) {
+		return luaL_error(L, "get_sender: Invalid first argument");
+	}
+	const char * cp_subject = mm->getSubject().c_str();
+	if (cp_subject == NULL) {
+		return luaL_error(L, "get_sender: Subject not set in the mail message");
+	}
+	if (strcmp(cp_subject, ""))
+		lua_pushstring(L, cp_subject);
+	else
+		lua_pushnil(L);
+
+	return 1;
+}
+
 static int set_subject(lua_State *L)
 {
 	MailMessage * mm = *(MailMessage **)lua_touserdata(L, 1);
@@ -242,18 +298,80 @@ static int serialize_message(lua_State *L)
 	return 1;
 }
 
+static int write_to_text(lua_State *L)
+{
+	MailMessage * mm = *(MailMessage **)luaL_checkudata(L, 1, MAIL_MESSAGE);
+	chunked_memory_stream * cms = new chunked_memory_stream();
+	Poco::evnet::EVOutputStream m_o_s(cms);
+	Poco::Net::MailOutputStream mail_stream(m_o_s);
+	mm->write(mail_stream);
+	mail_stream.close();
+	m_o_s.flush();
+
+    size_t target_buffer_len = 0;
+    size_t target_buffer_size = 8;
+    char * target_buffer = (char*)malloc(target_buffer_size);
+    memset(target_buffer, 0, target_buffer_size);
+
+    void * nodeptr = NULL;
+    char * buffer = NULL;
+    size_t bytes = 0;
+    nodeptr = cms->get_next(0);
+    while (nodeptr) {
+        buffer = (char*)cms->get_buffer(nodeptr);
+        bytes = cms->get_buffer_len(nodeptr);
+        //DEBUGPOINT("bytes = %zu\nbuffer = %s\n", bytes, buffer);
+
+        target_buffer = (char*)realloc(target_buffer, target_buffer_size+bytes);
+        if (target_buffer == NULL) {
+            return luaL_error(L, "write_to_text: Unable to allocate memory");
+        }
+        memset(target_buffer+target_buffer_len, 0, bytes);
+        memcpy(target_buffer+target_buffer_len, buffer, bytes);
+
+        target_buffer_len += bytes;
+        target_buffer_size += bytes;
+
+        nodeptr = cms->get_next(nodeptr);
+    }
+
+    delete cms;
+
+    lua_pushstring(L, target_buffer);
+    free(target_buffer);
+
+	return 1;
+}
+
+static int read_message(lua_State *L)
+{
+    const char * message_buffer = luaL_checkstring(L, 1);
+    Poco::MemoryInputStream istream((const char *)message_buffer, strlen(message_buffer));
+
+    MailMessage * mm = low_new_mail_message(L);
+
+    mm->read(istream);
+
+	return 1;
+}
+
 int get_mail_message_funcs(lua_State *L)
 {
 	static const luaL_Reg mail_message_funcs[] = {
 		 {"new", new_mail_message}
 		,{"get_sender", get_sender}
 		,{"set_sender", set_sender}
+		,{"get_content_type", get_content_type}
+		,{"set_content_type", set_content_type}
 		,{"add_recipient", add_recipient}
 		,{"get_recipients", get_recipients}
 		,{"set_subject", set_subject}
+		,{"get_subject", get_subject}
 		,{"add_content", add_content}
 		,{"add_attachment", add_attachment}
 		,{"serialize_message", serialize_message}
+		,{"write_to_text", write_to_text}
+		,{"read_message", read_message}
 		,{NULL, NULL}
 	};
 
