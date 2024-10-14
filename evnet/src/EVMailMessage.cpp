@@ -345,8 +345,9 @@ static int write_to_text(lua_State *L)
 
 static int read_message(lua_State *L)
 {
-    const char * message_buffer = luaL_checkstring(L, 1);
-    Poco::MemoryInputStream istream((const char *)message_buffer, strlen(message_buffer));
+    size_t message_buffer_size = 0;
+    const char * message_buffer = luaL_checklstring(L, 1, &message_buffer_size);
+    Poco::MemoryInputStream istream((const char *)message_buffer, message_buffer_size);
 
     MailMessage * mm = low_new_mail_message(L);
 
