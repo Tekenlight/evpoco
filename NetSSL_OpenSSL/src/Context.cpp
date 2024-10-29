@@ -40,10 +40,23 @@ namespace Poco {
 namespace Net {
 
 
+/*
 Context::Params::Params():
 	verificationMode(VERIFY_RELAXED),
 	verificationDepth(9),
 	loadDefaultCAs(false),
+	cipherList("ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+	dhUse2048Bits(false),
+	securityLevel(SECURITY_LEVEL_NONE)
+{
+}
+*/
+
+Context::Params::Params():
+	verificationMode(VERIFY_RELAXED),
+	verificationDepth(9),
+	loadDefaultCAs(false),
+	ocspStaplingVerification(false),
 	cipherList("ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
 	dhUse2048Bits(false),
 	securityLevel(SECURITY_LEVEL_NONE)
@@ -128,7 +141,7 @@ Context::~Context()
 
 void Context::init(const Params& params)
 {
-	Poco::Crypto::OpenSSLInitializer::initialize();
+    Poco::Crypto::OpenSSLInitializer::initialize();
 
 	createSSLContext();
 
@@ -231,6 +244,7 @@ void Context::init(const Params& params)
 		*/
 
 		//initDH(params.dhParamsFile); OpenSSL3 change reconciled
+
 		initDH(params.dhUse2048Bits, params.dhParamsFile);
 		initECDH(params.ecdhCurve);
 	}
