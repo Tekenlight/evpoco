@@ -109,7 +109,7 @@ static modules_list_type* get_hosted_modules()
 	Poco::Util::AbstractConfiguration& config = Poco::Util::Application::instance().config();
 
 	modules_list_type * m_list = new modules_list_type();
-	std::string hosted_modules =  config.getString("evluaserver.hostedModules");
+	std::string hosted_modules =  config.getString("evluaserver.hostedModules", std::string(""));
 	DEBUGPOINT("Here hosted_modules = [%s]\n", hosted_modules.c_str());
 
 	std::string::size_type n;
@@ -117,10 +117,15 @@ static modules_list_type* get_hosted_modules()
 	std::string::size_type len = 0;
 	std::string s;
 
+    hosted_modules = trim(hosted_modules);
+    if (strcmp(hosted_modules.c_str(), "")) {
+        hosted_modules = hosted_modules+",";
+    }
 	n = hosted_modules.find(",");
 	while (n != std::string::npos) {
 		len = n - start;
 		s = trim(hosted_modules.substr(start, len));
+        //DEBUGPOINT("s = [%s]\n", s.c_str());
 		m_list->push_back(s);
 		start = n + 1;
 		n = hosted_modules.find(",", n+1);
