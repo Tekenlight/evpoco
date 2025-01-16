@@ -36,6 +36,21 @@ extern "C" {
 #include "postgresql@15/libpq-fe.h"
 #include "postgresql@15/server/catalog/pg_type_d.h"
 
+#elif defined (PG_VERSION) && (PG_VERSION == 16) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 17) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 18) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
 #else // } {
 
 #error
@@ -63,6 +78,21 @@ extern "C" {
 
 #include "postgresql15/libpq-fe.h"
 #include "postgresql15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 16) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 17) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 18) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
 
 #else // } {
 
@@ -93,6 +123,21 @@ extern "C" {
 
 #include "postgresql/libpq-fe.h"
 #include "postgresql/15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 16) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 17) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
+
+#elif defined (PG_VERSION) && (PG_VERSION == 18) // } {
+
+#include "postgresql@15/libpq-fe.h"
+#include "postgresql@15/server/catalog/pg_type_d.h"
 
 #else // } {
 
