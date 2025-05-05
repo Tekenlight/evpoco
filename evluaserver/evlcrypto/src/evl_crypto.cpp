@@ -180,7 +180,8 @@ static int generate_hash(lua_State *L, const char * algo)
         return 2;
 
     }
-    const char * salt = luaL_tolstring(L, 2, NULL);
+    //const char * salt = luaL_tolstring(L, 2, NULL);
+    const char * salt = luaL_optlstring(L, 2, NULL, NULL);
     size_t len = strlen(inp_str) + ((salt)?strlen(salt):0);
     char * str = (char*)malloc(len+1);
     memset(str, 0, len+1);
