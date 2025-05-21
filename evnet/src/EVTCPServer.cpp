@@ -2601,7 +2601,7 @@ void EVTCPServer::somethingHappenedInAnotherThread(const bool& ev_occured)
 						//tn->deleteState();
 					/* EXPERIMENTAL CHANGES */
 					if (this->_mode == SERVER_MODE) {
-						DEBUGPOINT("Deleted processing state %p for %d\n", p, fd);
+						//DEBUGPOINT("Deleted processing state %p for %d\n", p, fd);
 					}
 					else {
 						//DEBUGPOINT("Deleted processing state %p for %d\n", p, fd);
