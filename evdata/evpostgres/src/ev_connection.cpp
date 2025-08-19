@@ -429,6 +429,7 @@ static int connection_quote(lua_State *L)
     int quoted_len;
 
     if (!conn->pg_conn) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, EV_SQL_ERR_DB_UNAVAILABLE);
     }
 
@@ -437,7 +438,8 @@ static int connection_quote(lua_State *L)
     if (err) {
         free(to);
 
-       luaL_error(L, EV_SQL_ERR_QUOTING_STR, PQerrorMessage(conn->pg_conn));
+        DEBUGPOINT("Here\n");
+        luaL_error(L, EV_SQL_ERR_QUOTING_STR, PQerrorMessage(conn->pg_conn));
     }
 
     lua_pushlstring(L, to, quoted_len);

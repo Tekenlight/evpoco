@@ -767,15 +767,18 @@ static int evpoco_set_socket_upgrade_to(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_gettop(L) != 1) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "evpoco_set_socket_upgrade_to: Number of parameters expected: 1");
         return 1;
     }
     if (!lua_isinteger(L, 1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid datatype of argument (integer expected)");
         return 1;
     }
     int u = lua_tointeger(L, 1);
     if (u != EVAcceptedStreamSocket::WEBSOCKET) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "evpoco_set_socket_upgrade_to: Invalid argument (only websocket [%d] supported)",
                                             EVAcceptedStreamSocket::WEBSOCKET);
         return 1;
@@ -801,10 +804,12 @@ static int evpoco_set_ws_recvd_msg_handler(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_gettop(L) != 1) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "evpoco_set_ws_recvd_msg_handler: Number of parameters expected: 1");
         return 1;
     }
     if (!lua_isstring(L, 1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "evpoco_set_ws_recvd_msg_handler: Invalid datatype of argument (string expected)");
         return 1;
     }
@@ -925,6 +930,7 @@ static int wait_any_initiate(lua_State* L)
     }
 
     if (!n) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "wait: Nothing to wait for");;
         return 0;
     }
@@ -940,6 +946,7 @@ static int wait_initiate(lua_State* L)
     int n = lua_gettop(L);
 
     if (n > 1) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "wait: Invalid number of parameters %d", n);
         return 0;
     }
@@ -949,6 +956,7 @@ static int wait_initiate(lua_State* L)
     }
 
     if (!lua_istable(L, 1)) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "wait: either empty or a table of task ids expected as input");
         //return 0;
     }
@@ -957,6 +965,7 @@ static int wait_initiate(lua_State* L)
     lua_geti(L, 1, n);
     while (!lua_isnil(L, -1)) {
         if (!lua_isinteger(L, -1)) {
+            DEBUGPOINT("Here\n");
             luaL_error(L, "wait: only integer task ids allowed as input");
             return 0;
         }
@@ -1035,6 +1044,7 @@ static int get_http_request(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     Net::HTTPServerRequest* requestPtr = reqHandler->getHTTPRequestPtr();
     if (requestPtr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "HTTP Request not available");
     }
 
@@ -1058,6 +1068,7 @@ static int get_http_response(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
     if (responsePtr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Response handle is not available");
     }
     Net::HTTPServerResponse& response = *responsePtr;
@@ -1083,6 +1094,7 @@ static int resolve_host_address_complete(lua_State* L, int status, lua_KContext 
         }
         //DEBUGPOINT("Here\n");
         free(addr_info_ptr_ptr);
+        DEBUGPOINT("Here\n");
         luaL_error(L, "resolve_host_address: address resolution could not happen: %s", gai_strerror(usN.getHRRet()));
         return 0;
     }
@@ -1163,6 +1175,7 @@ static int resolve_host_address_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     struct addrinfo** addr_info_ptr_ptr = NULL;
     if (lua_gettop(L) != 2) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "resolve_host_address: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
         return 0;
     }
@@ -1245,6 +1258,7 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
         lua_pushnil(L);
         lua_pushstring(L, msg);
         lua_pushnil(L);
+        DEBUGPOINT("Here\n");
         luaL_error(L, msg);
 
         return 3;
@@ -1257,6 +1271,7 @@ static int make_http_connection_complete(lua_State* L, int status, lua_KContext 
         lua_pushnil(L);
         lua_pushstring(L, msg);
         lua_pushnil(L);
+        DEBUGPOINT("Here\n");
         luaL_error(L, msg);
 
         return 3;
@@ -1294,6 +1309,7 @@ static int make_http_connection_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     EVHTTPClientSession *session = NULL;;
     if (lua_gettop(L) < 2) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "make_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
         return 0;
     }
@@ -1331,8 +1347,14 @@ static int make_http_connection_secure(lua_State* L)
     EVHTTPClientSession * session_ptr = *(EVHTTPClientSession **)luaL_checkudata(L, 1, _http_conn_type_name);
     Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 2, _stream_socket_type_name);
 
-    if (!(ss_ptr->secure())) luaL_error(L, "Input ss is not secure");
-    if (ss_ptr->impl()->sockfd() != session_ptr->getSS().impl()->sockfd()) luaL_error(L, "Invalid socket");
+    if (!(ss_ptr->secure())) {
+        DEBUGPOINT("Here\n");
+        luaL_error(L, "Input ss is not secure");
+    }
+    if (ss_ptr->impl()->sockfd() != session_ptr->getSS().impl()->sockfd()) {
+        DEBUGPOINT("Here\n");
+        luaL_error(L, "Invalid socket");
+    }
 
     session_ptr->setSS(*ss_ptr);
     return 0;
@@ -1360,6 +1382,7 @@ static int make_tcp_connection_complete(lua_State* L, int status, lua_KContext c
         sprintf(msg, "make_tcp_connection: could not establish connection: %s", gai_strerror(usN.getHRRet()));
         lua_pushnil(L);
         lua_pushstring(L, msg);
+        DEBUGPOINT("Here\n");
         luaL_error(L, msg);
 
         return 2;
@@ -1414,6 +1437,7 @@ static int make_tcp_connection_initiate(lua_State* L)
     //DEBUGPOINT("HERE %d\n", lua_gettop(L));
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_gettop(L) < 2) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "make_tcp_connection: invalid number of arguments, expected 2 or 3, actual %d ", lua_gettop(L));
         return 0;
     }
@@ -1483,10 +1507,12 @@ static int use_pooled_connection(lua_State* L)
 
     Poco::Net::StreamSocket * ss_ptr = (Poco::Net::StreamSocket *)lua_touserdata(L, 1);
     if (ss_ptr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Invlaid inputs to function : use_pooled_connection");
         return 0;
     }
     if (!(ss_ptr->impl()->isManaged())) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "The input socket is not managed by the caller: use_pooled_connection");
         return 0;
     }
@@ -1559,6 +1585,7 @@ static int recv_data_from_socket_initiate(lua_State* L)
     Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
     void * buf = lua_touserdata(L, 2);
     if (!buf) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "recv_data_from_socket: invalid second argumet");
     }
     size_t size = luaL_checkinteger(L, 3);
@@ -1659,6 +1686,7 @@ static int track_ss_as_websocket(lua_State* L)
     const char * msg_handler = NULL;
     if (!lua_isnil(L, 2)) {
         if (!lua_isstring(L, 2)) {
+            DEBUGPOINT("Here\n");
             luaL_error(L, "track_ss_as_websocket: 2nd arument should be nil or string");
             return 0;
         }
@@ -1821,6 +1849,7 @@ static int send_data_on_acc_socket_complete(lua_State* L, int status, lua_KConte
     bool ret = (bool)usN.getRet();
 
     if (!ret) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Send data on [%d] failed\n", ss_ptr->impl()->sockfd());
     }
 
@@ -1835,6 +1864,7 @@ static int send_data_on_acc_socket(lua_State* L)
     Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
     void * buf = lua_touserdata(L, 2);
     if (!buf) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "send_data_on_acc_socket: invalid second argumet");
     }
     size_t size = luaL_checkinteger(L, 3);
@@ -1864,6 +1894,7 @@ static int complete_send_data_on_socket(lua_State* L, int status, lua_KContext c
     if (ret < 0) {
         //DEBUGPOINT("Here %ld {%d:%s} fd=%d\n", ret, errno, strerror(errno), wp->_ss_ptr->impl()->sockfd());
         free(wp);
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "send_data_on_socket: %s", strerror(errno));
     }
     else if (ret == 0) {
@@ -1907,6 +1938,7 @@ static int send_data_on_socket_initiate(lua_State* L)
     Poco::Net::StreamSocket * ss_ptr = *(Poco::Net::StreamSocket **)luaL_checkudata(L, 1, _stream_socket_type_name);
     void * buf = lua_touserdata(L, 2);
     if (!buf) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "send_data_on_socket: invalid second argumet");
     }
     size_t size = luaL_checkinteger(L, 3);
@@ -1923,6 +1955,7 @@ static int send_data_on_socket_initiate(lua_State* L)
     //DEBUGPOINT("HERE\n");
     if (ret < 0) {
         //DEBUGPOINT("Here %ld {%d:%s}\n", ret, errno, strerror(errno));
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "send_data_on_socket: %s", strerror(errno));
     }
     else if (ret == 0) {
@@ -2007,6 +2040,7 @@ static int complete_send_cms_on_socket(lua_State* L, int status, lua_KContext ct
             ret = EVTCPServer::sendData(*(ss_ptr), buffer, bytes, &wait_mode);
             if (ret < 0) {
                 free(wp);
+                DEBUGPOINT("Here\n");
                 return luaL_error(L, "send_cms_on_socket: failed: %s", strerror(errno));
             }
             else if (ret == 0) {
@@ -2050,6 +2084,7 @@ static int send_cms_on_socket_initiate(lua_State* L)
 
     chunked_memory_stream * cms = *(chunked_memory_stream**)ptr;
     if (!cms) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "send_cms_on_socket: invalid second argumet");
     }
     {
@@ -2071,6 +2106,7 @@ static int send_cms_on_socket_initiate(lua_State* L)
 
             ret = EVTCPServer::sendData(*(ss_ptr), buffer, bytes, &wait_mode);
             if (ret < 0) {
+                DEBUGPOINT("Here\n");
                 return luaL_error(L, "send_cms_on_socket: %s", strerror(errno));
             }
             else if (ret == 0) {
@@ -2122,6 +2158,7 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
         lua_pushnil(L);
         lua_pushstring(L, msg);
         lua_pushnil(L);
+        DEBUGPOINT("Here\n");
         luaL_error(L, msg);
 
         return 3;
@@ -2134,6 +2171,7 @@ static int nb_make_http_connection_complete(lua_State* L, long task_id, evl_asyn
         lua_pushnil(L);
         lua_pushstring(L, msg);
         lua_pushnil(L);
+        DEBUGPOINT("Here\n");
         luaL_error(L, msg);
 
         return 3;
@@ -2169,6 +2207,7 @@ static int task_return_value(lua_State* L)
 
     int n = lua_gettop(L);
     if (n != 1) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "wait: Invalid number of parameters %d, expected 1", n);
         return 0;
     }
@@ -2223,6 +2262,7 @@ static int nb_make_http_connection_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     EVHTTPClientSession *session = NULL;;
     if (lua_gettop(L) < 2) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "make_http_connection: invalid number of arguments, expected 2, actual %d ", lua_gettop(L));
         return 0;
     }
@@ -2441,6 +2481,7 @@ static int receive_http_response_complete(lua_State* L, int status, lua_KContext
     Poco::evnet::EVEventNotification &usN = reqHandler->getUNotification();
     if (usN.getRet() < 0) {
         delete response;
+        DEBUGPOINT("Here\n");
         luaL_error(L, "receive_http_response: error: %s", (usN.getErrNo()) ? strerror(usN.getErrNo()): "Unknown Error");
         return 1;
     }
@@ -2501,6 +2542,7 @@ static int ev_lua_file_open_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 2) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "file_open: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
     }
     if (!lua_isstring(L, 1)) {
@@ -2539,6 +2581,7 @@ static int ev_lua_file_open_initiate(lua_State* L)
                 oflag |= O_RDWR|O_APPEND|O_CREAT;
                 break;
             default:
+                DEBUGPOINT("Here\n");
                 return luaL_error(L, "file_open: invald second argument %s, allowed: r, w, a, r+, w+, a+", lua_tostring(L, 2));
         }
     }
@@ -2554,6 +2597,7 @@ static int ev_lua_file_open_initiate(lua_State* L)
                 oflag |= O_RDWR|O_CREAT;
                 break;
             default:
+                DEBUGPOINT("Here\n");
                 return luaL_error(L, "file_open: invald second argument %s, allowed: r, w, a, r+, w+, a+", lua_tostring(L, 2));
         }
     }
@@ -2591,6 +2635,7 @@ static void validate_file_handle(lua_State* L)
     void * ptr = luaL_checkudata(L, 1, _file_handle_type_name);
     fh = *(Poco::evnet::file_handle_p*)ptr;
     if (!fh) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Invaid file handle ");
         return;
     }
@@ -2644,6 +2689,7 @@ static int ev_lua_file_read_text_complete(lua_State* L, int status, lua_KContext
         }
         free(rp->_buf);
         free(rp);
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "file_read_text: failed for unknown reason");
     }
 }
@@ -2655,6 +2701,7 @@ static int ev_lua_compress_data(lua_State* L)
     void * data = NULL;
     size_t sz = 0;
     if (n < 1) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "compress_data: invalid number of arguments, expetcted 1 [or 2], actual %d", n);
     }
     if (lua_isstring(L, 1)) {
@@ -2663,10 +2710,12 @@ static int ev_lua_compress_data(lua_State* L)
     }
     else if (lua_isuserdata(L, 1)) {
         if (n != 2) {
+            DEBUGPOINT("Here\n");
             return luaL_error(L, "compress_data: invalid number of arguments, expetcted 2, actual %d", n);
         }
         data = lua_touserdata(L, 1);
         if (data == NULL) {
+            DEBUGPOINT("Here\n");
             return luaL_error(L, "compress_data: data argumebt cannot be NULL");
         }
         sz = luaL_checkinteger(L, 2);
@@ -2677,6 +2726,7 @@ static int ev_lua_compress_data(lua_State* L)
 
     int ret = compress_inp_buf(data, sz, &ptr, &out_size);
     if (Z_OK != ret) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, zerr(ret));
     }
 
@@ -2695,16 +2745,19 @@ static int ev_lua_uncompress_data_internal(lua_State * L, void ** pp, size_t * s
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 2) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "compress_data: invalid number of arguments, expetcted 2, actual %d", n);
     }
     void * compressed_data = lua_touserdata(L, 1);
     if (compressed_data == NULL) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "uncompress_text_data: data argumebt cannot be NULL");
     }
     size_t size = luaL_checkinteger(L, 2);
 
     int ret = uncompress_inp_buf(compressed_data, size, pp, sp);
     if (ret != Z_OK) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, zerr(ret));
     }
 
@@ -2751,6 +2804,7 @@ static int ev_lua_file_read_text_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 2) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_text: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
     }
 
@@ -2761,6 +2815,7 @@ static int ev_lua_file_read_text_initiate(lua_State* L)
     rp->_fh = *(Poco::evnet::file_handle_p*)luaL_checkudata(L, 1, _file_handle_type_name);
     rp->_size = luaL_checkinteger(L, 2);
     if (rp->_size <= 0) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_text: size must be greater than 0");
     }
 
@@ -2852,6 +2907,7 @@ static int ev_lua_file_read_binary_initiate(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 3) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_binary: invalid number of arguments, expetcted 3, actual %d", lua_gettop(L));
     }
 
@@ -2863,6 +2919,7 @@ static int ev_lua_file_read_binary_initiate(lua_State* L)
     rp->_buf = (Poco::evnet::file_handle_p)luaL_checkudata(L, 2, _memory_buffer_name);
     rp->_size = luaL_checkinteger(L, 3);
     if (rp->_size <= 0) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_binary: size must be greater than 0");
     }
 
@@ -2948,6 +3005,7 @@ static int ev_lua_file_read_binary_initiate_1(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 3) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_binary: invalid number of arguments, expetcted 3, actual %d", lua_gettop(L));
     }
 
@@ -2959,6 +3017,7 @@ static int ev_lua_file_read_binary_initiate_1(lua_State* L)
     rp->_buf = (void*)lua_touserdata(L, 2);
     rp->_size = luaL_checkinteger(L, 3);
     if (rp->_size <= 0) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "read_binary: size must be greater than 0");
     }
 
@@ -2998,6 +3057,7 @@ static int ev_lua_file_write_text(lua_State* L)
 
     int n = lua_gettop(L);
     if (n != 2) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "write_text: invalid number of arguments, expetcted 2, actual %d", lua_gettop(L));
     }
 
@@ -3017,6 +3077,7 @@ static int ev_lua_file_write_binary(lua_State* L)
 
     int n = lua_gettop(L);
     if (n != 3) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "write_text: invalid number of arguments, expetcted 3, actual %d", lua_gettop(L));
     }
 
@@ -3045,6 +3106,7 @@ static int ev_lua_file_close(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     int n = lua_gettop(L);
     if (n != 1) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "file_close: invalid number of arguments, expetcted 1, actual %d", lua_gettop(L));
     }
     validate_file_handle(L);
@@ -3062,14 +3124,17 @@ static int alloc_buffer(lua_State* L)
     int n = lua_gettop(L);
 
     if (n != 1) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "alloc_buffer: invalid number of arguments, expetcted 1, actual %d", lua_gettop(L));
     }
 
     if (!lua_isinteger(L, 1)) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "alloc_buffer: invalid argument type %s", lua_typename(L, lua_type(L, 1)));
     }
 
     if (0 >= lua_tointeger(L, 1)) {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "alloc_buffer: invalid argument type %d, should be a positive number", lua_tointeger(L, 1));
     }
 
@@ -3088,6 +3153,7 @@ static int alloc_buffer(lua_State* L)
         sprintf(str,
             "alloc_buffer: unable to allocate %zd bytes, exceeds memory limit [%zd] \n",
             alloc_size, max_allocation_limit);
+        DEBUGPOINT("Here\n");
         return luaL_error(L, str);
     }
 
@@ -3132,6 +3198,7 @@ static int get_version(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "get_version: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
         lua_pushnil(L);
     }
@@ -3562,6 +3629,7 @@ static int get_query_parameters(lua_State* L)
             URI uri(request.getURI());
             qp = uri.getQueryParameters();
         } catch (std::exception ex) {
+            DEBUGPOINT("Here\n");
             luaL_error(L, "EXCEPTION: %s", ex.what());
             return 0;
         }
@@ -3754,6 +3822,7 @@ static int write(lua_State* L)
         ostr << std::flush;
     }
     else {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "ostream:write: invalid number of argumets %d", n);
     }
 
@@ -3865,6 +3934,7 @@ static int get_form_field(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     Net::HTTPServerRequest* requestPtr = reqHandler->getHTTPRequestPtr();
     if (requestPtr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "HTTP Request not available");
     }
     Net::HTTPServerRequest& request = *requestPtr;
@@ -3895,6 +3965,7 @@ static int begin_iteration(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
         lua_pushnil(L);
         lua_pushnil(L);
@@ -3926,11 +3997,13 @@ static int next_iteration(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "next_iteration: invalid second argumet %s", lua_typename(L, lua_type(L, -1)));
         lua_pushnil(L);
         lua_pushnil(L);
     }
     else if (lua_isnil(L, -2) || !lua_isuserdata(L, -2)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "next_iteration: invalid first argumet %s", lua_typename(L, lua_type(L, -1)));
         lua_pushnil(L);
         lua_pushnil(L);
@@ -3959,6 +4032,7 @@ static int empty(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "begin_iteration: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
         lua_pushnil(L);
     }
@@ -3992,6 +4066,7 @@ static int set_status(lua_State* L)
 
     Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
     if (responsePtr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Response handle is not available");
     }
     Net::HTTPServerResponse& response = *responsePtr;
@@ -4020,6 +4095,7 @@ static int set_date(lua_State* L)
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     Net::HTTPServerResponse* responsePtr = reqHandler->getHTTPResponsePtr();
     if (responsePtr == NULL) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "Response handle is not available");
     }
     Net::HTTPServerResponse& response = *responsePtr;
@@ -4038,6 +4114,7 @@ static int set_date(lua_State* L)
         Net::HTTPServerResponse& response = *(*(Net::HTTPServerResponse**)lua_touserdata(L, -2));
         const char * value = lua_tostring(L, -1);
         if (!(*value)) {
+            DEBUGPOINT("Here\n");
             luaL_error(L, "set_date: invalid second argumet %s", lua_typename(L, lua_type(L, -2)));
             return 0;
         }
@@ -4046,6 +4123,7 @@ static int set_date(lua_State* L)
             DateTime dt = DateTimeParser::parse(value, tzd);
             response.setDate(dt.timestamp());
         } catch (std::exception ex) {
+            DEBUGPOINT("Here\n");
             luaL_error(L, "EXCEPTION: %s",  ex.what());
             return 0;
         }
@@ -4059,6 +4137,7 @@ static int send(lua_State* L)
 {
     EVLHTTPRequestHandler* reqHandler = get_req_handler_instance(L);
     if (lua_isnil(L, -1) || !lua_isuserdata(L, -1)) {
+        DEBUGPOINT("Here\n");
         luaL_error(L, "set_date: invalid argumet %s", lua_typename(L, lua_type(L, -1)));
         return 0;
     }
@@ -4092,6 +4171,7 @@ static int write(lua_State* L)
         ostr << std::flush;
     }
     else {
+        DEBUGPOINT("Here\n");
         return luaL_error(L, "ostream:write: invalid number of argumets %d", n);
     }
 
