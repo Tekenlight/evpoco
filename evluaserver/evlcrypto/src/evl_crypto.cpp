@@ -77,16 +77,19 @@ using namespace Poco::Crypto;
 
 static int hmac_fdigest(lua_State *L)
 {
+    //DEBUGPOINT("L = [%p] Top = [%d]\n", L, lua_gettop(L));
     const char *t = luaL_checkstring(L, 1);
     size_t slen; const char *s;
     size_t klen; const char *k;
     unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int written = 0;
+    size_t written = 0;
 
     memset(digest, 0, EVP_MAX_MD_SIZE);
 
+    //DEBUGPOINT("L=[%p]\n", L);
     s = luaL_checklstring(L, 2, &slen);
     k = luaL_checklstring(L, 3, &klen);
+    //DEBUGPOINT("L=[%p]\n", L);
 
 
 #if ((defined OPENSSL_VERSION_MAJOR) && (OPENSSL_VERSION_MAJOR >=3))
@@ -97,9 +100,12 @@ static int hmac_fdigest(lua_State *L)
      * There seems to be another implementation possible in
      * Ref: https://stackoverflow.com/questions/12545811/using-hmac-vs-evp-functions-in-openssl
      */
+    //DEBUGPOINT("L=[%p]\n", L);
     EVP_MAC *mac = EVP_MAC_fetch(NULL, "hmac", NULL);
+    if (!mac) return luaL_error(L, "EVP_MAC_fetch(HMAC) failed");
     EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
-    OSSL_PARAM params[3];
+    if (!ctx) { EVP_MAC_free(mac); return luaL_error(L, "EVP_MAC_CTX_new failed"); }
+    OSSL_PARAM params[2];
     params[0] = OSSL_PARAM_construct_utf8_string("digest", (char*)t, 0);
     params[1] = OSSL_PARAM_construct_end();
     EVP_MAC_init(ctx, (const unsigned char *)k, klen, params);
@@ -107,6 +113,7 @@ static int hmac_fdigest(lua_State *L)
     EVP_MAC_final(ctx, (unsigned char*)digest, (unsigned long *)(&written), EVP_MAX_MD_SIZE);
     EVP_MAC_CTX_free(ctx);
     EVP_MAC_free(mac);
+    //DEBUGPOINT("L=[%p]\n", L);
 
 
     /*
@@ -138,6 +145,7 @@ static int hmac_fdigest(lua_State *L)
     */
 
 #else
+    //DEBUGPOINT("L=[%p]\n", L);
     const EVP_MD *type = EVP_get_digestbyname(t);
     if (type == NULL) {
         luaL_argerror(L, 1, "invalid digest type");
@@ -154,7 +162,9 @@ static int hmac_fdigest(lua_State *L)
     HMAC_Final(c, digest, &written);
     //HMAC_CTX_cleanup(c);
     HMAC_CTX_free(c);
+    //DEBUGPOINT("L=[%p]\n", L);
 #endif
+    //DEBUGPOINT("L=[%p]\n", L);
 
     if (lua_toboolean(L, 4)) {
         lua_pushlstring(L, (char *)digest, written);
@@ -166,6 +176,9 @@ static int hmac_fdigest(lua_State *L)
         lua_pushlstring(L, hex, written * 2);
         free(hex);
     }
+    //DEBUGPOINT("Insinde L top = [%d] ci->func = [%d]\n", L->top, L->ci->func);
+    //DEBUGPOINT("L=[%p]\n", L);
+    //DEBUGPOINT("Top = [%d]\n", lua_gettop(L));
 
     return 1;
 }

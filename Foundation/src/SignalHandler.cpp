@@ -96,6 +96,8 @@ void SignalHandler::install()
 
 void SignalHandler::handleSignal(int sig)
 {
+	STACK_TRACE();
+	printf("[%p:%s:%d] signal %d\n", pthread_self(), __FILE__, __LINE__, sig);
 	JumpBufferVec& jb = jumpBufferVec();
 	if (!jb.empty())
 		siglongjmp(jb.back().buf, sig);
