@@ -1,5 +1,6 @@
 set(EXENAME1 "evluaserver")
 set(EXENAME2 "evlua")
+set(EXENAME3 "for_evlua")
 set(SAMPLE_NAME2 "evlua")
 set(LIBNAME "evluautil")
 set(POCO_LIBNAME "${LIBNAME}")
@@ -19,8 +20,10 @@ set_target_properties( "${LIBNAME}"
 
 add_executable( ${EXENAME1} "src/evluaserver.cpp" )
 add_executable( ${EXENAME2} "src/evlua.cpp" )
+add_executable( ${EXENAME3} "src/for_evlua.cpp" )
 target_link_libraries( ${EXENAME1} ${LIBNAME} PocoNet evnet PocoUtil PocoFoundation )
 target_link_libraries( ${EXENAME2} ${LIBNAME} PocoNet evnet PocoUtil PocoFoundation )
+target_link_libraries( ${EXENAME3} ${LIBNAME} PocoNet evnet PocoUtil PocoFoundation )
 
 find_library(LIBEVGLOBALS NAMES evglobals REQUIRED)
 find_library(LIBCORE_UTILS NAMES core_utils REQUIRED)
@@ -41,6 +44,7 @@ target_include_directories(${LIBNAME}
 foreach(dir ${ADD_INCLUDE_DIRECTORIES})
 	target_include_directories( "${EXENAME1}" PUBLIC "${dir}")
 	target_include_directories( "${EXENAME2}" PUBLIC "${dir}")
+	target_include_directories( "${EXENAME3}" PUBLIC "${dir}")
 	target_include_directories( "${LIBNAME}" PUBLIC "${dir}")
 endforeach(dir)
 
@@ -56,6 +60,12 @@ set_target_properties( "${EXENAME2}"
     OUTPUT_NAME evlua
     )
 
+set_target_properties( "${EXENAME3}"
+    PROPERTIES
+	INSTALL_RPATH_USE_LINK_PATH true
+    OUTPUT_NAME for_evlua
+    )
+
 install(
 	TARGETS "${EXENAME1}" EXPORT "${EXENAME1}Targets"
     LIBRARY DESTINATION lib${LIB_SUFFIX}
@@ -66,6 +76,14 @@ install(
 
 install(
 	TARGETS "${EXENAME2}" EXPORT "${EXENAME2}Targets"
+    LIBRARY DESTINATION lib${LIB_SUFFIX}
+    ARCHIVE DESTINATION lib${LIB_SUFFIX}
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+    )
+
+install(
+	TARGETS "${EXENAME3}" EXPORT "${EXENAME3}Targets"
     LIBRARY DESTINATION lib${LIB_SUFFIX}
     ARCHIVE DESTINATION lib${LIB_SUFFIX}
     RUNTIME DESTINATION bin
