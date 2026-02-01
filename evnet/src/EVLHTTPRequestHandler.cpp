@@ -4529,11 +4529,15 @@ EVLHTTPRequestHandler::~EVLHTTPRequestHandler()
     }
     else {
         //if (!getServer().aborting()) lua_close(_L);
-        //DEBUGPOINT("CLOSING [%p] \n", _L);
+        //STACK_TRACE();
+        //DEBUGPOINT("CLOSING [%p] _L->status=[%d]\n", _L, lua_status(_L));
         //invoke_cleanup_funcs();
         lua_gc(_L, LUA_GCCOLLECT, 0);
+        //DEBUGPOINT("GC 1 of 2 [%p] \n", _L);
         lua_gc(_L, LUA_GCCOLLECT, 0);
+        //DEBUGPOINT("GC 2 of 2 [%p] \n", _L);
         lua_close(_L);
+        //DEBUGPOINT("CLOSED [%p] \n", _L);
     }
     for ( std::map<mapped_item_type, void*>::iterator it = _components.begin(); it != _components.end(); ++it ) {
         switch (it->first) {
@@ -4916,6 +4920,12 @@ int EVLHTTPRequestHandler::handleRequest()
     }
 #endif
 
+    /*
+    int i = 0;
+    for (auto it = _url_parts.begin(); it != _url_parts.end(); ++it, i++) {
+        DEBUGPOINT("Here url_parts[%d]=[%s]\n", i, it->c_str());
+    }
+    */
 
     //DEBUGPOINT("Here _L = [%p] fd = [%d] tt=[%d]\n",
     //        (void*)_L, getAcceptedSocket()->getSockfd(), getAcceptedSocket()->getTaskType());
@@ -4974,7 +4984,8 @@ int EVLHTTPRequestHandler::handleRequest()
     }
     else {
         //DEBUGPOINT("Here\n");
-        if (!lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
+        //DEBUGPOINT("Here nargs = [%d] lua top = [%d]\n", nargs, lua_gettop(_L));
+        if (lua_gettop(_L) > nargs && !lua_isnil(_L, -1) && lua_isstring(_L, -1)) {
             //DEBUGPOINT("Here\n");
             std::string output = lua_tostring(_L, -1);
             lua_pop(_L, 1);
