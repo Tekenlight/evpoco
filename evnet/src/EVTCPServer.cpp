@@ -3404,6 +3404,9 @@ void EVTCPServer::run()
 
     ev_run (this->_loop, 0);
 
+    this->_pDispatcher->stop();
+    this->_pDispatcher->joinall();
+
     free(stop_watcher_1.data);
     free(stop_watcher_2.data);
     free(stop_watcher_3.data);
@@ -3422,9 +3425,6 @@ void EVTCPServer::run()
             tn = _ssLRUList.getFirst();
         }
     }
-
-    this->_pDispatcher->stop();
-    this->_pDispatcher->joinall();
 
     invoke_cleanup_funcs();
     ev_loop_destroy(this->_loop);
