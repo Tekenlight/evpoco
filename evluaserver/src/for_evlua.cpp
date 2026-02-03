@@ -199,7 +199,7 @@ protected:
 		helpFormatter.format(std::cout);
 	}
 
-	int for_main(const std::vector<std::string>& args)
+	int main(const std::vector<std::string>& args)
 	{
 		int ret = 0;
 		if (_helpRequested)
@@ -228,25 +228,31 @@ protected:
 			EVHTTPServer srv(new EVFormRequestHandlerFactory, filedes[0], filedes[3], p);
 			srv.start();
 
-			size_t n = args.size();
-			size_t buf_size = 1;
-			for (int i = 0; i < n; i++) {
-				buf_size += args[i].length() + strlen("<|SEPARATOR|>");
-			}
-			char * buf = (char*)malloc(buf_size);
-			memset(buf, 0, buf_size);
-			for (int i = 0; i < n; i++) {
-				if (i>0) strcat(buf, "<|SEPARATOR|>");
-				strcat(buf,  args[i].c_str());
-			}
-			strcat(buf, "\n");
+            for (int i=0; i< 100000; i++) {
+                size_t n = args.size();
+                size_t buf_size = 1;
+                for (int i = 0; i < n; i++) {
+                    buf_size += args[i].length() + strlen("<|SEPARATOR|>");
+                }
+                char * buf = (char*)malloc(buf_size);
+                memset(buf, 0, buf_size);
+                for (int i = 0; i < n; i++) {
+                    if (i>0) strcat(buf, "<|SEPARATOR|>");
+                    strcat(buf,  args[i].c_str());
+                }
+                strcat(buf, "\n");
 
-			write(wr_fd, buf, strlen(buf)); 
-			free(buf);
-			char out[100] = {0};
-			memset(out, 0, 100);
-			ret = read(rd_fd, out, 99);
-			ret = atoi(out);
+                write(wr_fd, buf, strlen(buf)); 
+                free(buf);
+                char out[100] = {0};
+                memset(out, 0, 100);
+                ret = read(rd_fd, out, 99);
+                ret = atoi(out);
+                if (((i+1) %1000)==0) {
+                    DEBUGPOINT("Processed [%d] times\n", i+1);
+                }
+            }
+
 			srv.stop();
 			close(rd_fd);
 			close(wr_fd);
@@ -254,14 +260,6 @@ protected:
 		}
 		return ret;
 	}
-
-	int main(const std::vector<std::string>& args)
-    {
-        for (int i=0; i < 100000; i ++) {
-            for_main(args);
-        }
-        return 0;
-    }
 
 
 private:
