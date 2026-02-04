@@ -48,7 +48,7 @@ end
 
 print(debug.getinfo(1).source, debug.getinfo(1).currentline, type(symmetric_key));
 
-local ct_s = cu.new_hex_data_s_type();
+local ct_s = cu.new_binary_buffer();
 local ctp = ffi.cast("cipher_text_s*", ct);
 ct_s.value = ctp.buffer;
 ct_s.size = ctp.len;
