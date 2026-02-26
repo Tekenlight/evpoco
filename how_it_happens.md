@@ -29,7 +29,7 @@ Upon an upstream notification event (e.g. database read complete, file read comp
 
 Worker threads [{
 The run of dispatcher notices a tn on the queue (Thread pool T3 ..... TN)
-    pConnection(\_pConnectionFactory-\>createConnection(pCNf-\>socket()-\>getStreamSocket()));           
+    pConnection(\_pConnectionFactory-\>createConnection(pCNf-\>socket()-\>getStreamSocket()));
     => EVHTTPRequestProcessorFactory.createConnection(socket = accepted socjet leads to EVHTTPRequestProcessor which is an EVTCPServerConnection
         results in EVTCPServerConnection(EVHTTPRequestProcessor) this is deleted after one run in dispatcher (unique ptr)
     set the processing state which was set in TCP server into the pConnection
@@ -45,8 +45,8 @@ The run of dispatcher notices a tn on the queue (Thread pool T3 ..... TN)
 
 
 
-            
 
 
-    
+
+
 
