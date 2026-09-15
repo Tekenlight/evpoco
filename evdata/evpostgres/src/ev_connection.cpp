@@ -6,6 +6,8 @@
 
 #include "Poco/evnet/evnet_lua.h"
 
+#include <Poco/evdata/luaffi_capi.h>
+
 #include <execinfo.h>
 
 #define DELIMITER "|||"
@@ -17,7 +19,11 @@ void init_pool_type(const char * db_type, Poco::evnet::evl_pool::queue_holder *q
 void * get_conn_from_pool(const char * db_type, const char * host, const char * dbname);
 void add_conn_to_pool(const char * db_type, const char * host, const char * dbname, void * conn);
 const std::string * get_stmt_id_from_cache(const char * statement);
-extern "C" void register_cleanup_func(void * f);
+extern "C" {
+    void register_cleanup_func(void * f);
+    int raw_set_ffi_capi(lua_State *L);
+    const luaffi_capi_v1 * get_ffi_api();
+}
 
 static PGconn * initiate_connection(const char * host, const char * dbname,  const char * user, const char* password);
 static int open_connection_finalize(lua_State *L, int status, lua_KContext ctx);
@@ -499,6 +505,7 @@ int ev_postgres_connection(lua_State *L)
 
     static const luaL_Reg connection_class_methods[] = {
         {"new", open_connection_initiate},
+        {"set_ffi_api", raw_set_ffi_capi},
         {NULL, NULL}
     };
 
