@@ -1546,6 +1546,646 @@ static int tbl_raw_statement_fetch_impl(lua_State *L, statement_t *statement)
     return 1;
 }
 
+/*
+ * new new impl
+ */
+
+static int tbl_raw_statement_fetch_impl_v2(lua_State *L, statement_t *statement)
+{
+    int tuple = statement->tuple++;
+    int num_columns;
+    int i;
+
+    const luaffi_capi_v1 * ffi_api =  get_ffi_api();
+    if (ffi_api == NULL) {
+        return luaL_error(L, "luaffi C API bridge has not been initialized");
+    }
+
+    if (!statement->result) {
+        DEBUGPOINT("Here\n");
+        luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+        return 0;
+    }
+
+    if (PQresultStatus(statement->result) != PGRES_TUPLES_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (tuple >= PQntuples(statement->result)) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    num_columns = PQnfields(statement->result);
+
+    /*
+     * Return values:
+     *   types  - column type indexed by column position
+     *   values - converted value indexed by column position
+     *   sizes  - size indexed by column position where required
+     */
+
+    lua_newtable(L); // Types
+    int types_idx = lua_gettop(L);
+    lua_newtable(L); // Values
+    int values_idx = lua_gettop(L);
+    lua_newtable(L); // Sizes
+    int sizes_idx = lua_gettop(L);
+
+    for (i = 0; i < num_columns; i++) {
+
+        const char *name = PQfname(statement->result, i);
+        int result_type = 0;
+        size_t result_size = 0;
+
+        if (PQgetisnull(statement->result, tuple, i)) {
+            //DEBUGPOINT(" HERE: NULL\n");
+
+            lua_pushinteger(L, ev_lua_nullptr);
+            lua_rawseti(L, types_idx, i + 1);
+
+            ffi_api->push_null(L);
+            lua_rawseti(L, values_idx, i + 1);
+            //DEBUGPOINT(" HERE: NULL\n");
+
+            continue;
+        }
+
+        const char *value = PQgetvalue(statement->result, tuple, i);
+
+        int length = PQgetlength(statement->result, tuple, i);
+        //DEBUGPOINT(" index [%d] column # [%d] type [%d]\n", i+1, i, PQftype(statement->result, i));
+
+        switch (PQftype(statement->result, i)) {
+            case INT2OID:
+                {
+                    //DEBUGPOINT(" HERE: INT2OID\n");
+                    uint16_t net;
+                    int16_t host;
+
+                    memcpy(&net, value, sizeof(net));
+                    host = (int16_t)ntohs(net);
+
+                    ffi_api->push_int16(L, host);
+
+                    result_type = ev_lua_int16_t;
+                    result_size = sizeof(int16_t);
+                    //DEBUGPOINT(" HERE: INT2OID\n");
+                }
+                break;
+            case INT4OID:
+                {
+                    //DEBUGPOINT(" HERE: INT4OID\n");
+                    uint32_t net;
+                    int32_t host;
+
+                    memcpy(&net, value, sizeof(net));
+                    host = (int32_t)ntohl(net);
+
+                    ffi_api->push_int32(L, host);
+
+                    result_type = ev_lua_int32_t;
+                    result_size = sizeof(int32_t);
+                    //DEBUGPOINT(" HERE: INT4OID\n");
+                }
+                break;
+            case INT8OID:
+                {
+                    //DEBUGPOINT(" HERE: INT8OID\n");
+                    uint64_t net;
+                    int64_t host;
+
+                    memcpy(&net, value, sizeof(net));
+                    host = (int64_t)ntohll(net);
+
+                    ffi_api->push_int64(L, host);
+
+                    result_type = ev_lua_int64_t;
+                    result_size = sizeof(int64_t);
+                    //DEBUGPOINT(" HERE: INT8OID\n");
+                }
+                break;
+            case FLOAT4OID:
+                {
+                    //DEBUGPOINT(" HERE: FLOAT4OID\n");
+                    uint32_t net;
+                    union u_float uf;
+
+                    memcpy(&net, value, sizeof(net));
+                    uf.ui32 = ntohl(net);
+
+                    ffi_api->push_float(L, uf.f);
+
+                    result_type = ev_lua_float;
+                    result_size = sizeof(float);
+                    //DEBUGPOINT(" HERE: FLOAT4OID\n");
+                }
+                break;
+            case FLOAT8OID:
+                {
+                    //DEBUGPOINT(" HERE: FLOAT8OID\n");
+                    uint64_t net;
+                    union u_double ud;
+
+                    memcpy(&net, value, sizeof(net));
+                    ud.ui64 = ntohll(net);
+
+                    lua_pushnumber(L, ud.d);
+
+                    result_type = ev_lua_number;
+                    result_size = sizeof(double);
+                    //DEBUGPOINT(" HERE: FLOAT8OID\n");
+                }
+                break;
+            case DECIMALOID:
+                {
+                    //DEBUGPOINT(" HERE: DECIMALOID\n");
+                    char *str = NULL;
+                    int ret;
+
+                    ret = pqt_get_numeric(&str, statement->result, value);
+                    if (ret == -1) {
+                        return luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+                    }
+
+                    lua_pushstring(L, str);
+
+                    result_type = ev_lua_decimal;
+                    result_size = strlen(str);
+                    //DEBUGPOINT(" HERE: DECIMALOID\n");
+                }
+                break;
+            case BOOLOID:
+                {
+                    //DEBUGPOINT(" HERE: BOOLOID\n");
+                    unsigned char val = *value != 0 ? 1 : 0;
+                    lua_pushboolean(L, val);
+
+                    result_type = ev_lua_boolean;
+                    result_size = sizeof(unsigned char);
+                    //DEBUGPOINT(" HERE: BOOLOID\n");
+                }
+                break;
+            case CHAROID:
+            case VARCHAROID:
+            case TEXTOID:
+            case JSONOID:
+            case XMLOID:
+            case UUIDOID:
+            case BPCHAROID:
+                {
+                    //DEBUGPOINT(" HERE: CHARS\n");
+                    lua_pushlstring(L, value, (size_t)length);
+
+                    result_type = ev_lua_string;
+                    result_size = (size_t)length;
+                    //DEBUGPOINT(" HERE: CHARS\n");
+                }
+                break;
+            case TIMESTAMPOID:
+                {
+                    //DEBUGPOINT(" HERE: TIMESTAMPOID\n");
+                    uint64_t net;
+                    int64_t usecs;
+
+                    memcpy(&net, value, sizeof(net));
+
+                    usecs = (int64_t)ntohll(net);
+
+                    usecs += (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY;
+
+                    ffi_api->push_int64(L, usecs);
+
+                    result_type = ev_lua_datetime;
+                    result_size = sizeof(int64_t);
+                    //DEBUGPOINT(" HERE: TIMESTAMPOID\n");
+                }
+                break;
+            case DATEOID:
+                {
+                    //DEBUGPOINT(" HERE: DATEOID\n");
+                    uint32_t net;
+                    int32_t days;
+                    int64_t usecs;
+
+                    //fprintf(stderr, "DATEOID: value=%p length=%d\n", (void *)value, length);
+                    memcpy(&net, value, sizeof(net));
+
+                    //fprintf(stderr, "DATEOID: raw net=0x%08x\n", (unsigned int)net);
+
+                    days = (int32_t)ntohl(net);
+                    //fprintf(stderr, "DATEOID: postgres days=%d\n", days);
+
+                    //fprintf(stderr, "DATEOID: epoch adjustment=%lld\n", (long long)( POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE));
+
+                    days += (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
+                    //fprintf(stderr, "DATEOID: adjusted days=%d\n", days);
+
+                    usecs = ((int64_t)days) * USECS_PER_DAY;
+                    //fprintf(stderr, "DATEOID: usecs=%lld\n", (long long)usecs);
+                    //fprintf(stderr, "DATEOID: calling push_int64\n");
+
+                    ffi_api->push_int64(L, usecs);
+
+                    //fprintf(stderr, "DATEOID: returned from push_int64\n");
+
+                    result_type = ev_lua_date;
+                    result_size = sizeof(int64_t);
+                    //DEBUGPOINT(" HERE: DATEOID\n");
+                }
+                break;
+            case TIMEOID:
+                {
+                    //DEBUGPOINT(" HERE: TIMEOID\n");
+                    uint64_t net;
+                    int64_t usecs;
+
+                    memcpy(&net, value, sizeof(net));
+
+                    usecs = (int64_t)ntohll(net);
+
+                    ffi_api->push_int64(L, usecs);
+
+                    result_type = ev_lua_time;
+                    result_size = sizeof(int64_t);
+                    //DEBUGPOINT(" HERE: TIMEOID\n");
+                }
+                break;
+            case INTERVALOID:
+                {
+                    //DEBUGPOINT(" HERE: INTERVALOID\n");
+                    interval_p_type interval = pqt_get_interval(statement->result, value);
+
+                    lua_pushlightuserdata(L, (void *)interval);
+
+                    result_type = ev_lua_duration;
+                    result_size = sizeof(interval_s_type);
+                    //DEBUGPOINT(" HERE: INTERVALOID\n");
+                }
+                break;
+            //case BYTEAARRAYOID:
+            case BYTEAOID:
+                {
+                    //DEBUGPOINT(" HERE: BYTEAOID\n");
+                    lua_pushlightuserdata(L, (void *)value);
+
+                    result_type = ev_lua_binary;
+                    result_size = (size_t)length;
+                    //DEBUGPOINT(" HERE: BYTEAOID\n");
+
+                    lua_pushinteger(L, result_size);
+                    lua_rawseti(L, sizes_idx, i + 1);
+                }
+                break;
+            case TIMESTAMPTZOID:
+            case TIMETZOID:
+            default:
+                DEBUGPOINT(" HERE: INVALID\n");
+                return luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+        }
+
+        /*
+         * At this point the converted value is on top
+         * of the stack.
+         */
+        lua_rawseti(L, values_idx, i + 1);
+
+        /*
+         * Store its type
+         */
+        lua_pushinteger(L, result_type);
+        lua_rawseti(L, types_idx, i + 1);
+    }
+
+    return 3;
+}
+
+/*
+ * new new new impl
+ */
+
+static int tbl_raw_statement_fetch_impl_all(lua_State *L, statement_t *statement)
+{
+    int i;
+
+    const luaffi_capi_v1 * ffi_api =  get_ffi_api();
+    if (ffi_api == NULL) {
+        return luaL_error(L, "luaffi C API bridge has not been initialized");
+    }
+
+    if (!statement->result) {
+        DEBUGPOINT("Here\n");
+        luaL_error(L, EV_SQL_ERR_FETCH_INVALID);
+        return 0;
+    }
+
+    if (PQresultStatus(statement->result) != PGRES_TUPLES_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    /*
+     * Return value:
+     * One array with each row containing 3 more arrays
+     *   position 1: types  - column type indexed by column position
+     *   postintion 2: values - converted value indexed by column position
+     *   postintion 3: sizes  - size indexed by column position where required
+     */
+
+    int num_columns = PQnfields(statement->result);
+    int num_rows = PQntuples(statement->result);
+    int tuple = statement->tuple++;
+    lua_newtable(L); // Outer table
+    int outer_idx = lua_gettop(L);
+    int row_i = 0;
+    while (tuple < num_rows) {
+        lua_newtable(L); // This is the row
+        int row_idx = lua_gettop(L);
+
+
+        lua_newtable(L); // Types
+        int types_idx = lua_gettop(L);
+        lua_newtable(L); // Values
+        int values_idx = lua_gettop(L);
+        lua_newtable(L); // Sizes
+        int sizes_idx = lua_gettop(L);
+
+        for (i = 0; i < num_columns; i++) {
+
+            //const char *name = PQfname(statement->result, i);
+            int result_type = 0;
+            size_t result_size = 0;
+
+            if (PQgetisnull(statement->result, tuple, i)) {
+                //DEBUGPOINT(" HERE: NULL\n");
+
+                lua_pushinteger(L, ev_lua_nullptr);
+                lua_rawseti(L, types_idx, i + 1);
+
+                ffi_api->push_null(L);
+                lua_rawseti(L, values_idx, i + 1);
+                //DEBUGPOINT(" HERE: NULL\n");
+
+                continue;
+            }
+
+            const char *value = PQgetvalue(statement->result, tuple, i);
+
+            int length = PQgetlength(statement->result, tuple, i);
+            //DEBUGPOINT(" index [%d] column # [%d] type [%d]\n", i+1, i, PQftype(statement->result, i));
+
+            switch (PQftype(statement->result, i)) {
+                case INT2OID:
+                    {
+                        //DEBUGPOINT(" HERE: INT2OID\n");
+                        uint16_t net;
+                        int16_t host;
+
+                        memcpy(&net, value, sizeof(net));
+                        host = (int16_t)ntohs(net);
+
+                        ffi_api->push_int16(L, host);
+
+                        result_type = ev_lua_int16_t;
+                        result_size = sizeof(int16_t);
+                        //DEBUGPOINT(" HERE: INT2OID\n");
+                    }
+                    break;
+                case INT4OID:
+                    {
+                        //DEBUGPOINT(" HERE: INT4OID\n");
+                        uint32_t net;
+                        int32_t host;
+
+                        memcpy(&net, value, sizeof(net));
+                        host = (int32_t)ntohl(net);
+
+                        ffi_api->push_int32(L, host);
+
+                        result_type = ev_lua_int32_t;
+                        result_size = sizeof(int32_t);
+                        //DEBUGPOINT(" HERE: INT4OID\n");
+                    }
+                    break;
+                case INT8OID:
+                    {
+                        //DEBUGPOINT(" HERE: INT8OID\n");
+                        uint64_t net;
+                        int64_t host;
+
+                        memcpy(&net, value, sizeof(net));
+                        host = (int64_t)ntohll(net);
+
+                        ffi_api->push_int64(L, host);
+
+                        result_type = ev_lua_int64_t;
+                        result_size = sizeof(int64_t);
+                        //DEBUGPOINT(" HERE: INT8OID\n");
+                    }
+                    break;
+                case FLOAT4OID:
+                    {
+                        //DEBUGPOINT(" HERE: FLOAT4OID\n");
+                        uint32_t net;
+                        union u_float uf;
+
+                        memcpy(&net, value, sizeof(net));
+                        uf.ui32 = ntohl(net);
+
+                        ffi_api->push_float(L, uf.f);
+
+                        result_type = ev_lua_float;
+                        result_size = sizeof(float);
+                        //DEBUGPOINT(" HERE: FLOAT4OID\n");
+                    }
+                    break;
+                case FLOAT8OID:
+                    {
+                        //DEBUGPOINT(" HERE: FLOAT8OID\n");
+                        uint64_t net;
+                        union u_double ud;
+
+                        memcpy(&net, value, sizeof(net));
+                        ud.ui64 = ntohll(net);
+
+                        lua_pushnumber(L, ud.d);
+
+                        result_type = ev_lua_number;
+                        result_size = sizeof(double);
+                        //DEBUGPOINT(" HERE: FLOAT8OID\n");
+                    }
+                    break;
+                case DECIMALOID:
+                    {
+                        //DEBUGPOINT(" HERE: DECIMALOID\n");
+                        char *str = NULL;
+                        int ret;
+
+                        ret = pqt_get_numeric(&str, statement->result, value);
+                        if (ret == -1) {
+                            return luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+                        }
+
+                        lua_pushstring(L, str);
+
+                        result_type = ev_lua_decimal;
+                        result_size = strlen(str);
+                        //DEBUGPOINT(" HERE: DECIMALOID\n");
+                    }
+                    break;
+                case BOOLOID:
+                    {
+                        //DEBUGPOINT(" HERE: BOOLOID\n");
+                        unsigned char val = *value != 0 ? 1 : 0;
+                        lua_pushboolean(L, val);
+
+                        result_type = ev_lua_boolean;
+                        result_size = sizeof(unsigned char);
+                        //DEBUGPOINT(" HERE: BOOLOID\n");
+                    }
+                    break;
+                case CHAROID:
+                case VARCHAROID:
+                case TEXTOID:
+                case JSONOID:
+                case XMLOID:
+                case UUIDOID:
+                case BPCHAROID:
+                    {
+                        //DEBUGPOINT(" HERE: CHARS\n");
+                        lua_pushlstring(L, value, (size_t)length);
+
+                        result_type = ev_lua_string;
+                        result_size = (size_t)length;
+                        //DEBUGPOINT(" HERE: CHARS\n");
+                    }
+                    break;
+                case TIMESTAMPOID:
+                    {
+                        //DEBUGPOINT(" HERE: TIMESTAMPOID\n");
+                        uint64_t net;
+                        int64_t usecs;
+
+                        memcpy(&net, value, sizeof(net));
+
+                        usecs = (int64_t)ntohll(net);
+
+                        usecs += (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE) * USECS_PER_DAY;
+
+                        ffi_api->push_int64(L, usecs);
+
+                        result_type = ev_lua_datetime;
+                        result_size = sizeof(int64_t);
+                        //DEBUGPOINT(" HERE: TIMESTAMPOID\n");
+                    }
+                    break;
+                case DATEOID:
+                    {
+                        //DEBUGPOINT(" HERE: DATEOID\n");
+                        uint32_t net;
+                        int32_t days;
+                        int64_t usecs;
+
+                        //fprintf(stderr, "DATEOID: value=%p length=%d\n", (void *)value, length);
+                        memcpy(&net, value, sizeof(net));
+
+                        //fprintf(stderr, "DATEOID: raw net=0x%08x\n", (unsigned int)net);
+
+                        days = (int32_t)ntohl(net);
+                        //fprintf(stderr, "DATEOID: postgres days=%d\n", days);
+
+                        //fprintf(stderr, "DATEOID: epoch adjustment=%lld\n", (long long)( POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE));
+
+                        days += (POSTGRES_EPOCH_JDATE - DU_EPOCH_JDATE);
+                        //fprintf(stderr, "DATEOID: adjusted days=%d\n", days);
+
+                        usecs = ((int64_t)days) * USECS_PER_DAY;
+                        //fprintf(stderr, "DATEOID: usecs=%lld\n", (long long)usecs);
+                        //fprintf(stderr, "DATEOID: calling push_int64\n");
+
+                        ffi_api->push_int64(L, usecs);
+
+                        //fprintf(stderr, "DATEOID: returned from push_int64\n");
+
+                        result_type = ev_lua_date;
+                        result_size = sizeof(int64_t);
+                        //DEBUGPOINT(" HERE: DATEOID\n");
+                    }
+                    break;
+                case TIMEOID:
+                    {
+                        //DEBUGPOINT(" HERE: TIMEOID\n");
+                        uint64_t net;
+                        int64_t usecs;
+
+                        memcpy(&net, value, sizeof(net));
+
+                        usecs = (int64_t)ntohll(net);
+
+                        ffi_api->push_int64(L, usecs);
+
+                        result_type = ev_lua_time;
+                        result_size = sizeof(int64_t);
+                        //DEBUGPOINT(" HERE: TIMEOID\n");
+                    }
+                    break;
+                case INTERVALOID:
+                    {
+                        //DEBUGPOINT(" HERE: INTERVALOID\n");
+                        interval_p_type interval = pqt_get_interval(statement->result, value);
+
+                        lua_pushlightuserdata(L, (void *)interval);
+
+                        result_type = ev_lua_duration;
+                        result_size = sizeof(interval_s_type);
+                        //DEBUGPOINT(" HERE: INTERVALOID\n");
+                    }
+                    break;
+                //case BYTEAARRAYOID:
+                case BYTEAOID:
+                    {
+                        //DEBUGPOINT(" HERE: BYTEAOID\n");
+                        lua_pushlightuserdata(L, (void *)value);
+
+                        result_type = ev_lua_binary;
+                        result_size = (size_t)length;
+                        //DEBUGPOINT(" HERE: BYTEAOID\n");
+
+                        lua_pushinteger(L, result_size);
+                        lua_rawseti(L, sizes_idx, i + 1);
+                    }
+                    break;
+                case TIMESTAMPTZOID:
+                case TIMETZOID:
+                default:
+                    DEBUGPOINT(" HERE: INVALID\n");
+                    return luaL_error(L, EV_SQL_ERR_UNKNOWN_PUSH);
+            }
+
+            /*
+             * At this point the converted value is on top
+             * of the stack.
+             */
+            lua_rawseti(L, values_idx, i + 1);
+
+            /*
+             * Store its type
+             */
+            lua_pushinteger(L, result_type);
+            lua_rawseti(L, types_idx, i + 1);
+        }
+        lua_rawseti(L, row_idx, 3); // sizes is placed at 3rd position and popped
+        lua_rawseti(L, row_idx, 2); // values is placed at 2nd position and popped
+        lua_rawseti(L, row_idx, 1); // types is placed at 1st position and popped
+
+        lua_rawseti(L, outer_idx, ++row_i);
+        tuple = statement->tuple++;
+    }
+
+    return 1;
+}
+
 static int next_iterator(lua_State *L)
 {
     statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_POSTGRES_STATEMENT);
@@ -1558,6 +2198,13 @@ static int tbl_next_iterator(lua_State *L)
     statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_POSTGRES_STATEMENT);
 
     return tbl_raw_statement_fetch_impl(L, statement);
+}
+
+static int tbl_next_iterator_v2(lua_State *L)
+{
+    statement_t *statement = (statement_t *)luaL_checkudata(L, lua_upvalueindex(1), EV_POSTGRES_STATEMENT);
+
+    return tbl_raw_statement_fetch_impl_v2(L, statement);
 }
 
 /*
@@ -1578,6 +2225,20 @@ static int tbl_statement_fetch(lua_State *L)
     statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
 
     return tbl_raw_statement_fetch_impl(L, statement);
+}
+
+static int tbl_statement_fetch_v2(lua_State *L)
+{
+    statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+
+    return tbl_raw_statement_fetch_impl_v2(L, statement);
+}
+
+static int tbl_statement_fetch_all(lua_State *L)
+{
+    statement_t *statement = (statement_t *)luaL_checkudata(L, 1, EV_POSTGRES_STATEMENT);
+
+    return tbl_raw_statement_fetch_impl_all(L, statement);
 }
 
 /*
@@ -1608,6 +2269,20 @@ static int tbl_statement_rows(lua_State *L)
     }
 
     lua_pushcclosure(L, tbl_next_iterator, 2);
+    return 1;
+}
+
+static int tbl_statement_rows_v2(lua_State *L)
+{
+    if (lua_gettop(L) == 1) {
+        lua_pushvalue(L, 1);
+        lua_pushboolean(L, 0);
+    } else {
+        lua_pushvalue(L, 1);
+        lua_pushboolean(L, lua_toboolean(L, 2));
+    }
+
+    lua_pushcclosure(L, tbl_next_iterator_v2, 2);
     return 1;
 }
 
@@ -1672,9 +2347,12 @@ int ev_postgres_statement(lua_State *L)
         {"rowcount", statement_rowcount},
         {"fetch", statement_fetch},
         {"tbl_fetch", tbl_statement_fetch},
+        {"tbl_fetch_v2", tbl_statement_fetch_v2},
+        {"tbl_fetch_all", tbl_statement_fetch_all},
         {"execute", ev_statement_execute},
         {"rows", statement_rows},
         {"tbl_rows", tbl_statement_rows},
+        {"tbl_rows_v2", tbl_statement_rows_v2},
         {NULL, NULL}
     };
 
